@@ -1,10 +1,15 @@
 import "./App.css";
+import "./NavigationBar";
+import "./index.css";
+
+import NavigationBar from "./NavigationBar";
 
 function App() {
   return (
-    <div>
+    <>
+      <NavigationBar />
       <h1>Main Page</h1>
-    </div>
+    </>
   );
 }
 
