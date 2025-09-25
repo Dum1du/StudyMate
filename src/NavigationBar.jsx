@@ -6,33 +6,39 @@ export default function Navbar() {
 
   return (
     <nav className="bg-blue-600 text-white shadow-md">
-      <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
-        {/* Logo */}
-        <span className="text-xl font-bold">
-          Study<span className="text-black">Mate</span>
-        </span>
+      <div className="w-full flex items-center justify-between px-6 py-2">
+        {/* LEFT: Logo + Tabs */}
+        <div className="flex items-center space-x-8">
+          {/* Logo */}
+          <span className="text-xl font-bold">
+            Study<span className="text-black">Mate</span>
+          </span>
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex space-x-6 text-sm">
-          <a href="#" className="hover:text-gray-200">
-            Dashboard
-          </a>
-          <a href="#" className="hover:text-gray-200">
-            Browse Resources
-          </a>
-          <a href="#" className="hover:text-gray-200">
-            Quiz Generator
-          </a>
-          <a href="#" className="hover:text-gray-200">
-            Settings
-          </a>
+          {/* Desktop Tabs */}
+          <div className="hidden md:flex space-x-6 text-sm">
+            <a href="#" className="hover:text-gray-200">
+              Dashboard
+            </a>
+            <a href="#" className="hover:text-gray-200">
+              Browse Resources
+            </a>
+            <a href="#" className="hover:text-gray-200">
+              Quiz Generator
+            </a>
+            <a href="#" className="hover:text-gray-200">
+              Settings
+            </a>
+          </div>
         </div>
 
-        {/* Right side (desktop) */}
+        {/* RIGHT: Bell + Profile */}
         <div className="hidden md:flex items-center space-x-4">
+          {/* Bell Icon */}
           <button className="hover:text-gray-200">
             <Bell size={20} />
           </button>
+
+          {/* Profile */}
           <div className="flex items-center space-x-2">
             <img
               src="https://randomuser.me/api/portraits/women/44.jpg"
@@ -55,9 +61,9 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Dropdown Menu */}
       {isOpen && (
-        <div className="md:hidden bg-blue-700 px-4 py-2 space-y-3">
+        <div className="md:hidden bg-blue-700 px-6 py-2 space-y-3">
           <a href="#" className="block hover:text-gray-200">
             Dashboard
           </a>
@@ -70,6 +76,7 @@ export default function Navbar() {
           <a href="#" className="block hover:text-gray-200">
             Settings
           </a>
+
           <div className="flex items-center space-x-2 pt-2 border-t border-blue-500">
             <img
               src="https://randomuser.me/api/portraits/women/44.jpg"
