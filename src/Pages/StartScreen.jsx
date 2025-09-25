@@ -1,20 +1,23 @@
 import { Link } from "react-router";
+import "./StartScreen.css";
 
 function StartScreen() {
   return (
-    <>
-      <div className="flex justify-center flex-col items-center">
-        <h1 className=" text-5xl font-bold text-red-600">Start Screen</h1>
-
-        {/* buttons */}
-        <Link className="bg-blue-600 text-amber-50 mt-16 p-4" to={"/logins"}>
-          <h1>Student?</h1>
-        </Link>
-        <Link className="bg-cyan-800 text-amber-50 mt-16 p-4" to={"/logint"}>
-          <h1>Teacher?</h1>
-        </Link>
+    <div className="start-screen-container">
+      <div className="content-box">
+        <h1 className="title">Welcome To StudyMate!</h1>
+        <p className="subtitle">This is your collaborative learning space.</p>
+        <p className="question">Who are you?</p>
+        <div className="button-container">
+          <Link to={"/logins"} className="button student-button">
+            As a Student
+          </Link>
+          <Link to={"/logint"} className="button teacher-button">
+            As a Teacher
+          </Link>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
