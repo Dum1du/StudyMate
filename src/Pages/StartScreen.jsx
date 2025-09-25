@@ -1,18 +1,37 @@
 import { Link } from "react-router";
-import "./StartScreen.css";
+/*import "./StartScreen.css";*/
+import StartBg from "../Bg images/StartBg.png"; 
 
 function StartScreen() {
+
   return (
-    <div className="start-screen-container">
-      <div className="content-box">
-        <h1 className="title">Welcome To StudyMate!</h1>
-        <p className="subtitle">This is your collaborative learning space.</p>
-        <p className="question">Who are you?</p>
-        <div className="button-container">
-          <Link to={"/logins"} className="button student-button">
+    <div
+      className="flex justify-center items-center min-h-screen w-full bg-cover bg-center font-sans"
+      style={{
+        backgroundImage: `linear-gradient(rgba(240, 244, 249, 0.9), rgba(240, 244, 249, 0.9)), url(${StartBg})`,
+      }}
+    >
+      <div className="bg-white/20 backdrop-blur-md p-10 rounded-2xl text-center shadow-xl max-w-lg w-full">
+        <h1 className="text-4xl font-bold text-gray-800 mb-2">
+          Welcome To StudyMate!
+        </h1>
+        <p className="text-gray-600 mb-6">
+          This is your collaborative learning space.
+        </p>
+        <p className="text-xl font-semibold text-gray-800 mb-6">
+          Who are you?
+        </p>
+        <div className="flex gap-4 justify-center mt-5">
+          <Link
+            to={"/logins"}
+            className="flex-1 text-white bg-blue-600 hover:bg-blue-700 transition-all py-4 px-8 rounded-lg font-bold min-w-[180px] hover:-translate-y-0.5 hover:shadow-lg"
+          >
             As a Student
           </Link>
-          <Link to={"/logint"} className="button teacher-button">
+          <Link
+            to={"/logint"}
+            className="flex-1 text-white bg-blue-600 hover:bg-blue-700 transition-all py-4 px-8 rounded-lg font-bold min-w-[180px] hover:-translate-y-0.5 hover:shadow-lg"
+          >
             As a Teacher
           </Link>
         </div>
