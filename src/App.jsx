@@ -8,7 +8,8 @@ function App() {
   return (
     <>
       <NavigationBar />
-      <h1>Main Page</h1>
+      <h1 className="text-3xl font-bold text-red-600">Tailwind Works!</h1>
+
     </>
   );
 }
