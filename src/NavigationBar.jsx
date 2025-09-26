@@ -14,22 +14,22 @@ export default function Navbar() {
           <span className="text-xl font-bold">
             Study<span className="text-black">Mate</span>
           </span>
-          </div>
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex space-x-6 text-sm">
-          <Link to="/home" className="hover:text-gray-200">
-            Dashboard
-          </Link>
-          <Link to="/resources" className="hover:text-gray-200">
-            Browse Resources
-          </Link>
-          <Link to="#" className="hover:text-gray-200">
-            Quiz Generator
-          </Link>
-          <Link to="#" className="hover:text-gray-200">
-            Settings
-          </Link>
+          {/* Desktop Tabs */}
+          <div className="hidden md:flex space-x-6 text-sm">
+            <a href="#" className="hover:text-gray-200">
+              Dashboard
+            </a>
+            <a href="#" className="hover:text-gray-200">
+              Browse Resources
+            </a>
+            <a href="#" className="hover:text-gray-200">
+              Quiz Generator
+            </a>
+            <a href="#" className="hover:text-gray-200">
+              Settings
+            </a>
+          </div>
         </div>
 
         {/* RIGHT: Bell + Profile */}
@@ -52,7 +52,6 @@ export default function Navbar() {
             </div>
           </div>
         </div>
-        
 
         {/* Mobile Menu Button */}
         <button
