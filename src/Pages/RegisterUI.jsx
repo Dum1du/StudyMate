@@ -81,7 +81,7 @@ function RegisterUI() {
             className="text-gray-800 py-3 w-full border-1 border-gray-800 rounded-lg"
             to={"/logins"}
           >
-            <h1>Create a account</h1>
+            <h1>Log in</h1>
           </Link>
         </div>
       </div>
