@@ -17,18 +17,18 @@ export default function Navbar() {
 
           {/* Desktop Tabs */}
           <div className="hidden md:flex space-x-6 text-sm">
-            <a href="#" className="hover:text-gray-200">
+            <Link to="/home" className="hover:text-gray-200">
               Dashboard
-            </a>
-            <a href="#" className="hover:text-gray-200">
+            </Link>
+            <Link to="/resources" className="hover:text-gray-200">
               Browse Resources
-            </a>
-            <a href="#" className="hover:text-gray-200">
+            </Link>
+            <Link to="#" className="hover:text-gray-200">
               Quiz Generator
-            </a>
-            <a href="#" className="hover:text-gray-200">
+            </Link>
+            <Link to="#" className="hover:text-gray-200">
               Settings
-            </a>
+            </Link>
           </div>
         </div>
 
