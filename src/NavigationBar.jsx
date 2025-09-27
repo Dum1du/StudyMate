@@ -14,7 +14,7 @@ export default function Navbar() {
           <span className="text-xl font-bold">
             Study<span className="text-black">Mate</span>
           </span>
-          </div>
+        </div>
 
         {/* Desktop Links */}
         <div className="hidden md:flex space-x-6 text-sm">
@@ -25,10 +25,10 @@ export default function Navbar() {
             Browse Resources
           </Link>
           <Link to="#" className="hover:text-gray-200">
-            Quiz Generator
+            Upload Resources
           </Link>
           <Link to="#" className="hover:text-gray-200">
-            Settings
+            About
           </Link>
         </div>
 
@@ -52,7 +52,6 @@ export default function Navbar() {
             </div>
           </div>
         </div>
-        
 
         {/* Mobile Menu Button */}
         <button
