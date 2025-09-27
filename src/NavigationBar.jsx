@@ -20,7 +20,7 @@ export default function Navbar() {
             <Link to="/home" className="hover:text-gray-200">
               Dashboard
             </Link>
-            <Link to="/resources" className="hover:text-gray-200">
+            <Link to="/BrowseResources" className="hover:text-gray-200">
               Browse Resources
             </Link>
             <Link to="#" className="hover:text-gray-200">
