@@ -23,7 +23,7 @@ function TeacherLogin() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Enter your student ID or email"
+              placeholder="Enter your email"
               className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
             />
             {/* Icon inside */}
