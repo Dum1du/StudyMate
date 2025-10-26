@@ -1,9 +1,31 @@
-import { useState } from "react";
-import { Bell, Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, Mail, Menu, X } from "lucide-react";
 import { Link } from "react-router";
+import {  auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function Navbar() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("User found:", user.displayName);
+        setUsername(user.displayName || "");
+        setEmail(user.email || "");
+      } else {
+        console.log("User not found");
+        setUsername("");
+        setEmail("");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const [isOpen, setIsOpen] = useState(false);
+  
 
   return (
     <nav className="bg-blue-600 text-white shadow-md">
@@ -42,13 +64,15 @@ export default function Navbar() {
           {/* Profile */}
           <div className="flex items-center space-x-2">
             <img
-              src="https://randomuser.me/api/portraits/women/44.jpg"
+              src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
+              person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
+              templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
               alt="User"
               className="w-8 h-8 rounded-full border-2 border-white"
             />
             <div className="text-sm leading-tight">
-              <p className="font-medium">John Doe</p>
-              <p className="text-xs text-gray-200">OUSL Student</p>
+              <p className="font-medium">{username}</p>
+              <p className="text-xs text-gray-200">{email}</p>
             </div>
           </div>
         </div>
@@ -85,8 +109,8 @@ export default function Navbar() {
               className="w-8 h-8 rounded-full border-2 border-white"
             />
             <div className="text-sm leading-tight">
-              <p className="font-medium">John Doe</p>
-              <p className="text-xs text-gray-200">OUSL Student</p>
+              <p className="font-medium">{username}</p>
+              <p className="text-xs text-gray-200">{email}</p>
             </div>
           </div>
         </div>
