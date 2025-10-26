@@ -3,6 +3,7 @@ import { Bell, Mail, Menu, X } from "lucide-react";
 import { Link } from "react-router";
 import {  auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { MdLogout } from "react-icons/md";
 
 export default function Navbar() {
   const [username, setUsername] = useState("");
@@ -98,13 +99,15 @@ export default function Navbar() {
       >
         <div className="flex items-center space-x-6 pt-10 pb-10 border-t border-blue-500 pl-6">
           <img
-            src="https://randomuser.me/api/portraits/women/44.jpg"
+            src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
+              person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
+              templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
             alt="User"
             className="w-20 h-20 rounded-full border-2 border-white"
           />
           <div className="text-m leading-tight">
-            <p className="font-medium">John Doe</p>
-            <p className="text-xs text-gray-200">OUSL Student</p>
+            <p className="font-medium">{username}</p>
+            <p className="text-xs text-gray-200">{email}</p>
           </div>
         </div>
 
