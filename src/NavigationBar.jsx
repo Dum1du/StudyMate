@@ -73,16 +73,16 @@ export default function Navbar() {
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center space-x-6 pt-10 pb-10 border-t border-blue-500 pl-6">
+        <div className="justify-items-center w-full space-x-6 pt-10 pb-2 border-t border-blue-500">
           <img
             src="https://randomuser.me/api/portraits/women/44.jpg"
             alt="User"
-            className="w-20 h-20 rounded-full border-2 border-white"
+            className="w-30 h-30 rounded-full border-2 border-white"
           />
-          <div className="text-m leading-tight">
-            <p className="font-medium">John Doe</p>
-            <p className="text-xs text-gray-200">OUSL Student</p>
-          </div>
+        </div>
+        <div className="w-full justify-items-center border-b border-blue-500 pb-5">
+          <p className="font-medium">John Doe</p>
+          <p className="text-gray-200">OUSL Student</p>
         </div>
 
         <div className="px-6 py-4 space-y-4">
