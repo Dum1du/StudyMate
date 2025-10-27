@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
 import Add from "../add";
 import SearchBar from "../searchbar";
@@ -6,15 +6,34 @@ import { FaBell, FaComment, FaFolderOpen, FaQuestionCircle, FaUpload, FaUsers } 
 import { BiNotification } from "react-icons/bi";
 import { Calendar, MailOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import ed_bg from "../Bg images/ed_bg.jpg";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase";
 
 
 function Home() {
   const navigate = useNavigate();
+  const [userName, setUserName] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // displayName
+        setUserName(user.displayName || user.email || "User");
+      } else {
+        setUserName(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
   return (
     <>
       <Navbar />
 
-      
+     <div className="min-h-screen bg-gradient-to-b from-white to-white py-8 bg-cover bg-center" 
+     style={{
+             backgroundImage: `linear-gradient(rgba(249, 249, 249, 0.9), rgba(240, 244, 249, 0.9)), url(${ed_bg})`,
+           }}   > 
       <div className="absolute top-15 right-4 flex space-x-3">
         <button className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-md hover:bg-blue-600">
           <Calendar className="text-white text-lg" />
@@ -26,8 +45,10 @@ function Home() {
 
       
       <div className="mt-20 text-center px-4 sm:px-8 lg:px-16">
-        <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-black">Welcome back, John!</p>
-        <p className="text-sm sm:text-base md:text-lg text-gray-400 mt-2">
+        <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-black drop-shadow-white">
+          {userName ? `Welcome back, ${userName}!` : "Welcome back!"}
+        </p>
+        <p className="text-sm sm:text-base md:text-lg text-gray-500 mt-2 drop-shadow-white">
           What would you like to learn today?
         </p>
       </div>
@@ -104,6 +125,7 @@ function Home() {
           </div>
           <Add />
         </div>
+      </div>
       </div>
     </>
   );
