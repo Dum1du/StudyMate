@@ -10,6 +10,7 @@ import RegisterUI from "./Pages/RegisterUI.jsx";
 import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
 import BrowseResources from "./Pages/BrowseResources.jsx";
+import UserProfile from "./Pages/UserProfile.jsx";
 
 const router = createBrowserRouter([
   {
@@ -34,8 +35,12 @@ const router = createBrowserRouter([
     element: <MyResourcesUI />,
   },
   {
-    path: "browseResources",
+    path: "/browseResources",
     element: <BrowseResources />,
+  },
+  {
+    path: "/userProfile",
+    element: <UserProfile />,
   },
 ]);
 

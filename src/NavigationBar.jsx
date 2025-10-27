@@ -58,19 +58,21 @@ export default function Navbar() {
           <button className="hover:text-gray-200">
             <Bell size={20} />
           </button>
-          <div className="flex items-center space-x-2">
-            <img
-              src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
+          <Link to="/userProfile">
+            <div className="flex items-center space-x-2">
+              <img
+                src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
               person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
               templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
-              alt="User"
-              className="w-8 h-8 rounded-full border-2 border-white"
-            />
-            <div className="text-sm leading-tight">
-              <p className="font-medium">{username}</p>
-              <p className="text-xs text-gray-200">{email}</p>
+                alt="User"
+                className="w-8 h-8 rounded-full border-2 border-white"
+              />
+              <div className="text-sm leading-tight">
+                <p className="font-medium">{username}</p>
+                <p className="text-xs text-gray-200">{email}</p>
+              </div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Mobile Menu Button */}
@@ -96,19 +98,21 @@ export default function Navbar() {
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="justify-items-center w-full pt-10 pb-2 border-t border-blue-500">
-          <img
-            src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
+        <Link to="/userProfile" onClick={() => setIsOpen(false)}>
+          <div className="justify-items-center w-full pt-10 pb-2 border-t border-blue-500">
+            <img
+              src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
               person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
               templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
-            alt="User"
-            className="w-30 h-30 rounded-full border-2 border-white"
-          />
-          <div className="w-full justify-items-center border-b border-blue-500 pb-5">
-            <p className="font-medium">{username}</p>
-            <p className="text-xs text-gray-200">{email}</p>
+              alt="User"
+              className="w-30 h-30 rounded-full border-2 border-white"
+            />
+            <div className="w-full justify-items-center border-b border-blue-500 pb-5">
+              <p className="font-medium">{username}</p>
+              <p className="text-xs text-gray-200">{email}</p>
+            </div>
           </div>
-        </div>
+        </Link>
 
         <div className="px-6 py-4 space-y-4">
           <Link
@@ -119,14 +123,14 @@ export default function Navbar() {
             Dashboard
           </Link>
           <Link
-            to="/home"
+            to="/BrowseResources"
             className="block hover:text-gray-200"
             onClick={() => setIsOpen(false)}
           >
             Browse Resources
           </Link>
           <Link
-            to="/BrowseResources"
+            to="#"
             className="block hover:text-gray-200"
             onClick={() => setIsOpen(false)}
           >
