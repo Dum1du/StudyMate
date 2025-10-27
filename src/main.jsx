@@ -11,6 +11,7 @@ import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
 import BrowseResources from "./Pages/BrowseResources.jsx";
 import KuppiSession from "./Pages/KuppiSessions.jsx";
+import NoticeBoard  from "./Pages/NoticeBoard.jsx";
 
 
 const router = createBrowserRouter([
@@ -43,6 +44,10 @@ const router = createBrowserRouter([
     path: "/kuppisessions",
     element: <KuppiSession />,
   },
+  {
+    path: "/noticeboard",
+    element: <NoticeBoard />
+  }
 ]);
 
 createRoot(document.getElementById("root")).render(
