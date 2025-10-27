@@ -96,7 +96,7 @@ export default function Navbar() {
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="justify-items-center w-full space-x-6 pt-10 pb-2 border-t border-blue-500">
+        <div className="justify-items-center w-full pt-10 pb-2 border-t border-blue-500">
           <img
             src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
               person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
