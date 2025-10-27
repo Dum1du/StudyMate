@@ -1,9 +1,30 @@
-import { useState } from "react";
-import { Bell, Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Bell, Mail, Menu, X } from "lucide-react";
+import { Link } from "react-router";
+import { auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { MdLogout } from "react-icons/md";
 
 export default function Navbar() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("User found:", user.displayName);
+        setUsername(user.displayName || "");
+        setEmail(user.email || "");
+      } else {
+        console.log("User not found");
+        setUsername("");
+        setEmail("");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -39,13 +60,15 @@ export default function Navbar() {
           </button>
           <div className="flex items-center space-x-2">
             <img
-              src="https://randomuser.me/api/portraits/women/44.jpg"
+              src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
+              person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
+              templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
               alt="User"
               className="w-8 h-8 rounded-full border-2 border-white"
             />
             <div className="text-sm leading-tight">
-              <p className="font-medium">John Doe</p>
-              <p className="text-xs text-gray-200">OUSL Student</p>
+              <p className="font-medium">{username}</p>
+              <p className="text-xs text-gray-200">{email}</p>
             </div>
           </div>
         </div>
@@ -75,14 +98,16 @@ export default function Navbar() {
       >
         <div className="justify-items-center w-full space-x-6 pt-10 pb-2 border-t border-blue-500">
           <img
-            src="https://randomuser.me/api/portraits/women/44.jpg"
+            src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
+              person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
+              templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
             alt="User"
             className="w-30 h-30 rounded-full border-2 border-white"
           />
-        </div>
-        <div className="w-full justify-items-center border-b border-blue-500 pb-5">
-          <p className="font-medium">John Doe</p>
-          <p className="text-gray-200">OUSL Student</p>
+          <div className="w-full justify-items-center border-b border-blue-500 pb-5">
+            <p className="font-medium">{username}</p>
+            <p className="text-xs text-gray-200">{email}</p>
+          </div>
         </div>
 
         <div className="px-6 py-4 space-y-4">
