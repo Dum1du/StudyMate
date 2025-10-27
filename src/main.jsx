@@ -10,6 +10,8 @@ import RegisterUI from "./Pages/RegisterUI.jsx";
 import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
 import BrowseResources from "./Pages/BrowseResources.jsx";
+import KuppiSession from "./Pages/KuppiSessions.jsx";
+
 
 const router = createBrowserRouter([
   {
@@ -36,6 +38,10 @@ const router = createBrowserRouter([
   {
     path: "browseResources",
     element: <BrowseResources />,
+  },
+  {
+    path: "/kuppisessions",
+    element: <KuppiSession />,
   },
 ]);
 

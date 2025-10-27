@@ -5,8 +5,11 @@ import SearchBar from "../searchbar";
 import { FaBell, FaComment, FaFolderOpen, FaQuestionCircle, FaUpload, FaUsers } from "react-icons/fa";
 import { BiNotification } from "react-icons/bi";
 import { Calendar, MailOpen } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
 
 function Home() {
+  const navigate = useNavigate();
   return (
     <>
       <Navbar />
@@ -68,7 +71,9 @@ function Home() {
         </button>
 
         
-        <button className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-red-400 text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400">
+        <button
+        onClick={() => navigate("/kuppisessions")} 
+        className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-red-400 text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400">
           <div className="p-2 bg-white rounded-xl">
             <FaUsers className="text-blue-500 text-xl" />
           </div>
