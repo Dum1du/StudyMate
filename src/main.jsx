@@ -11,6 +11,7 @@ import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
 import BrowseResources from "./Pages/BrowseResources.jsx";
 import UserProfile from "./Pages/UserProfile.jsx";
+import KuppiSession from "./Pages/KuppiSessions.jsx";
 
 const router = createBrowserRouter([
   {
@@ -41,6 +42,10 @@ const router = createBrowserRouter([
   {
     path: "/userProfile",
     element: <UserProfile />,
+  },
+  {
+    path: "/kuppisessions",
+    element: <KuppiSession />,
   },
 ]);
 
