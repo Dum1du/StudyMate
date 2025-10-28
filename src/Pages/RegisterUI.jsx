@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link,  useNavigate } from "react-router";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "firebase/auth";
 import StartBg from "../Bg images/StartBg.png";
 import { FaUser } from "react-icons/fa";
 import { AiOutlineMail } from "react-icons/ai";
@@ -58,8 +58,13 @@ function RegisterUI() {
         displayName: name,
       })
 
+      const user = userCredintials.user;
+
+      await sendEmailVerification(user);
+      console.log("Email verification sent");
+
       console.log("User registered:", userCredintials.user);
-      navigate("/home")
+      navigate("/verify")
 
     }catch(err){
 

@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import Navbar from "../NavigationBar";
 import UpcomingKuppi from "../upcomingkuppi";
 import { FaPlus } from "react-icons/fa";
+import { auth } from "../firebase";
 
 function KuppiSessions() {
+  const user = auth.currentUser;
     {/*upcomeing*/}
   const [upcomingSessions, setUpcomingSessions] = useState([
     { id: 1, title: "Data Structures", host: "Naveen", time: "2025-10-27 16:00" },
@@ -18,9 +20,10 @@ function KuppiSessions() {
     e.preventDefault();
     const title = e.target.title.value;
     const time = e.target.time.value;
+    const username = user.displayName || "";
     if (!title || !time) return;
 
-    const newSession = { id: Date.now(), title, host: "TBD", time };
+    const newSession = { id: Date.now(), title, host: username, time };
     setUpcomingSessions([...upcomingSessions, newSession]);
     e.target.reset();
   };

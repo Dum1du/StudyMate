@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
-import Add from "../add";
+import Add from "./add";
 import SearchBar from "../searchbar";
 import { FaBell, FaComment, FaFolderOpen, FaQuestionCircle, FaUpload, FaUsers } from "react-icons/fa";
 import { BiNotification } from "react-icons/bi";
 import { Calendar, MailOpen } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
@@ -61,7 +61,11 @@ function Home() {
       {/* Buttons */}
       <div className="mt-10 flex flex-wrap justify-center gap-6 px-4 sm:px-8">
         
-        <button className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#A0F7FA] text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400">
+        <Link className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#A0F7FA] text-black shadow-md w-full sm:w-60 transform
+         transition-transform
+         hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400"
+         to={"/upload"}
+         >
           <div className="p-2 bg-white rounded-xl">
             <FaUpload className="text-blue-500 text-xl" />
           </div>
@@ -69,7 +73,7 @@ function Home() {
             <span className="text-sm font-bold">Upload Resource</span>
             <span className="text-xs text-gray-500">Share your study materials</span>
           </div>
-        </button>
+        </Link>
 
         
         <button className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#DAA2F0] text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400">
@@ -94,7 +98,7 @@ function Home() {
         </button>
 
         
-        <button
+        <Link
         onClick={() => navigate("/kuppisessions")} 
         className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-red-400 text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400">
           <div className="p-2 bg-white rounded-xl">
@@ -104,7 +108,7 @@ function Home() {
             <span className="text-sm font-bold">Kuppi Sessions</span>
             <span className="text-xs text-gray-500">Meet your study group</span>
           </div>
-        </button>
+        </Link>
       </div>
 
       {/* Recently Added  */}

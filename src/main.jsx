@@ -14,6 +14,8 @@ import KuppiSession from "./Pages/KuppiSessions.jsx";
 import Settings from "./Pages/Settings.jsx";
 import QuizeGenerator from "./Pages/QuizGenerator.jsx";
 import NoticeBoard  from "./Pages/NoticeBoard.jsx";
+import EmailVerify from "./Pages/EmailVerify.jsx";
+import UploadResouces from "./Pages/UploadResouces.jsx";
 
 
 const router = createBrowserRouter([
@@ -54,10 +56,18 @@ const router = createBrowserRouter([
   {
     path: "quizeGenerator",
     element: <QuizeGenerator/>
-  }
-  
+  },
+  {
     path: "/noticeboard",
     element: <NoticeBoard />
+  },
+  {
+    path:"/verify",
+    element: <EmailVerify />
+  },
+  {
+    path:"/upload",
+    element:<UploadResouces />
   }
 ]);
 

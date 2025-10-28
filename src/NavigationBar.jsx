@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Bell, Mail, Menu, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { MdLogout } from "react-icons/md";
@@ -37,20 +37,58 @@ export default function Navbar() {
           </span>
 
           {/* Desktop Tabs */}
-          <div className="hidden md:flex space-x-6 text-sm">
-            <Link to="/home" className="hover:text-gray-200">
+          <div className="hidden md:flex space-x-6 text-sm h-fit items-center">
+            <NavLink
+              to="/home"
+              className={({ isActive }) =>
+                `hover:text-gray-200 ${
+                  isActive
+                    ? " text-black text-white text-[16px] font-bold"
+                    : "text-white"
+                }`
+              }
+            >
               Dashboard
-            </Link>
-            <Link to="/BrowseResources" className="hover:text-gray-200">
-              Browse Resources
-            </Link>
-            <Link to="/QuizeGenerator" className="hover:text-gray-200">
-              Quiz Generator
-            </Link>
-            <Link to="/Settings" className="hover:text-gray-200">
-              Settings
-            </Link >
+            </NavLink>
 
+            <NavLink
+              to="/BrowseResources"
+              className={({ isActive }) =>
+                `hover:text-gray-200 ${
+                  isActive
+                    ? " text-black text-white text-[16px] font-bold"
+                    : "text-white"
+                }`
+              }
+            >
+              Browse Resources
+            </NavLink>
+
+            <NavLink
+              to="/QuizeGenerator"
+              className={({ isActive }) =>
+                `hover:text-gray-200 ${
+                  isActive
+                    ? " text-black text-white text-[16px] font-bold"
+                    : "text-white"
+                }`
+              }
+            >
+              Quiz Generator
+            </NavLink>
+
+            <NavLink
+              to="/Settings"
+              className={({ isActive }) =>
+                `hover:text-gray-200 ${
+                  isActive
+                    ? " text-black text-white text-[16px] font-bold"
+                    : "text-white"
+                }`
+              }
+            >
+              Settings
+            </NavLink>
           </div>
         </div>
 
