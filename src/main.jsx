@@ -13,6 +13,7 @@ import BrowseResources from "./Pages/BrowseResources.jsx";
 import KuppiSession from "./Pages/KuppiSessions.jsx";
 import Settings from "./Pages/Settings.jsx";
 import QuizeGenerator from "./Pages/QuizGenerator.jsx";
+import NoticeBoard  from "./Pages/NoticeBoard.jsx";
 
 
 const router = createBrowserRouter([
@@ -55,6 +56,9 @@ const router = createBrowserRouter([
     element: <QuizeGenerator/>
   }
   
+    path: "/noticeboard",
+    element: <NoticeBoard />
+  }
 ]);
 
 createRoot(document.getElementById("root")).render(

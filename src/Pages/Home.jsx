@@ -35,7 +35,9 @@ function Home() {
              backgroundImage: `linear-gradient(rgba(249, 249, 249, 0.9), rgba(240, 244, 249, 0.9)), url(${ed_bg})`,
            }}   > 
       <div className="absolute top-15 right-4 flex space-x-3">
-        <button className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-md hover:bg-blue-600">
+        <button 
+        onClick={() => navigate("/noticeboard")}
+        className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-md hover:bg-blue-600">
           <Calendar className="text-white text-lg" />
         </button>
         <button className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-md hover:bg-blue-600">
