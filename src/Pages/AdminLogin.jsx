@@ -58,8 +58,4 @@ function TeacherLogin() {
   );
 }
 
-const showAlert = () => {
-  window.alert("Please make other pages befor go here 😒");
-};
-
 export default TeacherLogin;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Bell, Mail, Menu, X } from "lucide-react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { MdLogout } from "react-icons/md";
@@ -44,12 +44,13 @@ export default function Navbar() {
             <Link to="/BrowseResources" className="hover:text-gray-200">
               Browse Resources
             </Link>
-            <Link to="#" className="hover:text-gray-200">
+            <Link to="/QuizeGenerator" className="hover:text-gray-200">
               Quiz Generator
             </Link>
-            <Link to="#" className="hover:text-gray-200">
+            <Link to="/Settings" className="hover:text-gray-200">
               Settings
-            </Link>
+            </Link >
+
           </div>
         </div>
 
