@@ -14,7 +14,7 @@ import UserProfile from "./Pages/UserProfile.jsx";
 import KuppiSession from "./Pages/KuppiSessions.jsx";
 import Settings from "./Pages/Settings.jsx";
 import QuizeGenerator from "./Pages/QuizGenerator.jsx";
-import NoticeBoard  from "./Pages/NoticeBoard.jsx";
+import NoticeBoard from "./Pages/NoticeBoard.jsx";
 
 const router = createBrowserRouter([
   {
@@ -29,8 +29,7 @@ const router = createBrowserRouter([
     path: "/logint",
     element: <TeacherLogin />,
   },
-  { path: "/register", 
-    element: <RegisterUI /> },
+  { path: "/register", element: <RegisterUI /> },
   {
     path: "/home",
     element: <Home />,
@@ -53,16 +52,16 @@ const router = createBrowserRouter([
   },
   {
     path: "settings",
-    element: <Settings/>
+    element: <Settings />,
   },
   {
     path: "quizeGenerator",
-    element: <QuizeGenerator/>
-  }
-  
+    element: <QuizeGenerator />,
+  },
+  {
     path: "/noticeboard",
-    element: <NoticeBoard />
-  }
+    element: <NoticeBoard />,
+  },
 ]);
 
 createRoot(document.getElementById("root")).render(
