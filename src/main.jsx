@@ -11,6 +11,8 @@ import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
 import BrowseResources from "./Pages/BrowseResources.jsx";
 import KuppiSession from "./Pages/KuppiSessions.jsx";
+import Settings from "./Pages/Settings.jsx";
+import QuizeGenerator from "./Pages/QuizGenerator.jsx";
 import NoticeBoard  from "./Pages/NoticeBoard.jsx";
 
 
@@ -27,7 +29,8 @@ const router = createBrowserRouter([
     path: "/logint",
     element: <TeacherLogin />,
   },
-  { path: "/register", element: <RegisterUI /> },
+  { path: "/register", 
+    element: <RegisterUI /> },
   {
     path: "/home",
     element: <Home />,
@@ -45,6 +48,14 @@ const router = createBrowserRouter([
     element: <KuppiSession />,
   },
   {
+    path: "settings",
+    element: <Settings/>
+  },
+  {
+    path: "quizeGenerator",
+    element: <QuizeGenerator/>
+  }
+  
     path: "/noticeboard",
     element: <NoticeBoard />
   }
