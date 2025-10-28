@@ -10,14 +10,22 @@ function UserProfile() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        setUser(null);
-      }
+      setUser(currentUser);
     });
     return () => unsubscribe();
   }, []);
+
+  if (!user) {
+    // Show a loading message or redirect if not logged in
+    return (
+      <>
+        <Navbar />
+        <div className="flex items-center justify-center min-h-screen">
+          <p className="text-gray-500 text-lg">Loading profile...</p>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -35,9 +43,10 @@ function UserProfile() {
             <IoCameraOutline className="text-blue-500 text-sm group-hover:text-white transition-colors duration-200" />
           </div>
         </div>
+
         <div className="flex-1">
           <h2 className="text-xl font-semibold text-gray-900">
-            {user.displayName || "Not set"}
+            {user.displayName || user.email || "Not set"}
           </h2>
           <p className="text-gray-600">Faculty of Engineering</p>
           <p className="text-gray-500 text-sm">Joined 2021</p>
@@ -46,6 +55,7 @@ function UserProfile() {
           </button>
         </div>
       </div>
+
       <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
@@ -117,4 +127,5 @@ function UserProfile() {
     </>
   );
 }
+
 export default UserProfile;
