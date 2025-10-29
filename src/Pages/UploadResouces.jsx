@@ -38,7 +38,7 @@ function UploadResouces() {
             </label>
             <div className="relative">
               <input
-                value=""
+                
                 onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
                 type="text"
                 placeholder="eg: Data Structures and Algorithm"
@@ -54,7 +54,7 @@ function UploadResouces() {
             </label>
             <div className="relative">
               <textarea
-                value=""
+
                 onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
                 type="text"
                 placeholder="Briefly describe the content of material..."
@@ -72,7 +72,7 @@ function UploadResouces() {
               </label>
               <div className="relative">
                 <select
-                  value=""
+                  
                   onChange={(e) =>
                     setEmail(e.target.value.trim().toLowerCase())
                   }
@@ -107,7 +107,7 @@ function UploadResouces() {
               </label>
               <div className="relative">
                 <select
-                  value=""
+                  
                   onChange={(e) =>
                     setEmail(e.target.value.trim().toLowerCase())
                   }
@@ -115,7 +115,7 @@ function UploadResouces() {
                   className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                   required
                 >
-                  <option value="" disabled>
+                  <option disabled>
                     Select type
                   </option>
                   <option value=".pdf">.pdf</option>
@@ -132,7 +132,7 @@ function UploadResouces() {
             </label>
             <div className="relative">
               <input
-                value=""
+            
                 onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
                 type="text"
                 placeholder="eg: #finel-exam #chapter-5 #important"
@@ -180,7 +180,7 @@ function UploadResouces() {
           <div className="flex justify-center flex-col items-end">
             <button
               type="submit"
-              className="bg-blue-600 p-2 text-amber-50 mt-16 py-3 rounded-lg w-[100%] sm:w-[30%]"
+              className="bg-blue-600 p-2 cursor-pointer text-amber-50 mt-16 py-3 rounded-lg w-[100%] sm:w-[30%]"
             >
               <h1>Upload Material</h1>
             </button>

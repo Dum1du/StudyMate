@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
-import Add from "./add";
+import Add from "../add";
 import SearchBar from "../searchbar";
 import {
   FaBell,
