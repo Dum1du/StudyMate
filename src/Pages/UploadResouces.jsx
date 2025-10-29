@@ -68,37 +68,32 @@ function UploadResouces() {
           <div className="w-full sm:flex justify-around gap-x-10">
             <div className="flex-1 ">
               <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
+                Course code
+              </label>
+              <div className="relative">
+                <input
+                
+                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
+                type="text"
+                placeholder="eg: EEI5465"
+                className="w-full border border-gray-400 rounded-lg pl-4 pr-4 py-2 focus:outline-none"
+                required
+              />
+              </div>
+            </div>
+            <div className="flex-3 ">
+              <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
                 Course/ Subject
               </label>
               <div className="relative">
-                <select
-                  
-                  onChange={(e) =>
-                    setEmail(e.target.value.trim().toLowerCase())
-                  }
-                  className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
-                  required
-                >
-                  <option value="" disabled>
-                    Select Course
-                  </option>
-                  <option value="data-structures-and-algorithms">
-                    Data Structures and Algorithms
-                  </option>
-                  <option value="object-oriented-programming">
-                    Object Oriented Programming
-                  </option>
-                  <option value="database-systems">Database Systems</option>
-                  <option value="operating-systems">Operating Systems</option>
-                  <option value="computer-networks">Computer Networks</option>
-                  <option value="software-engineering">
-                    Software Engineering
-                  </option>
-                  <option value="web-development">Web Development</option>
-                  <option value="mobile-application-development">
-                    Mobile Application Development
-                  </option>
-                </select>
+                <input
+                
+                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
+                type="text"
+                placeholder="eg: Data Structures and Algorithm"
+                className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
+                required
+              />
               </div>
             </div>
             <div className="flex-1">
