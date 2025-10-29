@@ -15,7 +15,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
-import { pdfs, PdfCard } from "./add";
+import { pdfs, PdfCard } from "../add";
 
 function Home() {
   const navigate = useNavigate();

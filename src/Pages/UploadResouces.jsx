@@ -158,7 +158,7 @@ function UploadResouces() {
               <button
                 type="button"
                 onClick={handleBrowse}
-                className="bg-blue-600 text-white px-4 py-2 cursor-pointer rounded hover:bg-blue-600 transition"
+                className="bg-gray-400 text-white px-4 py-2 cursor-pointer rounded hover:bg-gray-600 transition"
               >
                 Browse File
               </button>
