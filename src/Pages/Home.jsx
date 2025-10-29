@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
-import Add from "../add";
 import SearchBar from "../searchbar";
 import {
   FaBell,
@@ -16,6 +15,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
+import { pdfs, PdfCard } from "./add";
 
 function Home() {
   const navigate = useNavigate();
@@ -124,11 +124,15 @@ function Home() {
           <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-white max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-black">Recently Added</h2>
-              <span className="text-sm text-blue-500 cursor-pointer hover:underline">
-                View All
-              </span>
+              <span className="text-sm text-blue-500 cursor-pointer hover:underline">View All</span>
             </div>
-            <Add />
+            <section className="mt-4 px-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {pdfs.map((pdf, idx) => (
+                  <PdfCard key={idx} title={pdf.title} subtitle={pdf.subtitle} />
+                ))}
+              </div>
+            </section>
           </div>
         </div>
 
@@ -136,14 +140,16 @@ function Home() {
         <div className="mt-8 px-4">
           <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-white max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-black">
-                Popular Resources
-              </h2>
-              <span className="text-sm text-blue-500 cursor-pointer hover:underline">
-                View All
-              </span>
+              <h2 className="text-2xl font-bold text-black">Popular Resources</h2>
+              <span className="text-sm text-blue-500 cursor-pointer hover:underline">View All</span>
             </div>
-            <Add />
+            <section className="mt-4 px-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {pdfs.map((pdf, idx) => (
+                  <PdfCard key={`popular-${idx}`} title={pdf.title} subtitle={pdf.subtitle} />
+                ))}
+              </div>
+            </section>
           </div>
         </div>
       </div>
