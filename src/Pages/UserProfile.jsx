@@ -22,8 +22,21 @@ function UserProfile() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        const joinDate = new Date(currentUser.metadata.creationTime);
+        const joinMonth = joinDate.toLocaleString("default", { month: "long" });
+        const joinYear = joinDate.getFullYear();
+
+        setUser({
+          ...currentUser,
+          joinedYear: joinYear,
+          joinedMonth: joinMonth,
+        });
+      } else {
+        setUser(null);
+      }
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -94,7 +107,9 @@ function UserProfile() {
                 {user.displayName || user.email || "Not set"}
               </h2>
               <p className="text-gray-600">Faculty of Engineering</p>
-              <p className="text-gray-500 text-sm">Joined 2021</p>
+              <p className="text-gray-500 text-sm">
+                Joined {user?.joinedYear} {user?.joinedMonth}
+              </p>
               <button className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md hover:scale-105">
                 Edit Profile
               </button>
@@ -177,7 +192,9 @@ function UserProfile() {
               {user.displayName || user.email || "Not set"}
             </h2>
             <p className="text-gray-600 text-sm">Faculty of Engineering</p>
-            <p className="text-gray-500 text-xs">Joined 2021</p>
+            <p className="text-gray-500 text-xs">
+              Joined {user?.joinedYear} {user?.joinedMonth}
+            </p>
 
             <button className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md">
               Edit Profile
