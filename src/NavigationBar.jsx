@@ -4,10 +4,22 @@ import { Link, NavLink } from "react-router-dom";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { MdLogout } from "react-icons/md";
+import { useNavigate } from "react-router";
+import { signOut } from "firebase/auth";
 
 export default function Navbar() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/logins");
+    } catch (error) {
+      console.error("Logout failed!", error);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -183,7 +195,10 @@ export default function Navbar() {
             Settings
           </Link>
         </div>
-        <div className="flex items-center space-x-6 pt-4 border-t border-blue-500 pl-6">
+        <div
+          onClick={handleLogout}
+          className="flex items-center space-x-6 pt-4 border-t border-blue-500 pl-6"
+        >
           <div>
             <MdLogout className="size-6" />
           </div>

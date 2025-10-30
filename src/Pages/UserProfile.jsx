@@ -1,12 +1,24 @@
 import Navbar from "../NavigationBar";
 import { IoCameraOutline } from "react-icons/io5";
 import { useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../firebase";
+import { MdLogout } from "react-icons/md";
+import { useNavigate } from "react-router";
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/logins");
+    } catch (error) {
+      console.error("Logout failed!", error);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -36,7 +48,7 @@ function UserProfile() {
         <div className="w-64 bg-white border border-gray-200 rounded-xl shadow-sm p-6 h-fit">
           <h3 className="text-lg font-semibold mb-4">Menu</h3>
           <div className="flex flex-col space-y-3">
-            {["overview", "activity", "posts"].map((tab) => (
+            {["overview", "posts"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -49,6 +61,17 @@ function UserProfile() {
                 {tab}
               </button>
             ))}
+          </div>
+          <div
+            onClick={handleLogout}
+            className="flex items-center space-x-6 border-none bg-gray-50 p-2 justify-center rounded-2xl mt-45 hover:scale-105 cursor-pointer"
+          >
+            <div>
+              <MdLogout className="size-6" />
+            </div>
+            <div className="text-m leading-tight">
+              <p className="font-medium">Log Out</p>
+            </div>
           </div>
         </div>
 
@@ -126,12 +149,6 @@ function UserProfile() {
               </div>
             )}
 
-            {activeTab === "activity" && (
-              <div className="text-center text-gray-500 py-8">
-                No activity content yet.
-              </div>
-            )}
-
             {activeTab === "posts" && (
               <div className="text-center text-gray-500 py-8">
                 No posts yet.
@@ -161,13 +178,17 @@ function UserProfile() {
             </h2>
             <p className="text-gray-600 text-sm">Faculty of Engineering</p>
             <p className="text-gray-500 text-xs">Joined 2021</p>
+
+            <button className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md">
+              Edit Profile
+            </button>
           </div>
         </div>
 
         {/* Tabs (Mobile Only) */}
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
           <div className="flex border-b border-gray-200 mb-6">
-            {["overview", "posts", "activity"].map((tab) => (
+            {["overview", "posts"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
