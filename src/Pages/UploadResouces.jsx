@@ -1,7 +1,14 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Navbar from "../NavigationBar";
+import { auth } from "../firebase";
 
 function UploadResouces() {
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [code, setCode] = useState("");
+  const [subject, setSubject] = useState("");
+  const [type, setType] = useState(null);
+  const [tags, setTags] = useState("");
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -20,11 +27,41 @@ function UploadResouces() {
   const handleBrowse = () => {
     fileInputRef.current.click();
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!file) return alert("Please select a file!");
+
+    const token = await auth.currentUser.getIdToken();
+
+    const formData = new FormData();
+    formData.append("resourceTitle", title);
+    formData.append("description", desc);
+    formData.append("courseCode", code);
+    formData.append("courseSubject", subject);
+    formData.append("tags", tags);
+    formData.append("materialType", type);
+    formData.append("file", file);
+
+    const res = await fetch("http://localhost:4000/upload", {
+      method:"POST",
+      headers:{
+        Authorization:`Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+    console.log(data);
+  };
   return (
     <div className="bg-gray-100">
       <Navbar />
       <div className="flex flex-col items-center">
-        <form className="items-start md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6">
+        <form className="items-start md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6"
+        onSubmit={handleSubmit}
+        >
           <h1 className="text-[20px] sm:text-2xl md:text-2xl font-bold text-black drop-shadow-white">
             Upload Study Material
           </h1>
@@ -38,9 +75,9 @@ function UploadResouces() {
             </label>
             <div className="relative">
               <input
-                
-                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
+                onChange={(e) => setTitle(e.target.value)}
                 type="text"
+                value={title}
                 placeholder="eg: Data Structures and Algorithm"
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 required
@@ -54,9 +91,9 @@ function UploadResouces() {
             </label>
             <div className="relative">
               <textarea
-
-                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
+                onChange={(e) => setDesc(e.target.value)}
                 type="text"
+                value={desc}
                 placeholder="Briefly describe the content of material..."
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 rows={3}
@@ -72,13 +109,15 @@ function UploadResouces() {
               </label>
               <div className="relative">
                 <input
-                
-                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
-                type="text"
-                placeholder="eg: EEI5465"
-                className="w-full border border-gray-400 rounded-lg pl-4 pr-4 py-2 focus:outline-none"
-                required
-              />
+                  onChange={(e) =>
+                    setCode(e.target.value.trim().toUpperCase())
+                  }
+                  value={code}
+                  type="text"
+                  placeholder="eg: EEI5465"
+                  className="w-full border border-gray-400 rounded-lg pl-4 pr-4 py-2 focus:outline-none"
+                  required
+                />
               </div>
             </div>
             <div className="flex-3 ">
@@ -87,13 +126,15 @@ function UploadResouces() {
               </label>
               <div className="relative">
                 <input
-                
-                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
-                type="text"
-                placeholder="eg: Data Structures and Algorithm"
-                className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
-                required
-              />
+                  onChange={(e) =>
+                    setSubject(e.target.value)
+                  }
+                  value={subject}
+                  type="text"
+                  placeholder="eg: Data Structures and Algorithm"
+                  className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
+                  required
+                />
               </div>
             </div>
             <div className="flex-1">
@@ -102,17 +143,15 @@ function UploadResouces() {
               </label>
               <div className="relative">
                 <select
-                  
                   onChange={(e) =>
-                    setEmail(e.target.value.trim().toLowerCase())
+                    setType(e.target.value.trim().toLowerCase())
                   }
+                  value={type}
                   placeholder="Briefly describe the content of material..."
                   className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                   required
                 >
-                  <option disabled>
-                    Select type
-                  </option>
+                  <option disabled>Select type</option>
                   <option value=".pdf">.pdf</option>
                   <option value=".docx">.docx</option>
                   <option value=".jpg">.jpg / .jpeg / .png </option>
@@ -127,9 +166,9 @@ function UploadResouces() {
             </label>
             <div className="relative">
               <input
-            
-                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
+                onChange={(e) => setTags(e.target.value.toLowerCase())}
                 type="text"
+                value={tags}
                 placeholder="eg: #finel-exam #chapter-5 #important"
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 required
