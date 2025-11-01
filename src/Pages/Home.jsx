@@ -84,18 +84,18 @@ function Home() {
         </Link>
 
         
-        <button
-            onClick={() => navigate("/resources")}
-            className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#DAA2F0] text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400"
-          >
-            <div className="p-2 bg-white rounded-xl">
-              <FaFolderOpen className="text-blue-500 text-xl" />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold">My Resources</span>
-              <span className="text-xs text-gray-500">View your saved content</span>
-            </div>
-        </button>
+        <Link className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#DAA2F0]
+         text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 
+         hover:shadow-xl border border-transparent hover:border-blue-400"
+         onClick={() => navigate("/resources")} >
+          <div className="p-2 bg-white rounded-xl">
+            <FaFolderOpen className="text-blue-500 text-xl" />
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-bold">My Resources</span>
+            <span className="text-xs text-gray-500">View your uploaded content</span>
+          </div>
+        </Link>
 
        
         <button className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-green-300 text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400">
