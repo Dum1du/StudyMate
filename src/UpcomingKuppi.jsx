@@ -30,7 +30,7 @@ function UpcomingKuppi({ title, host, time, imageUrl }) {
       </div>
 
       
-      <button className="absolute bottom-4 h-10 left-4 mt-4 w-60 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition flex items-center justify-center gap-2 font-bold">
+      <button className="absolute bottom-4 h-10 left-4 mt-4 w-35 sm:w-60 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition flex items-center justify-center gap-2 font-bold">
         <FaVideo className="text-white text-lg" />
         Join Session
       </button>
