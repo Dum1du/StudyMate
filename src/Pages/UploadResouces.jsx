@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Navbar from "../NavigationBar";
 import { auth } from "../firebase";
 import socket from "../socket";
@@ -13,6 +13,9 @@ function UploadResources() {
   const [tags, setTags] = useState("");
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [showProgress, setShowProgress] = useState(false);
+const [success, setSuccess] = useState(false);
+const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const fileInputRef = useRef(null);
 
   // ✅ File handling
@@ -30,35 +33,70 @@ function UploadResources() {
     fileInputRef.current.click();
   };
 
-  useEffect(() => {
-  if (!socket) return;
-
-  // Ensure socket is connected
-  if (!socket.connected) socket.connect();
-
-  const handleUploadStatus = (data) => {
+  // ✅ Stable callback using useCallback so React doesn’t recreate it on each render
+  const handleUploadStatus = useCallback((data) => {
     console.log("Upload step:", data.step, data.message);
-    // Optionally update progress based on backend steps
-    if (data.step === "drive") {
-      setProgress(70)
-      console.log("progress : " + progress);
-    };
-    if (data.step === "drive") {
-      setProgress(90)
-      console.log("progress : " + progress);
-    };
-    if (data.step === "drive") {
-      setProgress(100)
-      console.log("progress : " + progress);
-    };
-  };
+    setShowProgress(true);
 
-  socket.on("uploadStatus", handleUploadStatus);
+    switch (data.step) {
+      case "received":
+        setProgress(10);
+        break;
+      case "drive":
+        setProgress(70);
+        break;
+      case "firestore":
+        setProgress(90);
+        break;
+      case "complete":
+        setProgress(100);
+        setSuccess(true); // turn progress bar green
+        setShowSuccessOverlay(true); // ✅ Show overlay
 
-  return () => {
-    socket.off("uploadStatus", handleUploadStatus);
-  };
-}, []);
+        setTimeout(() => {
+        // fade out overlay
+        setShowSuccessOverlay(false);
+
+        // reset form after fade-out
+        setTimeout(() => {
+          setSuccess(false);
+          setShowProgress(false);
+          setTitle("");
+          setDesc("");
+          setCode("");
+          setSubject("");
+          setType("");
+          setTags("");
+          setFile(null);
+          setProgress(0);
+        }, 600);
+      }, 3000);
+
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  // ✅ Attach socket listener (stable)
+  useEffect(() => {
+    if (!socket) return;
+
+    // Ensure connected before listening
+    if (!socket.connected) socket.connect();
+
+    socket.on("uploadStatus", handleUploadStatus);
+
+    // Cleanup
+    return () => {
+      socket.off("uploadStatus", handleUploadStatus);
+    };
+  }, [handleUploadStatus]); // 👈 depends on the stable callback
+
+  // ✅ Watch progress changes (optional, for debugging)
+  useEffect(() => {
+    console.log("Progress updated:", progress);
+  }, [progress]);
 
   // ✅ Main upload
   const handleSubmit = async (e) => {
@@ -68,9 +106,9 @@ function UploadResources() {
     const token = await auth.currentUser.getIdToken();
 
     console.log("waiting for socket!");
-    // Wait for socket to connect
-  if (!socket.connected) console.warn("Socket not connected yet!");
-  console.log("socket created!");
+    if (!socket.connected)
+      await new Promise((resolve) => socket.once("connect", resolve));
+    console.log("socket created!");
 
     const formData = new FormData();
     formData.append("resourceTitle", title);
@@ -89,16 +127,16 @@ function UploadResources() {
           Authorization: `Bearer ${token}`,
           "x-socket-id": socket.id,
         },
-        onUploadProgress: (progressEvent) => {
-          const percent = Math.floor(
-            (progressEvent.loaded / progressEvent.total) * 100
-          );
-          setProgress(percent);
-        },
+        // onUploadProgress: (progressEvent) => {
+        //   const percent = Math.floor(
+        //     (progressEvent.loaded / progressEvent.total) * 100
+        //   );
+        //   setProgress(percent);
+        // },
       });
 
       console.log("Upload success:", res.data);
-      setProgress(100);
+      // setProgress(100);
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Upload failed");
@@ -108,7 +146,7 @@ function UploadResources() {
   return (
     <div className="bg-gray-100">
       <Navbar />
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center relative md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6">
         <form
           className="items-start md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6"
           onSubmit={handleSubmit}
@@ -238,16 +276,20 @@ function UploadResources() {
           />
 
           {/* Progress bar */}
-          {progress > 0 && (
-            <div className="w-full bg-gray-300 rounded mt-4">
-              <div
-                className="bg-blue-600 text-xs text-white p-1 text-center rounded"
-                style={{ width: `${progress}%` }}
-              >
-                {progress}%
-              </div>
-            </div>
-          )}
+         {showProgress && (
+  <div className={`w-full bg-gray-300 rounded mt-4 overflow-hidden ${success ? "animate-fadeOut" : "animate-fadeIn"}`}>
+    <div
+      className={`text-xs text-white p-1 text-center transition-all duration-300 ease-in-out ${
+        success ? "bg-green-500" : "bg-blue-600"
+      }`}
+      style={{ width: `${progress}%` }}
+    >
+      {success ? "✅ Uploaded!" : `${progress}%`}
+    </div>
+  </div>
+)}
+
+
 
           {/* Submit button */}
           <div className="flex justify-end mt-10">
@@ -258,6 +300,15 @@ function UploadResources() {
               Upload Material
             </button>
           </div>
+          {showSuccessOverlay && (
+  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-xl animate-fadeIn">
+    <div className="bg-green-100 border border-green-400 text-green-700 px-8 py-6 rounded-xl shadow-lg animate-fadeIn">
+      <h2 className="text-2xl font-semibold mb-2">✅ Upload Successful!</h2>
+      <p className="text-gray-600">Your material has been uploaded to the system.</p>
+    </div>
+  </div>
+)}
+
         </form>
       </div>
     </div>
