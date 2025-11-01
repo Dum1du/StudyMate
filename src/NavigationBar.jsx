@@ -77,19 +77,6 @@ export default function Navbar() {
             </NavLink>
 
             <NavLink
-              to="/QuizeGenerator"
-              className={({ isActive }) =>
-                `hover:text-gray-200 ${
-                  isActive
-                    ? " text-black text-white text-[16px] font-bold"
-                    : "text-white"
-                }`
-              }
-            >
-              Quiz Generator
-            </NavLink>
-
-            <NavLink
               to="/Settings"
               className={({ isActive }) =>
                 `hover:text-gray-200 ${
@@ -180,15 +167,9 @@ export default function Navbar() {
           >
             Browse Resources
           </Link>
+
           <Link
-            to="#"
-            className="block hover:text-gray-200"
-            onClick={() => setIsOpen(false)}
-          >
-            Quiz Generator
-          </Link>
-          <Link
-            to="#"
+            to="/Settings"
             className="block hover:text-gray-200"
             onClick={() => setIsOpen(false)}
           >
