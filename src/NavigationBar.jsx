@@ -4,21 +4,53 @@ import { Link, NavLink } from "react-router-dom";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { MdLogout } from "react-icons/md";
+import { useNavigate } from "react-router";
+import { signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "./firebase";
 
 export default function Navbar() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+  const [profilePic, setProfilePic] = useState("");
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/logins");
+    } catch (error) {
+      console.error("Logout failed!", error);
+    }
+  };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         console.log("User found:", user.displayName);
         setUsername(user.displayName || "");
         setEmail(user.email || "");
+
+        // 🔹 Fetch profile picture from Firestore
+        try {
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            setProfilePic(data.profilePicture || ""); // store in state
+          } else {
+            console.log("No user document found for this user");
+            setProfilePic("");
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+        }
       } else {
         console.log("User not found");
         setUsername("");
         setEmail("");
+        setProfilePic("");
       }
     });
 
@@ -65,19 +97,6 @@ export default function Navbar() {
             </NavLink>
 
             <NavLink
-              to="/QuizeGenerator"
-              className={({ isActive }) =>
-                `hover:text-gray-200 ${
-                  isActive
-                    ? " text-black text-white text-[16px] font-bold"
-                    : "text-white"
-                }`
-              }
-            >
-              Quiz Generator
-            </NavLink>
-
-            <NavLink
               to="/Settings"
               className={({ isActive }) =>
                 `hover:text-gray-200 ${
@@ -100,11 +119,12 @@ export default function Navbar() {
           <Link to="/userProfile">
             <div className="flex items-center space-x-2">
               <img
-                src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
-              person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
-              templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
+                src={
+                  profilePic ||
+                  "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
+                }
                 alt="User"
-                className="w-8 h-8 rounded-full border-2 border-white"
+                className="w-8 h-8 rounded-full object-cover border-0"
               />
               <div className="text-sm leading-tight">
                 <p className="font-medium">{username}</p>
@@ -140,11 +160,12 @@ export default function Navbar() {
         <Link to="/userProfile" onClick={() => setIsOpen(false)}>
           <div className="justify-items-center w-full pt-10 pb-2 border-t border-blue-500">
             <img
-              src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-
-              person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-
-              templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
+              src={
+                profilePic ||
+                "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
+              }
               alt="User"
-              className="w-30 h-30 rounded-full border-2 border-white"
+              className="w-30 h-30 rounded-full object-cover border-0"
             />
             <div className="w-full justify-items-center border-b border-blue-500 pb-5">
               <p className="font-medium">{username}</p>
@@ -168,22 +189,19 @@ export default function Navbar() {
           >
             Browse Resources
           </Link>
+
           <Link
-            to="#"
-            className="block hover:text-gray-200"
-            onClick={() => setIsOpen(false)}
-          >
-            Quiz Generator
-          </Link>
-          <Link
-            to="#"
+            to="/Settings"
             className="block hover:text-gray-200"
             onClick={() => setIsOpen(false)}
           >
             Settings
           </Link>
         </div>
-        <div className="flex items-center space-x-6 pt-4 border-t border-blue-500 pl-6">
+        <div
+          onClick={handleLogout}
+          className="flex items-center space-x-6 pt-4 border-t border-blue-500 pl-6"
+        >
           <div>
             <MdLogout className="size-6" />
           </div>
