@@ -3,6 +3,7 @@ import { Search, Star } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
 import Navbar from "../NavigationBar";
+import Footer from "../Footer";
 
 export default function BrowseResources() {
   const [search, setSearch] = useState("");
@@ -129,6 +130,7 @@ export default function BrowseResources() {
           ))}
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
