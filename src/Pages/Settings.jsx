@@ -3,6 +3,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router";
 import Navbar from "../NavigationBar";
+import Footer from "../Footer";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -91,6 +92,7 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      <Footer />
     </>
   );
 }

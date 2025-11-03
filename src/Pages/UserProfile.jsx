@@ -6,6 +6,7 @@ import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
+import Footer from "../Footer";
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -360,6 +361,7 @@ function UserProfile() {
           )}
         </div>
       </div>
+      <Footer />
     </>
   );
 }
