@@ -6,11 +6,15 @@ import { onAuthStateChanged } from "firebase/auth";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
 import { signOut } from "firebase/auth";
+import React, { useRef } from "react";
+import NotificationWrapper from "./NotificationWrapper";
+
 
 export default function Navbar() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
+  const bellRef = useRef(null);
 
   const handleLogout = async () => {
     try {
@@ -95,6 +99,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center space-x-4">
           <button className="hover:text-gray-200">
             <Bell size={20} />
+            <NotificationWrapper  />
           </button>
           <Link to="/userProfile">
             <div className="flex items-center space-x-2">

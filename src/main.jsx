@@ -19,6 +19,7 @@ import EmailVerify from "./Pages/EmailVerify.jsx";
 import UploadResouces from "./Pages/UploadResouces.jsx";
 
 
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -73,6 +74,7 @@ const router = createBrowserRouter([
     path:"/upload",
     element:<UploadResouces />
   }
+ 
 ]);
 
 createRoot(document.getElementById("root")).render(
