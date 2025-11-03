@@ -47,7 +47,8 @@ export default function Footer() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 md:w-2/3">
+          {/* hide link columns on small screens to keep footer compact on mobile */}
+          <div className="hidden md:grid grid-cols-3 gap-6 md:w-2/3">
             <div>
               <h4 className="font-semibold mb-3">Product</h4>
               <ul className="text-sm space-y-2 text-blue-100/90">
