@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Notice from "../Notice";
 import Navbar from "../NavigationBar";
+import Footer from "../Footer";
 
 function NoticeBoard() {
   const [notices, setNotices] = useState([
@@ -129,6 +130,7 @@ function NoticeBoard() {
           ))}
         </div>
       </div>
+      <Footer />
     </>
   );
 }
