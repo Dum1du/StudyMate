@@ -58,7 +58,7 @@ export default function Footer() {
                 </li>
                 <li>
                   <Link to="/upload" className="hover:underline">
-                    Upload
+                    Upload Resources
                   </Link>
                 </li>
                 <li>
