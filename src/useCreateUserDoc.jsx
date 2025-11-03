@@ -25,6 +25,7 @@ function useCreateUserDoc() {
               joinedMonth: joinMonth,
               joinedYear: joinYear,
               createdAt: serverTimestamp(),
+              profilePicture: "",
             });
 
             console.log("✅ User document created for:", currentUser.email);
