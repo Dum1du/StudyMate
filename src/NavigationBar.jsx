@@ -124,7 +124,7 @@ export default function Navbar() {
                   "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
                 }
                 alt="User"
-                className="w-8 h-8 rounded-full border-2 border-white"
+                className="w-8 h-8 rounded-full object-cover border-0"
               />
               <div className="text-sm leading-tight">
                 <p className="font-medium">{username}</p>
@@ -165,7 +165,7 @@ export default function Navbar() {
                 "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
               }
               alt="User"
-              className="w-8 h-8 rounded-full border-2 border-white"
+              className="w-30 h-30 rounded-full object-cover border-0"
             />
             <div className="w-full justify-items-center border-b border-blue-500 pb-5">
               <p className="font-medium">{username}</p>
