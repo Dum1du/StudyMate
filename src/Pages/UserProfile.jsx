@@ -6,6 +6,7 @@ import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
+import EditProfileModal from "./EditProfileModal";
 import Footer from "../Footer";
 
 function UserProfile() {
@@ -16,6 +17,35 @@ function UserProfile() {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleProfileUpdate = async (updatedData) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, "users", user.uid);
+
+      // Save the new data to Firestore
+      await updateDoc(userRef, {
+        displayName: updatedData.displayName,
+        faculty: updatedData.faculty,
+        program: updatedData.program,
+        contact: updatedData.contact,
+      });
+
+      // Update the local user state immediately for instant UI refresh
+      setUser((prevUser) => ({
+        ...prevUser,
+        ...updatedData,
+      }));
+
+      alert("Profile updated successfully!");
+      setIsModalOpen(false); // Close the modal on success
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile.");
+    }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -183,11 +213,19 @@ function UserProfile() {
               <h2 className="text-xl font-semibold text-gray-900">
                 {user.displayName || user.email || "Not set"}
               </h2>
-              <p className="text-gray-600">Faculty of Engineering</p>
+              {/* ✅ 4. Use dynamic data here */}
+              <p className="text-gray-600">
+                {user.faculty || "Faculty not set"}
+              </p>
               <p className="text-gray-500 text-sm">
                 Joined {user?.joinedYear} {user?.joinedMonth}
               </p>
-              <button className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md hover:scale-105">
+
+              {/* ✅ 5. Connect the button to open the modal */}
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md hover:scale-105"
+              >
                 Edit Profile
               </button>
             </div>
@@ -201,21 +239,24 @@ function UserProfile() {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">About</h3>
                   <div className="space-y-3 text-sm">
+                    {/* ✅ 6. Change hardcoded data to use the user state */}
                     <div className="flex justify-between">
                       <span className="text-gray-500">Faculty</span>
                       <span className="text-gray-800">
-                        Faculty of Engineering
+                        {user.faculty || "Not set"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Program</span>
                       <span className="text-gray-800">
-                        B.Sc. in Engineering
+                        {user.program || "Not set"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Contact</span>
-                      <span className="text-gray-800">+94 77 123 4567</span>
+                      <span className="text-gray-800">
+                        {user.contact || "Not set"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Email</span>
@@ -287,12 +328,19 @@ function UserProfile() {
             <h2 className="text-lg font-semibold text-gray-900">
               {user.displayName || user.email || "Not set"}
             </h2>
-            <p className="text-gray-600 text-sm">Faculty of Engineering</p>
+            {/* ✅ 7. Use dynamic data here (mobile) */}
+            <p className="text-gray-600 text-sm">
+              {user.faculty || "Faculty not set"}
+            </p>
             <p className="text-gray-500 text-xs">
               Joined {user?.joinedYear} {user?.joinedMonth}
             </p>
 
-            <button className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md">
+            {/* ✅ 8. Connect the mobile button to open the modal */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md"
+            >
               Edit Profile
             </button>
           </div>
@@ -321,15 +369,24 @@ function UserProfile() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">About</h3>
                 <div className="space-y-3 text-sm">
+                  {/* ✅ 9. Change hardcoded mobile data to use user state */}
                   <div className="flex justify-between">
                     <span className="text-gray-500">Faculty</span>
                     <span className="text-gray-800">
-                      Faculty of Engineering
+                      {user.faculty || "Not set"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Program</span>
-                    <span className="text-gray-800">B.Sc. in Engineering</span>
+                    <span className="text-gray-800">
+                      {user.program || "Not set"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Contact</span>
+                    <span className="text-gray-800">
+                      {user.contact || "Not set"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Email</span>
@@ -337,7 +394,6 @@ function UserProfile() {
                   </div>
                 </div>
               </div>
-
               <div>
                 <h3 className="text-lg font-semibold mb-4">Contributions</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -361,7 +417,13 @@ function UserProfile() {
           )}
         </div>
       </div>
-      <Footer />
+      {isModalOpen && (
+        <EditProfileModal
+          user={user}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleProfileUpdate}
+        />
+      )}
     </>
   );
 }
