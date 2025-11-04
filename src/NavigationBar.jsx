@@ -40,11 +40,12 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="bg-blue-600 text-white shadow-md relative">
+    <nav className=" bg-blue-600 text-white shadow-md relative">
       <div className="w-full flex items-center justify-between px-6 py-2">
         {/* LEFT: Logo + Tabs */}
         <div className="flex items-center space-x-8">
-          <span className="text-xl font-bold">
+          <span className="text-xl font-bold cursor-pointer"
+          onClick={() => navigate("/home")}>
             Study<span className="text-black">Mate</span>
           </span>
 
@@ -61,19 +62,6 @@ export default function Navbar() {
               }
             >
               Dashboard
-            </NavLink>
-
-            <NavLink
-              to="/BrowseResources"
-              className={({ isActive }) =>
-                `hover:text-gray-200 ${
-                  isActive
-                    ? " text-black text-white text-[16px] font-bold"
-                    : "text-white"
-                }`
-              }
-            >
-              Browse Resources
             </NavLink>
 
             <NavLink
@@ -159,13 +147,6 @@ export default function Navbar() {
             onClick={() => setIsOpen(false)}
           >
             Dashboard
-          </Link>
-          <Link
-            to="/BrowseResources"
-            className="block hover:text-gray-200"
-            onClick={() => setIsOpen(false)}
-          >
-            Browse Resources
           </Link>
 
           <Link

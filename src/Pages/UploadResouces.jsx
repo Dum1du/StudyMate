@@ -127,12 +127,6 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
           Authorization: `Bearer ${token}`,
           "x-socket-id": socket.id,
         },
-        // onUploadProgress: (progressEvent) => {
-        //   const percent = Math.floor(
-        //     (progressEvent.loaded / progressEvent.total) * 100
-        //   );
-        //   setProgress(percent);
-        // },
       });
 
       console.log("Upload success:", res.data);
@@ -146,7 +140,7 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   return (
     <div className="bg-gray-100">
       <Navbar />
-      <div className="flex flex-col items-center relative md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6">
+      <div className="flex flex-col relative items-center">
         <form
           className="items-start md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6"
           onSubmit={handleSubmit}
