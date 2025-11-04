@@ -17,6 +17,7 @@ import QuizeGenerator from "./Pages/QuizGenerator.jsx";
 import NoticeBoard  from "./Pages/NoticeBoard.jsx";
 import EmailVerify from "./Pages/EmailVerify.jsx";
 import UploadResouces from "./Pages/UploadResouces.jsx";
+import Discussions from "./Pages/Discussions.jsx";
 
 
 
@@ -73,6 +74,10 @@ const router = createBrowserRouter([
   {
     path:"/upload",
     element:<UploadResouces />
+  },
+  {
+    path:"/discussions",
+    element:<Discussions />
   }
  
 ]);
