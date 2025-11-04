@@ -6,6 +6,7 @@ import Navbar from "../NavigationBar";
 import Fuse from "fuse.js";
 import SearchBar from "../searchbar";
 import { collectionGroup, getDocs } from "firebase/firestore";
+import Footer from "../Footer";
 
 export default function BrowseResources() {
   const [search, setSearch] = useState("");
@@ -142,6 +143,7 @@ export default function BrowseResources() {
         </div>)
 }
       </main>
+      <Footer />
     </div>
   );
 }

@@ -2,14 +2,86 @@ import Navbar from "../NavigationBar";
 import { IoCameraOutline } from "react-icons/io5";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import EditProfileModal from "./EditProfileModal";
+import Footer from "../Footer";
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
+
+  const [image, setImage] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleProfileUpdate = async (updatedData) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, "users", user.uid);
+
+      // Save the new data to Firestore
+      await updateDoc(userRef, {
+        displayName: updatedData.displayName,
+        faculty: updatedData.faculty,
+        program: updatedData.program,
+        contact: updatedData.contact,
+      });
+
+      // Update the local user state immediately for instant UI refresh
+      setUser((prevUser) => ({
+        ...prevUser,
+        ...updatedData,
+      }));
+
+      alert("Profile updated successfully!");
+      setIsModalOpen(false); // Close the modal on success
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile.");
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result);
+        setPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!image || !user) return;
+    setUploading(true);
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { profilePicture: image });
+
+      // ✅ Instantly update local user state to show the new profile pic
+      setUser((prevUser) => ({
+        ...prevUser,
+        profilePicture: image,
+      }));
+
+      alert("Profile picture updated successfully!");
+      setPreview(null);
+    } catch (error) {
+      console.error("Error uploading profile picture:", error);
+      alert("Failed to upload picture!");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -21,17 +93,33 @@ function UserProfile() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        // derive join month & year from Auth metadata
         const joinDate = new Date(currentUser.metadata.creationTime);
         const joinMonth = joinDate.toLocaleString("default", { month: "long" });
         const joinYear = joinDate.getFullYear();
 
-        setUser({
-          ...currentUser,
-          joinedYear: joinYear,
-          joinedMonth: joinMonth,
-        });
+        // reference to Firestore document
+        const userRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(userRef);
+
+        if (docSnap.exists()) {
+          // merge Auth + Firestore data
+          setUser({
+            ...currentUser,
+            ...docSnap.data(),
+            joinedMonth: docSnap.data().joinedMonth || joinMonth,
+            joinedYear: docSnap.data().joinedYear || joinYear,
+          });
+        } else {
+          // if Firestore doc doesn’t exist yet
+          setUser({
+            ...currentUser,
+            joinedMonth: joinMonth,
+            joinedYear: joinYear,
+          });
+        }
       } else {
         setUser(null);
       }
@@ -94,23 +182,50 @@ function UserProfile() {
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex items-center space-x-6">
             <div className="relative">
               <img
-                src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
+                src={
+                  preview ||
+                  user.profilePicture ||
+                  "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
+                }
                 alt="User"
                 className="w-30 h-30 rounded-full object-cover border-0"
               />
-              <div className="absolute bottom-0 right-0 rounded-full p-2 bg-white border-2 border-white cursor-pointer hover:bg-blue-500 group">
+              <label className="absolute bottom-0 right-0 rounded-full p-2 bg-white border-2 border-white cursor-pointer hover:bg-blue-500 group">
                 <IoCameraOutline className="text-blue-500 text-sm group-hover:text-white transition-colors duration-200" />
-              </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+              </label>
             </div>
+            {preview && (
+              <button
+                onClick={handleUpload}
+                disabled={uploading}
+                className="mt-3 bg-blue-600 text-white px-3 py-1 rounded-md"
+              >
+                {uploading ? "Saving..." : "Save Picture"}
+              </button>
+            )}
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-gray-900">
                 {user.displayName || user.email || "Not set"}
               </h2>
-              <p className="text-gray-600">Faculty of Engineering</p>
+              {/* ✅ 4. Use dynamic data here */}
+              <p className="text-gray-600">
+                {user.faculty || "Faculty not set"}
+              </p>
               <p className="text-gray-500 text-sm">
                 Joined {user?.joinedYear} {user?.joinedMonth}
               </p>
-              <button className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md hover:scale-105">
+
+              {/* ✅ 5. Connect the button to open the modal */}
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md hover:scale-105"
+              >
                 Edit Profile
               </button>
             </div>
@@ -124,21 +239,24 @@ function UserProfile() {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">About</h3>
                   <div className="space-y-3 text-sm">
+                    {/* ✅ 6. Change hardcoded data to use the user state */}
                     <div className="flex justify-between">
                       <span className="text-gray-500">Faculty</span>
                       <span className="text-gray-800">
-                        Faculty of Engineering
+                        {user.faculty || "Not set"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Program</span>
                       <span className="text-gray-800">
-                        B.Sc. in Engineering
+                        {user.program || "Not set"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Contact</span>
-                      <span className="text-gray-800">+94 77 123 4567</span>
+                      <span className="text-gray-800">
+                        {user.contact || "Not set"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Email</span>
@@ -178,25 +296,51 @@ function UserProfile() {
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex items-center space-x-6">
           <div className="relative">
             <img
-              src="https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
+              src={
+                preview ||
+                user.profilePicture ||
+                "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"
+              }
               alt="User"
-              className="w-24 h-24 rounded-full object-cover border-0"
+              className="w-30 h-30 rounded-full object-cover border-0"
             />
-            <div className="absolute bottom-0 right-0 rounded-full p-2 bg-white border-2 border-white cursor-pointer hover:bg-blue-500 group">
+            <label className="absolute bottom-0 right-0 rounded-full p-2 bg-white border-2 border-white cursor-pointer hover:bg-blue-500 group">
               <IoCameraOutline className="text-blue-500 text-sm group-hover:text-white transition-colors duration-200" />
-            </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </label>
           </div>
+          {preview && (
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="mt-3 bg-blue-600 text-white px-3 py-1 rounded-md"
+            >
+              {uploading ? "Saving..." : "Save Picture"}
+            </button>
+          )}
 
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-gray-900">
               {user.displayName || user.email || "Not set"}
             </h2>
-            <p className="text-gray-600 text-sm">Faculty of Engineering</p>
+            {/* ✅ 7. Use dynamic data here (mobile) */}
+            <p className="text-gray-600 text-sm">
+              {user.faculty || "Faculty not set"}
+            </p>
             <p className="text-gray-500 text-xs">
               Joined {user?.joinedYear} {user?.joinedMonth}
             </p>
 
-            <button className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md">
+            {/* ✅ 8. Connect the mobile button to open the modal */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md"
+            >
               Edit Profile
             </button>
           </div>
@@ -225,15 +369,24 @@ function UserProfile() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">About</h3>
                 <div className="space-y-3 text-sm">
+                  {/* ✅ 9. Change hardcoded mobile data to use user state */}
                   <div className="flex justify-between">
                     <span className="text-gray-500">Faculty</span>
                     <span className="text-gray-800">
-                      Faculty of Engineering
+                      {user.faculty || "Not set"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Program</span>
-                    <span className="text-gray-800">B.Sc. in Engineering</span>
+                    <span className="text-gray-800">
+                      {user.program || "Not set"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Contact</span>
+                    <span className="text-gray-800">
+                      {user.contact || "Not set"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Email</span>
@@ -241,7 +394,6 @@ function UserProfile() {
                   </div>
                 </div>
               </div>
-
               <div>
                 <h3 className="text-lg font-semibold mb-4">Contributions</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -265,6 +417,13 @@ function UserProfile() {
           )}
         </div>
       </div>
+      {isModalOpen && (
+        <EditProfileModal
+          user={user}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleProfileUpdate}
+        />
+      )}
     </>
   );
 }

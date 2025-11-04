@@ -3,6 +3,7 @@ import Navbar from "../NavigationBar";
 import { auth } from "../firebase";
 import socket from "../socket";
 import axios from "axios";
+import Footer from "../Footer";
 
 function UploadResources() {
   const [title, setTitle] = useState("");
@@ -138,7 +139,7 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   };
 
   return (
-    <div className="bg-gray-100">
+    <div className="min-h-screen bg-gray-100">
       <Navbar />
       <div className="flex flex-col relative items-center">
         <form
@@ -303,10 +304,15 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   </div>
 )}
 
-        </form>
-      </div>
+        
+          </form>
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }
+
 
 export default UploadResources;

@@ -3,6 +3,7 @@ import Navbar from "../NavigationBar";
 import UpcomingKuppi from "../upcomingkuppi";
 import { FaPlus } from "react-icons/fa";
 import { auth } from "../firebase";
+import Footer from "../Footer";
 
 function KuppiSessions() {
   const user = auth.currentUser;
@@ -191,6 +192,7 @@ function KuppiSessions() {
           </div>
         </div>
       </div>
+      <Footer />
     </>
   );
 }

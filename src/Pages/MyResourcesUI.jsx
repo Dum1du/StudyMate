@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Navbar from "../NavigationBar";
 import { Pin, PinOff, Eye, Filter, Search, Trash2, Bookmark, BookOpen, X, FolderOpen } from "lucide-react";
+import Footer from "../Footer";
 
 const MyResourcesUI = () => {
   const [resources, setResources] = useState([
@@ -227,6 +228,7 @@ const MyResourcesUI = () => {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 };
