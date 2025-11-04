@@ -307,7 +307,6 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
         
           </form>
         </div>
-      </main>
 
       <Footer />
     </div>
