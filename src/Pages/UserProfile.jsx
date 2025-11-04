@@ -424,6 +424,7 @@ function UserProfile() {
           onSave={handleProfileUpdate}
         />
       )}
+      <Footer />
     </>
   );
 }
