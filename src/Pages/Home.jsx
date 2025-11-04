@@ -33,6 +33,7 @@ function Home() {
     });
     return () => unsubscribe();
   }, []);
+
   return (
     <>
       <Navbar />
@@ -65,7 +66,12 @@ function Home() {
         </div>
 
         {/* Searchbar */}
-        <SearchBar placeholder="Search for resources..." />
+        <div className="mt-15"
+        onClick={() => navigate("/browseresources")}
+        >
+        <SearchBar placeholder="Search for resources..."
+        />
+        </div>
 
       {/* Buttons */}
       <div className="mt-10 flex flex-wrap justify-center gap-6 px-4 sm:px-8">

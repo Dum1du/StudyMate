@@ -128,12 +128,6 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
           Authorization: `Bearer ${token}`,
           "x-socket-id": socket.id,
         },
-        // onUploadProgress: (progressEvent) => {
-        //   const percent = Math.floor(
-        //     (progressEvent.loaded / progressEvent.total) * 100
-        //   );
-        //   setProgress(percent);
-        // },
       });
 
       console.log("Upload success:", res.data);
@@ -147,10 +141,11 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
-
-      <main className="max-w-3xl mx-auto py-10 px-6">
-        <div className="bg-white rounded-xl shadow-md p-6 relative">
-          <form className="w-full" onSubmit={handleSubmit}>
+      <div className="flex flex-col relative items-center">
+        <form
+          className="items-start md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6"
+          onSubmit={handleSubmit}
+        >
           <h1 className="text-2xl font-bold text-black">
             Upload Study Material
           </h1>
@@ -312,7 +307,6 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
         
           </form>
         </div>
-      </main>
 
       <Footer />
     </div>

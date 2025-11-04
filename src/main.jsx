@@ -17,6 +17,7 @@ import QuizeGenerator from "./Pages/QuizGenerator.jsx";
 import NoticeBoard  from "./Pages/NoticeBoard.jsx";
 import EmailVerify from "./Pages/EmailVerify.jsx";
 import UploadResouces from "./Pages/UploadResouces.jsx";
+import Dashboard from "./Pages/Home.jsx";
 
 
 const router = createBrowserRouter([
@@ -33,18 +34,14 @@ const router = createBrowserRouter([
     element: <TeacherLogin />,
   },
   { path: "/register", element: <RegisterUI /> },
-  {
-    path: "/home",
-    element: <Home />,
-  },
+  
   {
     path: "/resources",
     element: <MyResourcesUI />,
   },
-  {
-    path: "/browseResources",
-    element: <BrowseResources />,
-  },
+    {path:"/home", element:<Home/>},
+      {path:"/browseresources", element:<BrowseResources/>},
+   
   {
     path: "/userProfile",
     element: <UserProfile />,
