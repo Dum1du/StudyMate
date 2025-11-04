@@ -63,9 +63,9 @@ function KuppiSessions() {
           Collaborate with peers in study sessions. Create or join sessions and access Google Meet links.
         </h3>
 
-        {/* Two-column layout */}
+        
         <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start justify-center">
-          {/* Upcoming Sessions */}
+          
           <div className="flex-1 w-full">
             <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 text-center md:text-left">
               Upcoming Sessions
