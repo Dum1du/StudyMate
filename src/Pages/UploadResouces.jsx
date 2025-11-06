@@ -15,8 +15,8 @@ function UploadResources() {
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
-const [success, setSuccess] = useState(false);
-const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const fileInputRef = useRef(null);
 
   // ✅ File handling
@@ -55,23 +55,23 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
         setShowSuccessOverlay(true); // ✅ Show overlay
 
         setTimeout(() => {
-        // fade out overlay
-        setShowSuccessOverlay(false);
+          // fade out overlay
+          setShowSuccessOverlay(false);
 
-        // reset form after fade-out
-        setTimeout(() => {
-          setSuccess(false);
-          setShowProgress(false);
-          setTitle("");
-          setDesc("");
-          setCode("");
-          setSubject("");
-          setType("");
-          setTags("");
-          setFile(null);
-          setProgress(0);
-        }, 600);
-      }, 3000);
+          // reset form after fade-out
+          setTimeout(() => {
+            setSuccess(false);
+            setShowProgress(false);
+            setTitle("");
+            setDesc("");
+            setCode("");
+            setSubject("");
+            setType("");
+            setTags("");
+            setFile(null);
+            setProgress(0);
+          }, 600);
+        }, 3000);
 
         break;
       default:
@@ -271,20 +271,22 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
           />
 
           {/* Progress bar */}
-         {showProgress && (
-  <div className={`w-full bg-gray-300 rounded mt-4 overflow-hidden ${success ? "animate-fadeOut" : "animate-fadeIn"}`}>
-    <div
-      className={`text-xs text-white p-1 text-center transition-all duration-300 ease-in-out ${
-        success ? "bg-green-500" : "bg-blue-600"
-      }`}
-      style={{ width: `${progress}%` }}
-    >
-      {success ? "✅ Uploaded!" : `${progress}%`}
-    </div>
-  </div>
-)}
-
-
+          {showProgress && (
+            <div
+              className={`w-full bg-gray-300 rounded mt-4 overflow-hidden ${
+                success ? "animate-fadeOut" : "animate-fadeIn"
+              }`}
+            >
+              <div
+                className={`text-xs text-white p-1 text-center transition-all duration-300 ease-in-out ${
+                  success ? "bg-green-500" : "bg-blue-600"
+                }`}
+                style={{ width: `${progress}%` }}
+              >
+                {success ? "✅ Uploaded!" : `${progress}%`}
+              </div>
+            </div>
+          )}
 
           {/* Submit button */}
           <div className="flex justify-end mt-10">
@@ -296,22 +298,23 @@ const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
             </button>
           </div>
           {showSuccessOverlay && (
-  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-xl animate-fadeIn">
-    <div className="bg-green-100 border border-green-400 text-green-700 px-8 py-6 rounded-xl shadow-lg animate-fadeIn">
-      <h2 className="text-2xl font-semibold mb-2">✅ Upload Successful!</h2>
-      <p className="text-gray-600">Your material has been uploaded to the system.</p>
-    </div>
-  </div>
-)}
-
-        
-          </form>
-        </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-xl animate-fadeIn">
+              <div className="bg-green-100 border border-green-400 text-green-700 px-8 py-6 rounded-xl shadow-lg animate-fadeIn">
+                <h2 className="text-2xl font-semibold mb-2">
+                  ✅ Upload Successful!
+                </h2>
+                <p className="text-gray-600">
+                  Your material has been uploaded to the system.
+                </p>
+              </div>
+            </div>
+          )}
+        </form>
+      </div>
 
       <Footer />
     </div>
   );
 }
-
 
 export default UploadResources;
