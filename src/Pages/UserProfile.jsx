@@ -67,7 +67,7 @@ function UserProfile() {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, { profilePicture: image });
 
-      // ✅ Instantly update local user state to show the new profile pic
+      // update local user state to show the new profile pic
       setUser((prevUser) => ({
         ...prevUser,
         profilePicture: image,
@@ -213,7 +213,7 @@ function UserProfile() {
               <h2 className="text-xl font-semibold text-gray-900">
                 {user.displayName || user.email || "Not set"}
               </h2>
-              {/* ✅ 4. Use dynamic data here */}
+
               <p className="text-gray-600">
                 {user.faculty || "Faculty not set"}
               </p>
@@ -221,7 +221,6 @@ function UserProfile() {
                 Joined {user?.joinedYear} {user?.joinedMonth}
               </p>
 
-              {/* ✅ 5. Connect the button to open the modal */}
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md hover:scale-105"
@@ -239,7 +238,6 @@ function UserProfile() {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">About</h3>
                   <div className="space-y-3 text-sm">
-                    {/* ✅ 6. Change hardcoded data to use the user state */}
                     <div className="flex justify-between">
                       <span className="text-gray-500">Faculty</span>
                       <span className="text-gray-800">
@@ -328,7 +326,7 @@ function UserProfile() {
             <h2 className="text-lg font-semibold text-gray-900">
               {user.displayName || user.email || "Not set"}
             </h2>
-            {/* ✅ 7. Use dynamic data here (mobile) */}
+
             <p className="text-gray-600 text-sm">
               {user.faculty || "Faculty not set"}
             </p>
@@ -336,7 +334,6 @@ function UserProfile() {
               Joined {user?.joinedYear} {user?.joinedMonth}
             </p>
 
-            {/* ✅ 8. Connect the mobile button to open the modal */}
             <button
               onClick={() => setIsModalOpen(true)}
               className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md"
@@ -369,7 +366,6 @@ function UserProfile() {
               <div>
                 <h3 className="text-lg font-semibold mb-4">About</h3>
                 <div className="space-y-3 text-sm">
-                  {/* ✅ 9. Change hardcoded mobile data to use user state */}
                   <div className="flex justify-between">
                     <span className="text-gray-500">Faculty</span>
                     <span className="text-gray-800">

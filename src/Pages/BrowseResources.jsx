@@ -29,22 +29,28 @@ export default function BrowseResources() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setMarginTop(10 * 4); // Tailwind mt-20 = 20 * 0.25rem = 5rem = 80px
-    }, ); // delay before transition starts (optional)
+    }); // delay before transition starts (optional)
 
     return () => clearTimeout(timer);
   }, []);
 
-    // ✅ Fuse.js setup (only rebuild when resources change)
+  // ✅ Fuse.js setup (only rebuild when resources change)
   const fuse = useMemo(() => {
     return new Fuse(resources, {
-      keys: ["resourceTitle", "description", "tags", "courseSubject", "courseCode"],
+      keys: [
+        "resourceTitle",
+        "description",
+        "tags",
+        "courseSubject",
+        "courseCode",
+      ],
       threshold: 0.4, // smaller = more accurate match
 
       getFn: (item, path) => {
-      const value = item[path];
-      if (Array.isArray(value)) return value.map(v => v.trim());
-      return value;
-    }
+        const value = item[path];
+        if (Array.isArray(value)) return value.map((v) => v.trim());
+        return value;
+      },
     });
   }, [resources]);
 
@@ -62,7 +68,6 @@ export default function BrowseResources() {
     return () => clearTimeout(handler);
   }, [search, fuse, resources]);
 
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar placeholder */}
@@ -70,21 +75,28 @@ export default function BrowseResources() {
 
       {/* Main content */}
       <main className="max-w-6xl mx-auto py-10 px-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Browse Resources</h2>
-        <p className="text-gray-600 mb-6">Find the study materials you need to succeed.</p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          Browse Resources
+        </h2>
+        <p className="text-gray-600 mb-6">
+          Find the study materials you need to succeed.
+        </p>
 
         {/* Search bar */}
-        <div style={{
-        marginTop: `${marginTop}px`,
-        marginBottom: "2rem", // Tailwind mb-8 = 2rem
-        transition: "margin-top 0.5s ease-in-out",
-      }}>
-        <SearchBar placeholder="Search for lecture notes, past papers, etc."
-          value={search}
-          onChange={setSearch}
-          isFocused={"true"}
+        <div
+          style={{
+            marginTop: `${marginTop}px`,
+            marginBottom: "2rem", // Tailwind mb-8 = 2rem
+            transition: "margin-top 0.5s ease-in-out",
+          }}
+        >
+          <SearchBar
+            placeholder="Search for lecture notes, past papers, etc."
+            value={search}
+            onChange={setSearch}
+            isFocused={"true"}
           />
-          </div>
+        </div>
 
         {/* Filter buttons */}
         <div className="flex flex-wrap gap-2 mb-6 justify-center">
@@ -100,10 +112,14 @@ export default function BrowseResources() {
 
         {/* Search Results */}
         {search === "" ? (
-        <h3 className="text-lg font-semibold text-gray-700 mb-4">Most Searched</h3>):(
-        <h3 className="text-lg font-semibold text-gray-700 mb-4">Search Results</h3>)
-
-}
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">
+            Most Searched
+          </h3>
+        ) : (
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">
+            Search Results
+          </h3>
+        )}
 
         <div className="mt-6 space-y-4 min-h-100">
           {filtered.length === 0 && search ? (
@@ -117,7 +133,8 @@ export default function BrowseResources() {
                 <h4 className="font-semibold">{res.resourceTitle}</h4>
                 <p className="text-sm text-gray-700 mb-1">{res.description}</p>
                 <p className="text-xs text-gray-500">
-                  Uploaded by: {res.displayName || res.uploaderEmail}
+                  Uploaded by:{" "}
+                  {res.displayName || res.uploaderEmail || "Unknown user"}
                 </p>
               </div>
             ))
@@ -125,23 +142,23 @@ export default function BrowseResources() {
         </div>
 
         {/* Pagination */}
-        { filtered > 10 && (
-        <div className="flex justify-center mt-8 space-x-2">
-          {[1, 2, 3, "...", 10].map((num, i) => (
-            <button
-              key={i}
-              aria-current={num === 1 ? "page" : undefined}
-              className={`px-3 py-1 rounded-md text-sm ${
-                num === 1
-                  ? "bg-blue-700 text-white"
-                  : "bg-white border border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {num}
-            </button>
-          ))}
-        </div>)
-}
+        {filtered > 10 && (
+          <div className="flex justify-center mt-8 space-x-2">
+            {[1, 2, 3, "...", 10].map((num, i) => (
+              <button
+                key={i}
+                aria-current={num === 1 ? "page" : undefined}
+                className={`px-3 py-1 rounded-md text-sm ${
+                  num === 1
+                    ? "bg-blue-700 text-white"
+                    : "bg-white border border-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+        )}
       </main>
       <Footer />
     </div>

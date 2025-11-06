@@ -32,10 +32,10 @@ function useCreateUserDoc() {
               Contact: "",
             });
 
-            console.log("✅ User document created for:", currentUser.email);
+            console.log("User document created for:", currentUser.email);
           }
         } catch (err) {
-          console.error("❌ Error creating user document:", err);
+          console.error("Error creating user document:", err);
         }
       }
     });
