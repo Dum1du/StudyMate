@@ -50,10 +50,10 @@ function StudentLogin() {
       await user.reload();
 
       if (user.emailVerified) {
-        console.log("✅ Email verified — proceed to dashboard");
+        console.log("Email verified — proceed to dashboard");
         navigate("/home");
       } else {
-        console.log("❌ Email not verified");
+        console.log("Email not verified");
         alert("Please verify your email before logging in.");
         await auth.signOut(); // SIGN OUT UNVERIFIED EMAILS
       }

@@ -19,7 +19,7 @@ function UploadResources() {
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const fileInputRef = useRef(null);
 
-  // ✅ File handling
+  // File handling
   const handleFiles = (files) => {
     if (files.length > 0) setFile(files[0]);
   };
@@ -34,7 +34,7 @@ function UploadResources() {
     fileInputRef.current.click();
   };
 
-  // ✅ Stable callback using useCallback so React doesn’t recreate it on each render
+  // Stable callback using useCallback so React doesn’t recreate it on each render
   const handleUploadStatus = useCallback((data) => {
     console.log("Upload step:", data.step, data.message);
     setShowProgress(true);
@@ -52,7 +52,7 @@ function UploadResources() {
       case "complete":
         setProgress(100);
         setSuccess(true); // turn progress bar green
-        setShowSuccessOverlay(true); // ✅ Show overlay
+        setShowSuccessOverlay(true); // Show overlay
 
         setTimeout(() => {
           // fade out overlay
@@ -79,7 +79,7 @@ function UploadResources() {
     }
   }, []);
 
-  // ✅ Attach socket listener (stable)
+  // Attach socket listener (stable)
   useEffect(() => {
     if (!socket) return;
 
@@ -92,14 +92,14 @@ function UploadResources() {
     return () => {
       socket.off("uploadStatus", handleUploadStatus);
     };
-  }, [handleUploadStatus]); // 👈 depends on the stable callback
+  }, [handleUploadStatus]); // depends on the stable callback
 
-  // ✅ Watch progress changes (optional, for debugging)
+  // Watch progress changes (optional, for debugging)
   useEffect(() => {
     console.log("Progress updated:", progress);
   }, [progress]);
 
-  // ✅ Main upload
+  // Main upload
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return alert("Please select a file!");
@@ -283,7 +283,7 @@ function UploadResources() {
                 }`}
                 style={{ width: `${progress}%` }}
               >
-                {success ? "✅ Uploaded!" : `${progress}%`}
+                {success ? "Uploaded!" : `${progress}%`}
               </div>
             </div>
           )}
@@ -301,7 +301,7 @@ function UploadResources() {
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-xl animate-fadeIn">
               <div className="bg-green-100 border border-green-400 text-green-700 px-8 py-6 rounded-xl shadow-lg animate-fadeIn">
                 <h2 className="text-2xl font-semibold mb-2">
-                  ✅ Upload Successful!
+                  Upload Successful!
                 </h2>
                 <p className="text-gray-600">
                   Your material has been uploaded to the system.

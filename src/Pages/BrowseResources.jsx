@@ -14,7 +14,7 @@ export default function BrowseResources() {
   const [filtered, setFiltered] = useState([]);
   const [marginTop, setMarginTop] = useState(36 * 4);
 
-  // ✅ Fetch all materials once
+  // Fetch all materials once
   useEffect(() => {
     const fetchAllMaterials = async () => {
       const q = collectionGroup(db, "Materials");
@@ -34,7 +34,7 @@ export default function BrowseResources() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ✅ Fuse.js setup (only rebuild when resources change)
+  // Fuse.js setup (only rebuild when resources change)
   const fuse = useMemo(() => {
     return new Fuse(resources, {
       keys: [
@@ -54,7 +54,7 @@ export default function BrowseResources() {
     });
   }, [resources]);
 
-  // ✅ Debounce search input
+  // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       if (!search.trim()) {
