@@ -1,52 +1,87 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
 import UpcomingKuppi from "../upcomingkuppi";
 import { FaPlus } from "react-icons/fa";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { v4 as uuidv4 } from "uuid";
 import Footer from "../Footer";
+import {
+  addDoc,
+  collection,
+  orderBy,
+  query,
+  serverTimestamp,
+  onSnapshot,
+} from "firebase/firestore";
 
 function KuppiSessions() {
   const user = auth.currentUser;
+  const [sessions, setSessions] = useState(false);
+  const [upcomingSessions, setUpcomingSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // Upcoming sessions
-  const [upcomingSessions, setUpcomingSessions] = useState([
-    { id: 1, title: "Data Structures", host: "Naveen", time: "2025-10-27 16:00" },
-    { id: 2, title: "Database Systems", host: "Asitha", time: "2025-10-27 18:00" },
-  ]);
+  // take the list of sessions from the database
+  useEffect(() => {
+    const q = query(collection(db, "sessions"), orderBy("time", "asc"));
+
+    // CORRECT SYNTAX: onSnapshot(query, callback)
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const sessions = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setUpcomingSessions(sessions);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Survey
   const [q1, setQ1] = useState("");
   const [q2, setQ2] = useState("");
 
   // Add Session
-  const addSession = (e) => {
+  // 1. Added 'async'
+  const addSession = async (e) => {
     e.preventDefault();
     const title = e.target.title.value;
     const date = e.target.date.value;
     const time = e.target.time.value;
-    const username = user?.displayName || "TBD";
 
-    if (!title || !date || !time) return;
+    if (!title || !date || !time) {
+      alert("Please fill in all fields to create a Kuppi session!");
+      return;
+    }
 
-    const newSession = {
-      id: Date.now(),
-      title,
-      host: username,
-      time: `${date} ${time}`,
-    };
+    // 2. Make sure you defined 'const [loading, setLoading] = useState(false);' above
+    setLoading(true);
 
-    setUpcomingSessions([...upcomingSessions, newSession]);
-    e.target.reset();
+    try {
+      const uniqueId = uuidv4().slice(0, 8);
+      const sanitizedTitle = title.replace(/\s+/g, "-");
+      const jitsiLink = `https://meet.jit.si/StudyMate-OUSL-${sanitizedTitle}-${uniqueId}`;
+
+      await addDoc(collection(db, "sessions"), {
+        title: title,
+        host: user.displayName || "Anonymous",
+        time: `${date}T${time}:00`,
+        link: jitsiLink,
+        createdAt: serverTimestamp(),
+      });
+
+      alert("Kuppi session created successfully!");
+      e.target.reset();
+    } catch (error) {
+      console.error("Error adding Kuppi session: ", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Survey Alert
   const handleSurveySubmit = (e) => {
     e.preventDefault();
-    if (!q1 || !q2) {
-      alert("Please answer both questions before submitting!");
-      return;
-    }
-    alert(`Feedback submitted!\n\nRating: ${q1}\nUnderstanding: ${q2}`);
+    alert(`Feedback submitted!`);
     setQ1("");
     setQ2("");
   };
@@ -54,88 +89,71 @@ function KuppiSessions() {
   return (
     <>
       <Navbar />
-
       <div className="p-6 max-w-6xl mx-auto md:text-left">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-center md:text-left">
-          Kuppi Sessions
-        </h1>
-        <h3 className="text-gray-400 mb-6 text-center md:text-left text-sm sm:text-base">
-          Collaborate with peers in study sessions. Create or join sessions and access Google Meet links.
-        </h3>
+        <h1 className="text-3xl sm:text-4xl font-bold mb-4">Kuppi Sessions</h1>
 
-        
         <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start justify-center">
-          
+          {/* LEFT SIDE: LIST OF SESSIONS */}
           <div className="flex-1 w-full">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 text-center md:text-left">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4">
               Upcoming Sessions
             </h2>
-            <div className="flex flex-col gap-4 sm:gap-6">
+            <div className="flex flex-col gap-4">
               {upcomingSessions.map((session) => (
                 <UpcomingKuppi
                   key={session.id}
                   title={session.title}
                   host={session.host}
-                  time={session.time}
-                  className="w-full sm:w-auto"
+                  // We clean up the time (remove the 'T')
+                  time={session.time.replace("T", " ")}
+                  // CRITICAL: We pass the link to the card component
+                  link={session.link}
                 />
               ))}
             </div>
           </div>
 
-          {/* Create New Session Form */}
+          {/* RIGHT SIDE: FORM */}
           <form
             onSubmit={addSession}
-            className="bg-white rounded-xl shadow-md w-full sm:w-130 p-4 sm:p-6 flex flex-col gap-3 sm:gap-4"
+            className="bg-white rounded-xl shadow-md p-6 flex flex-col gap-4 w-full sm:w-1/3"
           >
-            <label className="font-bold text-xl sm:text-2xl text-gray-700 mb-2 text-center md:text-left">
-              Create a New Session
-            </label>
-
-            <label htmlFor="title" className="text-gray-700 font-semibold text-sm sm:text-base">
-              Session Topic
-            </label>
+            <h2 className="text-xl font-bold">Create Session</h2>
             <input
               type="text"
               name="title"
-              placeholder="Session Topic"
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm sm:text-base w-full"
+              placeholder="Topic"
+              className="border p-2 rounded"
+              required
+            />
+            <input
+              type="date"
+              name="date"
+              className="border p-2 rounded"
+              required
+            />
+            <input
+              type="time"
+              name="time"
+              className="border p-2 rounded"
               required
             />
 
-            <label htmlFor="date" className="text-gray-700 font-semibold text-sm sm:text-base">
-              Session Date & Time
-            </label>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-center w-full">
-              <input
-                type="date"
-                name="date"
-                className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-1/2 text-sm sm:text-base"
-                required
-                onKeyDown={(e) => e.preventDefault()}
-              />
-              <input
-                type="time"
-                name="time"
-                className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-1/2 text-sm sm:text-base"
-                required
-                onKeyDown={(e) => e.preventDefault()}
-              />
-            </div>
-
             <button
               type="submit"
-              className="bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition flex items-center justify-center gap-2 font-bold text-sm sm:text-base w-full sm:w-auto"
+              disabled={loading}
+              className="bg-blue-500 text-white py-2 rounded font-bold hover:bg-blue-600"
             >
-              <FaPlus className="text-white text-lg" />
-              Create Session
+              {loading ? "Creating..." : "Create Session"}
             </button>
           </form>
         </div>
 
         {/* Feedback Survey Section */}
         <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 w-full sm:w-130 mx-auto mt-6 sm:mt-8">
-          <h2 className="text-xl sm:text-2xl font-bold mb-4 text-left">Survey</h2>
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 text-left">
+            Survey
+          </h2>
 
           {/* Q1 */}
           <div className="mb-4 sm:mb-6">
