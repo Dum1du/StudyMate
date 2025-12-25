@@ -18,7 +18,7 @@ function UpcomingKuppi(props) {
           href={props.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 transition"
+          className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 transition"
         >
           Join Meeting
         </a>
