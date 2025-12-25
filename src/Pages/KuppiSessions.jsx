@@ -24,12 +24,29 @@ function KuppiSessions() {
   useEffect(() => {
     const q = query(collection(db, "sessions"), orderBy("time", "asc"));
 
-    // CORRECT SYNTAX: onSnapshot(query, callback)
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const sessions = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const now = new Date(); // Get current time
+
+      const sessions = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .filter((session) => {
+          // CONVERT STORED STRING TO DATE OBJECT
+          const sessionTime = new Date(session.time);
+
+          // ADD A BUFFER (OPTIONAL):
+          // If you want the link to stay visible for 1 hour AFTER the start time
+          // (so latecomers can still join), add 60 minutes to the session time.
+          const expirationTime = new Date(
+            sessionTime.getTime() + 60 * 60 * 1000
+          );
+
+          // KEEP ONLY IF: Expiration time is in the future
+          return expirationTime > now;
+        });
+
       setUpcomingSessions(sessions);
     });
 
