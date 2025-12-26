@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
 import UpcomingKuppi from "../upcomingkuppi";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaSave } from "react-icons/fa";
 import { auth, db } from "../firebase";
 import { v4 as uuidv4 } from "uuid";
 import Footer from "../Footer";
@@ -11,55 +11,61 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  onSnapshot, // Fixed: Added missing import
-  deleteDoc, // Fixed: Added for cleanup
-  doc, // Fixed: Added for cleanup
-  getDocs, // Fixed: Added for cleanup
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc,
+  getDocs,
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth"; // Import this for user tracking
 
 function KuppiSessions() {
-  const user = auth.currentUser;
+  // FIXED: Track user state so buttons appear correctly on refresh
+  const [user, setUser] = useState(null);
 
-  // 1. FIXED STATE VARIABLES
-  // Renamed 'sessions' to 'loading' to match your logic below
   const [loading, setLoading] = useState(false);
   const [upcomingSessions, setUpcomingSessions] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [formData, setFormData] = useState({ title: "", date: "", time: "" });
+  const [q1, setQ1] = useState("");
+  const [q2, setQ2] = useState("");
 
-  // 2. AUTO-CLEANUP LISTENER (Deletes data older than 6 hours)
+  // 1. LISTEN FOR USER AUTH CHANGES
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. AUTO-CLEANUP (Delete sessions older than 6 hours)
   useEffect(() => {
     const cleanupOldSessions = async () => {
       const now = new Date();
-      // Cutoff time: 6 hours ago
       const cutoffTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-
       try {
         const q = query(collection(db, "sessions"));
         const querySnapshot = await getDocs(q);
-
         querySnapshot.forEach(async (document) => {
           const data = document.data();
-          // Convert stored string time back to Date object
-          const sessionTime = new Date(data.time);
-
-          // If session is older than 6 hours, delete it
-          if (sessionTime < cutoffTime) {
-            await deleteDoc(doc(db, "sessions", document.id));
-            console.log(`Auto-deleted expired session: ${data.title}`);
+          if (data.time) {
+            const sessionTime = new Date(data.time);
+            if (sessionTime < cutoffTime) {
+              await deleteDoc(doc(db, "sessions", document.id));
+            }
           }
         });
       } catch (error) {
-        console.error("Error running cleanup:", error);
+        console.error("Cleanup error:", error);
       }
     };
-
     cleanupOldSessions();
   }, []);
 
-  // 3. DISPLAY LISTENER (Real-time updates)
+  // 3. REAL-TIME DATA
   useEffect(() => {
-    // We simply show whatever is left in the database (sorted by time)
     const q = query(collection(db, "sessions"), orderBy("time", "asc"));
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const sessionsList = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -67,54 +73,103 @@ function KuppiSessions() {
       }));
       setUpcomingSessions(sessionsList);
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Survey State
-  const [q1, setQ1] = useState("");
-  const [q2, setQ2] = useState("");
+  // DELETE FUNCTION
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this session?")) {
+      try {
+        await deleteDoc(doc(db, "sessions", id));
+      } catch (error) {
+        console.error("Error deleting:", error);
+        alert("Failed to delete session.");
+      }
+    }
+  };
 
-  // 4. ADD SESSION FUNCTION (Async + Jitsi Logic)
-  const addSession = async (e) => {
+  // PREPARE EDIT
+  const handleEditClick = (session) => {
+    // Safety check in case time is missing
+    if (!session.time) return;
+
+    setIsEditing(true);
+    setEditId(session.id);
+
+    // FIXED: Added try/catch for split logic safety
+    try {
+      const [datePart, timePart] = session.time.split("T");
+      setFormData({
+        title: session.title,
+        date: datePart,
+        time: timePart ? timePart.slice(0, 5) : "",
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      console.error("Error parsing date:", e);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditId(null);
+    setFormData({ title: "", date: "", time: "" });
+  };
+
+  // FORM SUBMIT
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const title = e.target.title.value;
-    const date = e.target.date.value;
-    const time = e.target.time.value;
+    const { title, date, time } = formData;
 
     if (!title || !date || !time) {
-      alert("Please fill in all fields to create a Kuppi session!");
+      alert("Please fill in all fields!");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Generate Unique Jitsi Link
-      const uniqueId = uuidv4().slice(0, 8);
-      const sanitizedTitle = title.replace(/\s+/g, "-");
-      const jitsiLink = `https://meet.jit.si/StudyMate-OUSL-${sanitizedTitle}-${uniqueId}`;
+      const dateTimeString = `${date}T${time}:00`;
 
-      // Save to Firebase
-      await addDoc(collection(db, "sessions"), {
-        title: title,
-        host: user?.displayName || "Anonymous",
-        time: `${date}T${time}:00`,
-        link: jitsiLink,
-        createdAt: serverTimestamp(),
-      });
+      if (isEditing) {
+        // UPDATE
+        const sessionRef = doc(db, "sessions", editId);
+        await updateDoc(sessionRef, {
+          title: title,
+          time: dateTimeString,
+        });
+        alert("Session updated successfully!");
+        setIsEditing(false);
+        setEditId(null);
+      } else {
+        // CREATE
+        const uniqueId = uuidv4().slice(0, 8);
+        const sanitizedTitle = title.replace(/\s+/g, "-");
+        const jitsiLink = `https://meet.jit.si/StudyMate-OUSL-${sanitizedTitle}-${uniqueId}`;
 
-      alert("Kuppi session created successfully!");
-      e.target.reset();
+        await addDoc(collection(db, "sessions"), {
+          title: title,
+          host: user?.displayName || "Anonymous",
+          time: dateTimeString,
+          link: jitsiLink,
+          createdAt: serverTimestamp(),
+        });
+        alert("Session created successfully!");
+      }
+      setFormData({ title: "", date: "", time: "" });
     } catch (error) {
-      console.error("Error adding Kuppi session: ", error);
-      alert("Failed to create session. Check console.");
+      console.error("Error saving session: ", error);
+      alert("Failed to save session.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Survey Alert
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
   const handleSurveySubmit = (e) => {
     e.preventDefault();
     alert(`Feedback submitted!`);
@@ -125,138 +180,192 @@ function KuppiSessions() {
   return (
     <>
       <Navbar />
-      <div className="p-6 max-w-6xl mx-auto md:text-left">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-4">Kuppi Sessions</h1>
+      <div className="p-6 max-w-6xl mx-auto md:text-left min-h-screen">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2 text-gray-900">
+          Kuppi Sessions
+        </h1>
+        <p className="text-gray-500 mb-8">
+          Join a session or schedule your own peer learning group.
+        </p>
 
-        <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start justify-center">
-          {/* LEFT SIDE: LIST OF SESSIONS */}
+        {/* MAIN CONTENT AREA */}
+        <div className="flex flex-col-reverse md:flex-row gap-8 items-start justify-center">
+          {/* LEFT SIDE: SESSIONS LIST */}
           <div className="flex-1 w-full">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4">
+            <h2 className="text-xl font-bold mb-4 text-gray-800 border-b pb-2">
               Upcoming Sessions
             </h2>
-            <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {upcomingSessions.map((session) => (
                 <UpcomingKuppi
                   key={session.id}
                   title={session.title}
                   host={session.host}
-                  // Fix time format for display (remove 'T')
-                  time={
-                    session.time ? session.time.replace("T", " ") : "Time N/A"
-                  }
-                  // Pass the generated link
+                  time={session.time ? session.time.replace("T", " ") : "N/A"}
                   link={session.link}
+                  onDelete={() => handleDelete(session.id)}
+                  onEdit={() => handleEditClick(session)}
+                  isHost={
+                    user &&
+                    (session.host === user.displayName ||
+                      session.host === "Anonymous")
+                  }
                 />
               ))}
               {upcomingSessions.length === 0 && (
-                <p className="text-gray-500 italic">
-                  No upcoming sessions found.
-                </p>
+                <div className="col-span-full text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                  <p className="text-gray-500">No sessions scheduled yet.</p>
+                </div>
               )}
             </div>
           </div>
 
           {/* RIGHT SIDE: FORM */}
-          <form
-            onSubmit={addSession}
-            className="bg-white rounded-xl shadow-md p-6 flex flex-col gap-4 w-full sm:w-1/3 h-fit"
-          >
-            <h2 className="text-xl font-bold">Create Session</h2>
-            <input
-              type="text"
-              name="title"
-              placeholder="Topic"
-              className="border p-2 rounded"
-              required
-            />
-            <input
-              type="date"
-              name="date"
-              className="border p-2 rounded"
-              required
-            />
-            <input
-              type="time"
-              name="time"
-              className="border p-2 rounded"
-              required
-            />
-
-            <button
-              type="submit"
-              disabled={loading}
-              className={`py-2 rounded font-bold text-white transition ${
-                loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-600"
+          <div className="w-full md:w-1/3 md:sticky md:top-24">
+            <form
+              onSubmit={handleSubmit}
+              className={`bg-white rounded-xl shadow-lg p-6 flex flex-col gap-4 border-t-4 ${
+                isEditing ? "border-green-500" : "border-blue-500"
               }`}
             >
-              {loading ? (
-                "Creating..."
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <FaPlus /> Create Session
-                </span>
-              )}
-            </button>
-          </form>
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-800">
+                  {isEditing ? "Edit Session" : "Schedule Session"}
+                </h2>
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">
+                  Topic
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  placeholder="e.g. Calculus II"
+                  className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleInputChange}
+                  className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  name="time"
+                  value={formData.time}
+                  onChange={handleInputChange}
+                  className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={`py-3 mt-2 rounded-lg font-bold text-white shadow-md transition transform active:scale-95 flex items-center justify-center gap-2 ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : isEditing
+                    ? "bg-green-500 hover:bg-green-600"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {loading ? (
+                  "Processing..."
+                ) : isEditing ? (
+                  <>
+                    {" "}
+                    <FaSave /> Update Session{" "}
+                  </>
+                ) : (
+                  <>
+                    {" "}
+                    <FaPlus /> Create Session{" "}
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
         </div>
 
-        {/* Feedback Survey Section */}
-        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 w-full sm:w-130 mx-auto mt-6 sm:mt-8">
-          <h2 className="text-xl sm:text-2xl font-bold mb-4 text-left">
-            Survey
-          </h2>
-
-          {/* Q1 */}
-          <div className="mb-4 sm:mb-6">
-            <p className="text-sm sm:text-lg font-semibold mb-2 sm:mb-3 text-gray-800">
-              Are you interested in hosting or joining study sessions?
-            </p>
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
-              {["Hosting", "Joining", "Both", "Neither"].map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setQ1(option)}
-                  className={`px-3 py-1 sm:px-4 sm:py-2 rounded-md border text-sm sm:text-base w-full sm:w-auto ${
-                    q1 === option
-                      ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-gray-100 text-gray-700 border-gray-300"
-                  } hover:bg-blue-100 transition`}
-                >
-                  {option}
-                </button>
-              ))}
+        {/* FEEDBACK SECTION (Now outside the Flex row to appear at bottom) */}
+        <div className="mt-12 bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto border border-gray-100">
+          <h2 className="text-xl font-bold mb-4 text-center">Quick Survey</h2>
+          <div className="flex flex-col gap-6">
+            {/* Q1 */}
+            <div>
+              <p className="font-semibold text-gray-800 mb-2 text-center">
+                Are you interested in hosting or joining study sessions?
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {["Hosting", "Joining", "Both", "Neither"].map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => setQ1(option)}
+                    className={`px-4 py-2 rounded-lg border text-sm transition ${
+                      q1 === option
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Q2 */}
-          <div className="mb-4 sm:mb-6">
-            <p className="text-sm sm:text-lg font-semibold mb-2 sm:mb-3 text-gray-800">
-              Do you find the auto-generated Jitsi Meet links convenient?
-            </p>
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
-              {["Yes", "No", "Neutral"].map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setQ2(option)}
-                  className={`px-3 py-1 sm:px-4 sm:py-2 rounded-md border text-sm sm:text-base w-full sm:w-auto ${
-                    q2 === option
-                      ? "bg-green-500 text-white border-green-500"
-                      : "bg-gray-100 text-gray-700 border-gray-300"
-                  } hover:bg-green-100 transition`}
-                >
-                  {option}
-                </button>
-              ))}
+            {/* Q2 */}
+            <div>
+              <p className="font-semibold text-gray-800 mb-2 text-center">
+                Do you find the auto-generated Jitsi Meet links convenient?
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {["Yes", "No", "Neutral"].map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => setQ2(option)}
+                    className={`px-4 py-2 rounded-lg border text-sm transition ${
+                      q2 === option
+                        ? "bg-green-500 text-white border-green-500"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Submit Feedback */}
-          <div className="flex justify-center mt-2">
             <button
               onClick={handleSurveySubmit}
-              className="flex items-center justify-center gap-2 bg-gray-300 text-black font-semibold py-2 px-4 sm:px-6 rounded-xl hover:bg-gray-500 transition w-full sm:w-[280px]"
+              className="bg-gray-800 text-white py-2 px-6 rounded-lg font-bold hover:bg-gray-900 transition mx-auto w-full sm:w-auto"
             >
               Submit Feedback
             </button>
