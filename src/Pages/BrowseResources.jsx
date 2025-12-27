@@ -185,8 +185,8 @@ export default function BrowseResources() {
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  if (selectedResource.fileUrl) {
-                    window.open(selectedResource.fileUrl, '_blank');
+                  if (selectedResource.fileLink) {
+                    window.open(selectedResource.fileLink, '_blank');
                   } else {
                     alert("No URL available for this resource.");
                   }
@@ -198,10 +198,11 @@ export default function BrowseResources() {
               </button>
               <button
                 onClick={() => {
-                  if (selectedResource.fileUrl) {
+                  if (selectedResource.fileId) {
+                    const downloadUrl = `https://drive.google.com/uc?export=download&id=${selectedResource.fileId}`;
                     const link = document.createElement('a');
-                    link.href = selectedResource.fileUrl;
-                    link.download = selectedResource.resourceTitle + '.pdf'; // Assuming PDF, adjust as needed
+                    link.href = downloadUrl;
+                    link.download = selectedResource.resourceTitle + (selectedResource.materialType || '.pdf');
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
