@@ -360,7 +360,7 @@ function KuppiSessions() {
                 <iframe
                   src="https://docs.google.com/forms/d/e/1FAIpQLSdTvyfhZa4XOfNNusd91xtnXwkDWLizyPpgy-Zmsse-xQshDg/viewform?embedded=true&hl=en"
                   width="100%"
-                  height="600"
+                  height="760"
                   frameBorder="0"
                   marginHeight="0"
                   marginWidth="0"
