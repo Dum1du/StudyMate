@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
 import UpcomingKuppi from "../upcomingkuppi";
-import { FaPlus, FaSave } from "react-icons/fa";
+import { FaPlus, FaSave, FaClipboardList, FaTimes } from "react-icons/fa";
 import { auth, db } from "../firebase";
 import { v4 as uuidv4 } from "uuid";
 import Footer from "../Footer";
@@ -30,6 +30,9 @@ function KuppiSessions() {
   const [formData, setFormData] = useState({ title: "", date: "", time: "" });
   const [q1, setQ1] = useState("");
   const [q2, setQ2] = useState("");
+
+  //forum hide and show
+  const [showSurvey, setShowSurvey] = useState(false);
 
   // 1. LISTEN FOR USER AUTH CHANGES
   useEffect(() => {
@@ -315,61 +318,69 @@ function KuppiSessions() {
           </div>
         </div>
 
-        {/* FEEDBACK SECTION (Now outside the Flex row to appear at bottom) */}
-        <div className="mt-12 bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto border border-gray-100">
-          <h2 className="text-xl font-bold mb-4 text-center">Quick Survey</h2>
-          <div className="flex flex-col gap-6">
-            {/* Q1 */}
-            <div>
-              <p className="font-semibold text-gray-800 mb-2 text-center">
-                Are you interested in hosting or joining study sessions?
+        <div className="mt-16 mb-12 flex flex-col items-center justify-center w-full">
+          {/* 1. BUTTON MODE (Visible when showSurvey is false) */}
+          {!showSurvey && (
+            <div className="bg-blue-50 p-8 rounded-2xl border border-blue-100 shadow-sm text-center max-w-lg w-full">
+              <h2 className="text-2xl font-bold text-gray-800 mb-3">
+                We Value Your Feedback!
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Help us improve StudyMate by answering 2 quick questions.
               </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {["Hosting", "Joining", "Both", "Neither"].map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => setQ1(option)}
-                    className={`px-4 py-2 rounded-lg border text-sm transition ${
-                      q1 === option
-                        ? "bg-blue-500 text-white border-blue-500"
-                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
+
+              <button
+                onClick={() => setShowSurvey(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2 mx-auto"
+              >
+                <FaClipboardList /> Take Survey
+              </button>
+            </div>
+          )}
+
+          {/* 2. FORM MODE (Visible when showSurvey is true) */}
+          {showSurvey && (
+            <div className="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl border border-gray-200 relative animate-fade-in">
+              {/* Header with Close Button */}
+              <div className="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 className="text-lg font-bold text-gray-700">
+                  Quick Survey
+                </h3>
+                <button
+                  onClick={() => setShowSurvey(false)}
+                  className="text-gray-400 hover:text-red-500 transition p-2"
+                  title="Close Survey"
+                >
+                  <FaTimes size={20} />
+                </button>
+              </div>
+
+              {/* The Google Form */}
+              <div className="flex justify-center bg-gray-50 rounded-lg overflow-hidden">
+                <iframe
+                  src="https://docs.google.com/forms/d/e/1FAIpQLSdTvyfhZa4XOfNNusd91xtnXwkDWLizyPpgy-Zmsse-xQshDg/viewform?embedded=true&hl=en"
+                  width="100%"
+                  height="600"
+                  frameBorder="0"
+                  marginHeight="0"
+                  marginWidth="0"
+                  title="StudyMate Survey"
+                >
+                  Loading…
+                </iframe>
+              </div>
+
+              {/* "I'm Done" Button (Bottom) */}
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => setShowSurvey(false)}
+                  className="bg-gray-800 hover:bg-gray-900 text-white py-2 px-6 rounded-lg font-semibold transition flex items-center gap-2"
+                >
+                  I'm Done / Close Form
+                </button>
               </div>
             </div>
-
-            {/* Q2 */}
-            <div>
-              <p className="font-semibold text-gray-800 mb-2 text-center">
-                Do you find the auto-generated Jitsi Meet links convenient?
-              </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {["Yes", "No", "Neutral"].map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => setQ2(option)}
-                    className={`px-4 py-2 rounded-lg border text-sm transition ${
-                      q2 === option
-                        ? "bg-green-500 text-white border-green-500"
-                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={handleSurveySubmit}
-              className="bg-gray-800 text-white py-2 px-6 rounded-lg font-bold hover:bg-gray-900 transition mx-auto w-full sm:w-auto"
-            >
-              Submit Feedback
-            </button>
-          </div>
+          )}
         </div>
       </div>
       <Footer />
