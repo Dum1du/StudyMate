@@ -35,14 +35,14 @@ export default function Navbar() {
         setUsername(user.displayName || "");
         setEmail(user.email || "");
 
-        // 🔹 Fetch profile picture from Firestore
+        // Fetch profile picture from Firestore
         try {
           const userRef = doc(db, "users", user.uid);
           const userSnap = await getDoc(userRef);
 
           if (userSnap.exists()) {
             const data = userSnap.data();
-            setProfilePic(data.profilePicture || ""); // store in state
+            setProfilePic(data.profilePicture || "");
           } else {
             console.log("No user document found for this user");
             setProfilePic("");
@@ -66,10 +66,11 @@ export default function Navbar() {
   return (
     <nav className=" bg-blue-600 text-white shadow-md relative">
       <div className="w-full flex items-center justify-between px-6 py-2">
-        {/* LEFT: Logo + Tabs */}
         <div className="flex items-center space-x-8">
-          <span className="text-xl font-bold cursor-pointer"
-          onClick={() => navigate("/home")}>
+          <span
+            className="text-xl font-bold cursor-pointer"
+            onClick={() => navigate("/home")}
+          >
             Study<span className="text-black">Mate</span>
           </span>
 
@@ -107,7 +108,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center space-x-4">
           <button className="hover:text-gray-200">
             <Bell size={20} />
-            <NotificationWrapper  />
+            <NotificationWrapper />
           </button>
           <Link to="/userProfile">
             <div className="flex items-center space-x-2">

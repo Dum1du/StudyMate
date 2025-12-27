@@ -130,7 +130,7 @@ function RegisterUI() {
           {/* email */}
           <div className="w-full max-w-md">
             <label className="font-medium flex justify-start mt-10 mb-1 mx-1">
-              OUSL Student ID / Email
+              OUSL Student Email
             </label>
             <div className="relative">
               <input
@@ -138,7 +138,7 @@ function RegisterUI() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
                 type="text"
-                placeholder="Enter your student ID or email"
+                placeholder="Enter your student email"
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 required
               />
