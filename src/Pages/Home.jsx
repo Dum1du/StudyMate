@@ -10,7 +10,7 @@ import {
   FaUsers,
 } from "react-icons/fa";
 import { BiNotification } from "react-icons/bi";
-import { Calendar, MailOpen } from "lucide-react";
+import { Calendar, MailOpen, Eye, Download, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
@@ -21,6 +21,7 @@ import Footer from "../Footer";
 function Home() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState(null);
+  const [selectedResource, setSelectedResource] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -141,7 +142,7 @@ function Home() {
             <section className="mt-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {pdfs.map((pdf, idx) => (
-                  <PdfCard key={idx} title={pdf.title} subtitle={pdf.subtitle} />
+                  <PdfCard key={idx} title={pdf.title} subtitle={pdf.subtitle} onClick={() => setSelectedResource(pdf)} />
                 ))}
               </div>
             </section>
@@ -158,13 +159,70 @@ function Home() {
             <section className="mt-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {pdfs.map((pdf, idx) => (
-                  <PdfCard key={`popular-${idx}`} title={pdf.title} subtitle={pdf.subtitle} />
+                  <PdfCard key={`popular-${idx}`} title={pdf.title} subtitle={pdf.subtitle} onClick={() => setSelectedResource(pdf)} />
                 ))}
               </div>
             </section>
           </div>
         </div>
       </div>
+
+      {/* Resource Details Modal */}
+      {selectedResource && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl relative transform transition-all duration-300 scale-100 hover:scale-[1.02]">
+            <button
+              onClick={() => setSelectedResource(null)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              {selectedResource.title}
+            </h2>
+            <p className="text-gray-600 text-sm mb-4">
+              {selectedResource.description}
+            </p>
+            <p className="text-xs text-gray-500 mb-6">
+              {selectedResource.subtitle}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (selectedResource.fileUrl) {
+                    window.open(selectedResource.fileUrl, '_blank');
+                  } else {
+                    alert("No URL available for this resource.");
+                  }
+                  setSelectedResource(null);
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm flex-1 justify-center"
+              >
+                <Eye size={16} /> View
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedResource.fileUrl) {
+                    const link = document.createElement('a');
+                    link.href = selectedResource.fileUrl;
+                    link.download = selectedResource.title + '.pdf';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  } else {
+                    alert("No download link available for this resource.");
+                  }
+                  setSelectedResource(null);
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm flex-1 justify-center"
+              >
+                <Download size={16} /> Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </>
   );
