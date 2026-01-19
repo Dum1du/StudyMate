@@ -1,23 +1,23 @@
-import { useEffect, useState } from "react";
-import { Bell, Mail, Menu, X } from "lucide-react";
-import { Link, NavLink } from "react-router-dom";
-import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { MdLogout } from "react-icons/md";
-import { useNavigate } from "react-router";
-import { signOut } from "firebase/auth";
-import React, { useRef } from "react";
-import NotificationWrapper from "./NotificationWrapper";
-
+import { useEffect, useState, useRef } from "react";
+import { Bell, Menu, X } from "lucide-react";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { auth, db } from "./firebase"; // Ensure paths are correct
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "./firebase";
+import { MdLogout } from "react-icons/md";
+import NotificationWrapper from "./NotificationWrapper";
 
 export default function Navbar() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const navigate = useNavigate();
-  const bellRef = useRef(null);
   const [profilePic, setProfilePic] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // 1. Add loading state to prevent flickering before we know the user status
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+  const location = useLocation(); // Used to prevent redirect loops
 
   const handleLogout = async () => {
     try {
@@ -35,7 +35,6 @@ export default function Navbar() {
         setUsername(user.displayName || "");
         setEmail(user.email || "");
 
-        // Fetch profile picture from Firestore
         try {
           const userRef = doc(db, "users", user.uid);
           const userSnap = await getDoc(userRef);
@@ -44,27 +43,42 @@ export default function Navbar() {
             const data = userSnap.data();
             setProfilePic(data.profilePicture || "");
           } else {
-            console.log("No user document found for this user");
             setProfilePic("");
           }
         } catch (error) {
           console.error("Error fetching user profile:", error);
+        } finally {
+          setLoading(false);
         }
       } else {
-        console.log("User not found");
+        // 2. Logic: If no user, and we are NOT already on the login page, redirect.
+        console.log("User not found, redirecting...");
+        
+        // This check prevents an infinite loop if you accidentally put Navbar on the login page
+        if (location.pathname !== "/logins") {
+          navigate("/logins");
+        }
+        
         setUsername("");
         setEmail("");
         setProfilePic("");
+        setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [navigate, location.pathname]);
 
-  const [isOpen, setIsOpen] = useState(false);
+  // 3. Optional: You can return nothing or a skeleton while checking auth
+  // However, for a Navbar, it is usually better to render it so the layout doesn't jump.
+  // If you want to hide the navbar completely while loading, uncomment the next 3 lines:
+  /* if (loading) {
+    return null; // Or return <div className="h-16 bg-blue-600"></div> to hold space
+  } 
+  */
 
   return (
-    <nav className=" bg-blue-600 text-white shadow-md relative">
+    <nav className="bg-blue-600 text-white shadow-md relative">
       <div className="w-full flex items-center justify-between px-6 py-2">
         <div className="flex items-center space-x-8">
           <span
@@ -110,22 +124,26 @@ export default function Navbar() {
             <Bell size={20} />
             <NotificationWrapper />
           </button>
-          <Link to="/userProfile">
-            <div className="flex items-center space-x-2">
-              <img
-                src={
-                  profilePic ||
-                  "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
-                }
-                alt="User"
-                className="w-8 h-8 rounded-full object-cover border-0"
-              />
-              <div className="text-sm leading-tight">
-                <p className="font-medium">{username}</p>
-                <p className="text-xs text-gray-200">{email}</p>
+          
+          {/* Conditional rendering: Only show profile if not loading and user exists */}
+          {!loading && (
+            <Link to="/userProfile">
+              <div className="flex items-center space-x-2">
+                <img
+                  src={
+                    profilePic ||
+                    "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
+                  }
+                  alt="User"
+                  className="w-8 h-8 rounded-full object-cover border-0"
+                />
+                <div className="text-sm leading-tight">
+                  <p className="font-medium">{username || "User"}</p>
+                  <p className="text-xs text-gray-200">{email}</p>
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -162,7 +180,7 @@ export default function Navbar() {
               className="w-30 h-30 rounded-full object-cover border-0"
             />
             <div className="w-full justify-items-center border-b border-blue-500 pb-5">
-              <p className="font-medium">{username}</p>
+              <p className="font-medium">{username || "Guest"}</p>
               <p className="text-xs text-gray-200">{email}</p>
             </div>
           </div>
@@ -187,7 +205,7 @@ export default function Navbar() {
         </div>
         <div
           onClick={handleLogout}
-          className="flex items-center space-x-6 pt-4 border-t border-blue-500 pl-6"
+          className="flex items-center space-x-6 pt-4 border-t border-blue-500 pl-6 cursor-pointer"
         >
           <div>
             <MdLogout className="size-6" />

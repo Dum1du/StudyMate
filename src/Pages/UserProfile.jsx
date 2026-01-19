@@ -5,7 +5,6 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
-// Updated Imports
 import { 
   doc, 
   updateDoc, 
@@ -22,19 +21,20 @@ import Footer from "../Footer";
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
   const [user, setUser] = useState(null);
+  
+  // Loading state for the auth check
+  const [authLoading, setAuthLoading] = useState(true); 
+  
   const navigate = useNavigate();
 
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // New State for Posts
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // ... [Keep handleProfileUpdate, handleImageChange, handleUpload, handleLogout as they were] ...
   const handleProfileUpdate = async (updatedData) => {
     if (!user) return;
     try {
@@ -86,7 +86,7 @@ function UserProfile() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate("/logins");
+      navigate("/logins"); 
     } catch (error) {
       console.error("Logout failed!", error);
     }
@@ -119,31 +119,28 @@ function UserProfile() {
         }
       } else {
         setUser(null);
+        navigate("/logins"); 
       }
+      setAuthLoading(false); 
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
-  // NEW: Fetch User Uploads
+  // Fetch User Uploads
   useEffect(() => {
     const fetchUserPosts = async () => {
       if (!user?.uid) return;
-
       try {
         setPostsLoading(true);
-        // Ensure "uploads" matches your collection name
-        // Ensure "userId" matches the field where you save the user's ID
         const q = query(
           collection(db, "studyMaterials"), 
           where("uid", "==", user.uid)
         );
-        
         const querySnapshot = await getDocs(q);
         const postsData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
-
         setUserPosts(postsData);
       } catch (error) {
         console.error("Error fetching user posts:", error);
@@ -151,11 +148,9 @@ function UserProfile() {
         setPostsLoading(false);
       }
     };
-
     fetchUserPosts();
   }, [user]);
 
-  // Helper Component for Rendering Posts
   const PostList = () => {
     if (postsLoading) return <div className="text-center text-gray-500 py-8">Loading uploads...</div>;
     if (userPosts.length === 0) return <div className="text-center text-gray-500 py-8">No uploads found.</div>;
@@ -169,7 +164,6 @@ function UserProfile() {
                 <FaFileAlt />
               </div>
               <div className="text-left">
-                {/* Adjust field names (title, subject) based on your DB */}
                 <h4 className="font-semibold text-gray-800 text-sm md:text-base">
                   {post.title || post.fileName || "Untitled"}
                 </h4>
@@ -192,25 +186,31 @@ function UserProfile() {
     );
   };
 
-  if (!user) {
+  if (authLoading) {
     return (
       <>
         <Navbar />
         <div className="flex items-center justify-center min-h-screen">
-          <p className="text-gray-500 text-lg">Loading profile...</p>
+          <p className="text-gray-500 text-lg">Checking authentication...</p>
         </div>
       </>
     );
   }
 
+  if (!user) {
+    return null; 
+  }
+
   return (
     <>
       <Navbar />
-
+      
       {/* Desktop View */}
-      <div className="hidden md:flex max-w-6xl mx-auto mt-10 space-x-6 px-4">
+      {/* FIXED: Added 'w-full' here so the container doesn't collapse on empty tabs */}
+      <div className="hidden md:flex max-w-6xl w-full mx-auto mt-10 space-x-6 px-4">
+        
         {/* Sidebar */}
-        <div className="w-64 bg-white border border-gray-200 rounded-xl shadow-sm p-6 h-fit">
+        <div className="w-64 bg-white border border-gray-200 rounded-xl shadow-sm p-6 h-fit shrink-0">
           <h3 className="text-lg font-semibold mb-4">Menu</h3>
           <div className="flex flex-col space-y-3">
             {["overview", "posts"].map((tab) => (
@@ -234,15 +234,19 @@ function UserProfile() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1">
+        {/* FIXED: Added min-w-0 to prevent flex overflow */}
+        <div className="flex-1 min-w-0">
+          
           {/* Profile Header */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex items-center space-x-6">
-             {/* ... [Profile Header Image & Info Code - No Changes] ... */}
-             <div className="relative">
+             
+             {/* FIXED: Added 'shrink-0' to wrapper */}
+             <div className="relative shrink-0">
               <img
                 src={preview || user.profilePicture || "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"}
                 alt="User"
-                className="w-30 h-30 rounded-full object-cover border-0"
+                // FIXED: Changed w-30 (invalid) to w-32 (valid)
+                className="w-32 h-32 rounded-full object-cover border-0"
               />
               <label className="absolute bottom-0 right-0 rounded-full p-2 bg-white border-2 border-white cursor-pointer hover:bg-blue-500 group">
                 <IoCameraOutline className="text-blue-500 text-sm group-hover:text-white transition-colors duration-200" />
@@ -264,11 +268,9 @@ function UserProfile() {
             </div>
           </div>
 
-          {/* Main Tab Content */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
             {activeTab === "overview" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 {/* ... [Overview Content - No Changes] ... */}
                  <div>
                   <h3 className="text-lg font-semibold mb-4">About</h3>
                   <div className="space-y-3 text-sm">
@@ -289,7 +291,10 @@ function UserProfile() {
             )}
 
             {activeTab === "posts" && (
-              <PostList />
+              // FIXED: Added w-full wrapper
+              <div className="w-full">
+                <PostList />
+              </div>
             )}
           </div>
         </div>
@@ -297,25 +302,21 @@ function UserProfile() {
 
       {/* Mobile View */}
       <div className="md:hidden px-4 mt-6">
-        {/* ... [Mobile Header - No Changes] ... */}
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex items-center space-x-6">
-          {/* (Image and name code same as original) */}
            <div className="relative">
             <img
               src={preview || user.profilePicture || "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"}
               alt="User"
-              className="w-30 h-30 rounded-full object-cover border-0"
+              // FIXED: Updated mobile view to w-32 as well for consistency
+              className="w-32 h-32 rounded-full object-cover border-0"
             />
-            {/* ... camera input ... */}
           </div>
-          {/* ... name and edit button ... */}
           <div className="flex-1">
              <h2 className="text-lg font-semibold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
              <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-1 mt-2 rounded-md">Edit Profile</button>
           </div>
         </div>
 
-        {/* Tabs (Mobile Only) */}
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
           <div className="flex border-b border-gray-200 mb-6">
             {["overview", "posts"].map((tab) => (
@@ -333,11 +334,9 @@ function UserProfile() {
 
           {activeTab === "overview" && (
             <div className="grid grid-cols-1 gap-6">
-               {/* ... [Mobile Overview - No Changes] ... */}
                <div>
                 <h3 className="text-lg font-semibold mb-4">About</h3>
                 <div className="space-y-3 text-sm">
-                   {/* details... */}
                    <div className="flex justify-between"><span className="text-gray-500">Email</span><span className="text-gray-800">{user.email}</span></div>
                 </div>
               </div>
