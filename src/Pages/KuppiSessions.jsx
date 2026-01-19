@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
-import UpcomingKuppi from "../upcomingkuppi";
+import UpcomingKuppi from "../UpcomingKuppi";
 import { FaPlus, FaSave, FaClipboardList, FaTimes } from "react-icons/fa";
 import { auth, db } from "../firebase";
 import { v4 as uuidv4 } from "uuid";

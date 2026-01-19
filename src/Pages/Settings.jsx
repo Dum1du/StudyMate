@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { MdLogout } from "react-icons/md";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router";
 import Navbar from "../NavigationBar";
@@ -7,6 +8,24 @@ import Footer from "../Footer";
 
 export default function Settings() {
   const navigate = useNavigate();
+  // 1. Add a loading state to prevent rendering before we know if the user is logged in
+  const [loading, setLoading] = useState(true);
+
+  // 2. Auth Listener: Checks if user is logged in when page loads
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // If no user found (logged out), redirect immediately
+        navigate("/logins");
+      } else {
+        // If user exists, stop loading and show the page
+        setLoading(false);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [navigate]);
 
   const handleLogout = async () => {
     try {
@@ -17,6 +36,19 @@ export default function Settings() {
     }
   };
 
+  // 3. Return a loading indicator while checking auth status
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <p className="text-gray-500 text-lg">Loading settings...</p>
+        </div>
+      </>
+    );
+  }
+
+  // 4. Render the actual settings page only after confirmation
   return (
     <>
       <Navbar />

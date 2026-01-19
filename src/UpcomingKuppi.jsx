@@ -38,6 +38,7 @@ function UpcomingKuppi({ title, host, time, link, onDelete, onEdit, isHost }) {
         <p className="text-gray-500 text-sm">
           Time: <span className="font-medium text-gray-700">{time}</span>
         </p>
+        
       </div>
 
       {/* 3. BIG BLUE JOIN BUTTON (Bottom) */}
