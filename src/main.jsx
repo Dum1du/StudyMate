@@ -10,6 +10,17 @@ import RegisterUI from "./Pages/RegisterUI.jsx";
 import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
 import BrowseResources from "./Pages/BrowseResources.jsx";
+import UserProfile from "./Pages/UserProfile.jsx";
+import KuppiSession from "./Pages/KuppiSessions.jsx";
+import Settings from "./Pages/Settings.jsx";
+import QuizeGenerator from "./Pages/QuizGenerator.jsx";
+import NoticeBoard  from "./Pages/NoticeBoard.jsx";
+import EmailVerify from "./Pages/EmailVerify.jsx";
+import UploadResouces from "./Pages/UploadResouces.jsx";
+import Discussions from "./Pages/Discussions.jsx";
+
+import Dashboard from "./Pages/Home.jsx";
+
 
 const router = createBrowserRouter([
   {
@@ -25,18 +36,47 @@ const router = createBrowserRouter([
     element: <TeacherLogin />,
   },
   { path: "/register", element: <RegisterUI /> },
-  {
-    path: "/home",
-    element: <Home />,
-  },
+  
   {
     path: "/resources",
     element: <MyResourcesUI />,
   },
+    {path:"/home", element:<Home/>},
+      {path:"/browseresources", element:<BrowseResources/>},
+   
   {
-    path: "browseResources",
-    element: <BrowseResources />,
+    path: "/userProfile",
+    element: <UserProfile />,
   },
+  {
+    path: "/kuppisessions",
+    element: <KuppiSession />,
+  },
+  {
+    path: "settings",
+    element: <Settings />,
+  },
+  {
+    path: "quizeGenerator",
+    element: <QuizeGenerator/>
+  },
+  {
+    path: "/noticeboard",
+    element: <NoticeBoard />
+  },
+  {
+    path:"/verify",
+    element: <EmailVerify />
+  },
+  {
+    path:"/upload",
+    element:<UploadResouces />
+  },
+  {
+    path:"/discussions",
+    element:<Discussions />
+  }
+ 
 ]);
 
 createRoot(document.getElementById("root")).render(

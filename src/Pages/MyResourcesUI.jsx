@@ -1,188 +1,236 @@
 import React, { useState } from "react";
 import Navbar from "../NavigationBar";
+import { Pin, PinOff, Eye, Filter, Search, Trash2, Bookmark, BookOpen, X, FolderOpen } from "lucide-react";
+import Footer from "../Footer";
 
-const MyResource = () => {
-  // Sample state for comments and ratings
-  const [comments, setComments] = useState([
-    { user: "Nimal Perera", text: "Excellent notes!", time: "2 weeks ago" },
+const MyResourcesUI = () => {
+  const [resources, setResources] = useState([
+    // Example data — can be empty later
     {
-      user: "Priya Fernando",
-      text: "Very detailed and well-organized.",
-      time: "1 month ago",
+      id: 1,
+      title: "Introduction to Algorithms",
+      description: "A detailed overview of algorithmic concepts and design patterns.",
+      pinned: false,
+    },
+    {
+      id: 2,
+      title: "Database Management Notes",
+      description: "ER diagrams, normalization forms, and SQL practice questions.",
+      pinned: true,
     },
   ]);
 
-  const [newComment, setNewComment] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+  const [selectedQuiz, setSelectedQuiz] = useState(null);
 
-  const [ratings] = useState([5, 4, 3, 2, 1]); // static ratings for table
-  const percentMap = { 5: 40, 4: 30, 3: 15, 2: 10, 1: 5 }; // sample percentages
-
-  const handleAddComment = () => {
-    if (newComment.trim() !== "") {
-      setComments([
-        ...comments,
-        { user: "You", text: newComment, time: "Just now" },
-      ]);
-      setNewComment("");
-    }
+  const togglePin = (id) => {
+    setResources((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, pinned: !r.pinned } : r))
+    );
   };
 
+  const removeResource = (id) => {
+    setResources((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const openQuizModal = (resource) => setSelectedQuiz(resource);
+  const closeQuizModal = () => setSelectedQuiz(null);
+
+  const filteredResources = resources
+    .filter((r) =>
+      r.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .filter((r) => (showPinnedOnly ? r.pinned : true));
+
+  const pinnedResources = filteredResources.filter((r) => r.pinned);
+  const otherResources = filteredResources.filter((r) => !r.pinned);
+
+  const isEmpty = filteredResources.length === 0;
+
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-200 text-gray-900">
       <Navbar />
 
-      <main className="flex-1 px-10 py-8 lg:px-20 bg-gray-50 w-full">
-        <div className="max-w-5xl mx-auto">
-          {/* Resource Card */}
-          <div className="bg-white p-8 rounded-lg shadow-sm mb-8">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  Operating Systems - Lecture Notes
-                </h1>
-                <p className="text-gray-600 max-w-2xl">
-                  Comprehensive lecture notes covering all key concepts of
-                  Operating Systems. Prepared by Dr. Silva.
-                </p>
-              </div>
-              <button className="flex items-center gap-2 min-w-[84px] rounded-md h-11 px-5 bg-blue-600 text-white text-sm font-bold shadow-sm hover:bg-blue-700">
-                <span className="truncate">Download</span>
-              </button>
+      <div className="p-6 sm:p-8 max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <h1 className="text-3xl font-bold text-gray-800">My Resources</h1>
+
+          {/* Search + Filter */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search resources..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-white border border-gray-300 text-gray-700 pl-9 pr-3 py-2 rounded-lg w-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-
-            <div className="mt-8 border rounded-lg overflow-hidden">
-              <iframe
-                className="w-full h-[600px]"
-                src=""
-                title="Resource Viewer"
-              ></iframe>
-            </div>
-          </div>
-
-          {/* Comments Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 space-y-8">
-              <div className="bg-[#94F687] p-8 rounded-lg shadow-sm">
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Comments
-                </h3>
-                <div className="space-y-6">
-                  {comments.map((c, index) => (
-                    <div key={index} className="flex items-start gap-4">
-                      <div
-                        className="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-10 shrink-0 mt-1"
-                        style={{
-                          backgroundImage:
-                            'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCJ5ZtLz6ml-9BUL4CpXPe5Y-SdMk-QYuFw1rNyHBH6otwKxZGJu9-JxCoHuJnts4GrVKPjApxAZ04OnbUbzm4QwTxmo_9qLFbqIAbMxeoGlri21C0DXb6KGRIi3syAchj-xA_hnYUbvUlRcC9L1oFPPNDbKwC72hmgJseHVtlHnRZ2elP1Mmn9pUvtivcdccEqdUTuPBP4GvfT5yoGtSnBtcKOGMcEUo_b_6_onwHWXNTuBrbftV1CW1tozFYA_LelFihfMekoGD8y")',
-                        }}
-                      ></div>
-                      <div className="flex-1">
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-sm font-bold text-gray-800">
-                            {c.user}
-                          </p>
-                          <p className="text-xs text-gray-500">{c.time}</p>
-                        </div>
-                        <p className="text-sm text-gray-700 mt-1">{c.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Add Comment Box */}
-                <div className="mt-8">
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    className="bg-white form-textarea w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 transition"
-                    placeholder="Add your comment..."
-                    rows="4"
-                  ></textarea>
-                  <div className="flex justify-end mt-4">
-                    <button
-                      onClick={handleAddComment}
-                      className="flex items-center gap-2 min-w-[84px] rounded-md h-10 px-4 bg-blue-600 text-white text-sm font-bold hover:bg-blue-700"
-                    >
-                      <span className="truncate">Add Comment</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-8">
-              {/* Uploaded by */}
-              <div
-                className="p-8 rounded-lg shadow-sm mb-8"
-                style={{ backgroundColor: "#A0F7FA" }}
-              >
-                <h3 className="text-lg font-bold text-gray-900 mb-4">
-                  Uploaded by
-                </h3>
-                <div className="flex items-center gap-4">
-                  <div
-                    className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-14"
-                    style={{
-                      backgroundImage:
-                        'url("https://lh3.googleusercontent.com/aida-public/AB6AXuACfZKvViF5CWMhCd3AAY55bJ-e5B7b0ZHWYNdRyFsMsUFYkmo9PUPYkZhz7LV2EHWvQyetE9sVX_hLJiKtAaTJnW_KmGGlmfg20Vc2412D34QbS1AjFli2HG_FaXdnkfScFL8sunxjuEJbtRzXj8WdfXl9XNvBlK6IjDs_r6duLhZcIwwEfWuL3CQ2vyyF-qjSkh60nn2l41sB7E_GSEism1v4KZo6UEXYRKWowBXPPcT41ne4OzBo1zqYtTkiOz3NBpa5B83kiHjg")',
-                    }}
-                  ></div>
-                  <div>
-                    <p className="text-gray-800 text-base font-semibold">
-                      Dr. Silva
-                    </p>
-                    <p className="text-gray-500 text-sm">Computer Science</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Rating Table */}
-              <div className="bg-[#DAA2F0] p-6 rounded-lg shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Rating</h3>
-                <div className="flex items-center gap-4 mb-4">
-                  <p className="text-4xl font-bold text-gray-900">4.5</p>
-                  <div className="flex flex-col">
-                    <div className="flex text-yellow-400">
-                      <span className="material-symbols-outlined text-gray-300">
-                        star
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Based on 12 reviews
-                    </p>
-                  </div>
-                </div>
-
-                {/* Rating table */}
-                <div className="space-y-2">
-                  {ratings.map((star) => (
-                    <div key={star} className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-600">{star}</span>
-                      <div className="w-full h-1.5 bg-gray-200 rounded-full">
-                        <div
-                          className="h-1.5 bg-yellow-400 rounded-full"
-                          style={{ width: `${percentMap[star]}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-gray-500 text-xs w-8 text-right">
-                        {percentMap[star]}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <button className="mt-6 w-full flex items-center justify-center gap-2 min-w-[84px] rounded-md h-10 px-4 bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200">
-                  <span className="material-symbols-outlined">star_rate</span>
-                  Rate Resource
-                </button>
-              </div>
-            </div>
+            <button
+              onClick={() => setShowPinnedOnly(!showPinnedOnly)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium shadow-sm ${
+                showPinnedOnly
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "border border-gray-300 hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <Filter size={16} />
+              {showPinnedOnly ? "Show All" : "Pinned Only"}
+            </button>
           </div>
         </div>
-      </main>
-    </>
+
+        {/* EMPTY STATE */}
+        {isEmpty ? (
+          <div className="flex flex-col items-center justify-center text-center py-20 text-gray-500">
+            <FolderOpen size={64} className="text-gray-400 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Resources Yet</h2>
+            <p className="max-w-sm text-gray-500 text-sm mb-6">
+              You haven’t saved any study materials yet. When you save or pin a resource, it will appear here for quick access.
+            </p>
+            <button
+              onClick={() => setShowPinnedOnly(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm shadow-md"
+            >
+              Explore Resources
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Pinned Section */}
+            {!showPinnedOnly && pinnedResources.length > 0 && (
+              <section className="mb-10">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bookmark size={18} className="text-gray-600" />
+                  <h2 className="text-lg font-semibold text-gray-700">Pinned</h2>
+                </div>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {pinnedResources.map((res) => (
+                    <div
+                      key={res.id}
+                      className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-5 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                    >
+                      {/* Top-right pin icon */}
+                      <button
+                        onClick={() => togglePin(res.id)}
+                        className="absolute top-3 right-3 text-gray-500 hover:text-yellow-600 transition"
+                        title="Unpin"
+                      >
+                        <PinOff size={20} />
+                      </button>
+
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">{res.title}</h3>
+                        <p className="text-sm text-gray-600 mt-2">{res.description}</p>
+                      </div>
+
+                      {/* Bottom: Delete left, View right */}
+                      <div className="flex justify-between items-center mt-5">
+                        <button
+                          onClick={() => removeResource(res.id)}
+                          className="text-red-500 hover:text-red-700 transition"
+                          title="Delete"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                        <button
+                          onClick={() => openQuizModal(res)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                        >
+                          <Eye size={16} /> View Quiz
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Saved (Other) Resources */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <BookOpen size={18} className="text-gray-600" />
+                <h2 className="text-lg font-semibold text-gray-700">
+                  {showPinnedOnly ? "Pinned Resources" : "Saved Resources"}
+                </h2>
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {otherResources.map((res) => (
+                  <div
+                    key={res.id}
+                    className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-5 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                  >
+                    {/* Top-right pin icon */}
+                    <button
+                      onClick={() => togglePin(res.id)}
+                      className="absolute top-3 right-3 text-gray-500 hover:text-yellow-600 transition"
+                      title="Pin"
+                    >
+                      <Pin size={20} />
+                    </button>
+
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">{res.title}</h3>
+                      <p className="text-sm text-gray-600 mt-2">{res.description}</p>
+                    </div>
+
+                    {/* Bottom: Delete left, View right */}
+                    <div className="flex justify-between items-center mt-5">
+                      <button
+                        onClick={() => removeResource(res.id)}
+                        className="text-red-500 hover:text-red-700 transition"
+                        title="Delete"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                      <button
+                        onClick={() => openQuizModal(res)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                      >
+                        <Eye size={16} /> View Quiz
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+
+      {/* Quiz Modal */}
+      {selectedQuiz && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl relative transform transition-all duration-300 scale-100 hover:scale-[1.02]">
+            <button
+              onClick={closeQuizModal}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              Quizzes for {selectedQuiz.title}
+            </h2>
+            <p className="text-gray-600 text-sm mb-6">
+              Here you can display quiz questions or redirect to the quiz page.
+            </p>
+            <button
+              onClick={closeQuizModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      <Footer />
+    </div>
   );
 };
 
-export default MyResource;
+export default MyResourcesUI;
