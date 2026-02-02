@@ -194,7 +194,7 @@ function KuppiSessions() {
         {/* MAIN CONTENT AREA */}
         <div className="flex flex-col-reverse md:flex-row gap-8 items-start justify-center">
           {/* LEFT SIDE: SESSIONS LIST */}
-          <div className="flex-1 w-full">
+          <div className="flex-1 w-full md:min-w-[500px]">
             <h2 className="text-xl font-bold mb-4 text-gray-800 border-b pb-2">
               Upcoming Sessions
             </h2>
@@ -224,7 +224,7 @@ function KuppiSessions() {
           </div>
 
           {/* RIGHT SIDE: FORM */}
-          <div className="w-full md:w-1/3 md:sticky md:top-24">
+          <div className="w-full md:w-1/3 md:sticky md:top-24 md:min-w-[320px]">
             <form
               onSubmit={handleSubmit}
               className={`bg-white rounded-xl shadow-lg p-6 flex flex-col gap-4 border-t-4 ${
