@@ -18,21 +18,12 @@ function StartScreen() {
         <p className="text-gray-600 mb-6">
           This is your collaborative learning space.
         </p>
-        <p className="text-xl font-semibold text-gray-800 mb-6">
-          Who are you?
-        </p>
         <div className="flex flex-col sm:flex-row sm:gap-4 sm:justify-center mt-5">
           <Link
             to={"/logins"}
             className="flex-1 block text-white bg-blue-600 hover:bg-blue-700 transition-all py-4 px-8 rounded-lg font-bold min-w-[180px] hover:-translate-y-0.5 hover:shadow-lg"
           >
-            I am a Student
-          </Link>
-          <Link
-            to={"/logint"}
-            className="flex-1 sm:inline sm:mt-0 mt-2 block text-white bg-blue-600 hover:bg-blue-700 transition-all py-4 px-8 rounded-lg font-bold min-w-[180px] hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            I am a Teacher
+            Take Me To StudyMate
           </Link>
         </div>
       </div>
