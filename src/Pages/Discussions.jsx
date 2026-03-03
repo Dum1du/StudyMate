@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import Discuss from "../Discuss.jsx";
-import Navbar from "../NavigationBar.jsx"; 
+import Navbar from "../NavigationBar.jsx";
+import ed_bg from "../Bg images/ed_bg.jpg";
 
 function Discussion() {
-  
   const [posts, setPosts] = useState([
     {
       id: 1,
@@ -35,18 +35,21 @@ function Discussion() {
   ]);
 
   return (
-    <div>
-     
+    <div
+      className="min-h-screen bg-gray-100 bg-cover bg-center"
+      style={{
+        backgroundImage: `linear-gradient(rgba(249, 249, 249, 0.9), rgba(240, 244, 249, 0.6)), url(${ed_bg})`,
+      }}
+    >
       <Navbar />
 
       <div className="max-w-3xl mx-auto mt-6 p-5">
         <h2 className="text-2xl font-bold text-gray-700 mb-6">Discussions</h2>
 
-        
         {posts.map((post) => (
           <Discuss
             key={post.id}
-            user={post.user}          
+            user={post.user}
             message={post.message}
             time={post.time}
             pdfUrl={post.pdfUrl}
