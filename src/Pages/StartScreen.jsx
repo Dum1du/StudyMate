@@ -23,7 +23,7 @@ function StartScreen() {
             to={"/logins"}
             className="flex-1 block text-white bg-blue-600 hover:bg-blue-700 transition-all py-4 px-8 rounded-lg font-bold min-w-[180px] hover:-translate-y-0.5 hover:shadow-lg"
           >
-            Take Me To StudyMate
+            Begin Collaboration
           </Link>
         </div>
       </div>
