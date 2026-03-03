@@ -15,9 +15,9 @@ export default function BrowseResources() {
   const [marginTop, setMarginTop] = useState(36 * 4);
   const [selectedResource, setSelectedResource] = useState(null);
 
-  // 1. ADD PAGINATION STATE
+  // ADD PAGINATION STATE
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 7; // Change this to 10 or whatever you prefer
+  const itemsPerPage = 7;
 
   // Fetch all materials once
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function BrowseResources() {
         const results = fuse.search(search).map((r) => r.item);
         setFiltered(results);
       }
-      // 2. RESET TO PAGE 1 ON NEW SEARCH
+      // RESET TO PAGE 1 ON NEW SEARCH
       setCurrentPage(1); 
     }, 400);
 
@@ -108,13 +108,13 @@ export default function BrowseResources() {
     return rangeWithDots;
   }
 
-  // 3. CALCULATE CURRENT PAGE ITEMS
+  // CALCULATE CURRENT PAGE ITEMS
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
-  // Helper to change page and scroll to top of list
+  // change page and scroll to top of list
   const paginate = (pageNumber) => {
     setCurrentPage(pageNumber);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -172,7 +172,7 @@ export default function BrowseResources() {
           {filtered.length === 0 && search ? (
             <p className="text-gray-500 italic">No matching resources found.</p>
           ) : (
-            // 4. MAP OVER currentItems INSTEAD OF filtered
+            // MAP OVER currentItems
             currentItems.map((res) => (
               <div
                 key={res.id}
@@ -190,10 +190,9 @@ export default function BrowseResources() {
           )}
         </div>
 
-        {/* 5. FUNCTIONAL PAGINATION CONTROLS */}
+        {/* FUNCTIONAL PAGINATION CONTROLS */}
         {totalPages > 1 && (
           <div className="flex justify-center items-center mt-8 space-x-2">
-            {/* 5. DYNAMIC PAGINATION CONTROLS */}
         {totalPages > 1 && (
           <div className="flex justify-center items-center mt-8 space-x-2">
             <button
