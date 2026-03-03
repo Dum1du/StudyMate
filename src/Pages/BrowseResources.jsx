@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Star, Eye, Download, X } from "lucide-react";
+import { Search, Star, Eye, Download, X, ChevronLeft, ChevronRight } from "lucide-react"; // Added Chevrons for pagination
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
 import Navbar from "../NavigationBar";
@@ -15,6 +15,10 @@ export default function BrowseResources() {
   const [marginTop, setMarginTop] = useState(36 * 4);
   const [selectedResource, setSelectedResource] = useState(null);
 
+  // ADD PAGINATION STATE
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 7;
+
   // Fetch all materials once
   useEffect(() => {
     const fetchAllMaterials = async () => {
@@ -22,6 +26,7 @@ export default function BrowseResources() {
       const snapshot = await getDocs(q);
       const all = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setResources(all);
+      setFiltered(all); // Initialize filtered with all resources
     };
 
     fetchAllMaterials();
@@ -29,13 +34,12 @@ export default function BrowseResources() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setMarginTop(10 * 4); // Tailwind mt-20 = 20 * 0.25rem = 5rem = 80px
-    }); // delay before transition starts (optional)
-
+      setMarginTop(10 * 4); 
+    }); 
     return () => clearTimeout(timer);
   }, []);
 
-  // Fuse.js setup (only rebuild when resources change)
+  // Fuse.js setup
   const fuse = useMemo(() => {
     return new Fuse(resources, {
       keys: [
@@ -45,8 +49,7 @@ export default function BrowseResources() {
         "courseSubject",
         "courseCode",
       ],
-      threshold: 0.4, // smaller = more accurate match
-
+      threshold: 0.4, 
       getFn: (item, path) => {
         const value = item[path];
         if (Array.isArray(value)) return value.map((v) => v.trim());
@@ -64,17 +67,63 @@ export default function BrowseResources() {
         const results = fuse.search(search).map((r) => r.item);
         setFiltered(results);
       }
-    }, 400); // wait 400ms after user stops typing
+      // RESET TO PAGE 1 ON NEW SEARCH
+      setCurrentPage(1); 
+    }, 400);
 
     return () => clearTimeout(handler);
   }, [search, fuse, resources]);
 
+  // Calculate which page numbers to show
+  const getPageNumbers = () => {
+    const delta = 1; //How many next to current page
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    // build the range
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        range.push(i);
+      }
+    }
+
+    // insert dots for gaps
+    range.forEach((i) => {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    });
+
+    return rangeWithDots;
+  }
+
+  // CALCULATE CURRENT PAGE ITEMS
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  // change page and scroll to top of list
+  const paginate = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0.5, behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar placeholder */}
       <Navbar />
 
-      {/* Main content */}
       <main className="max-w-6xl mx-auto py-10 px-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">
           Browse Resources
@@ -87,7 +136,7 @@ export default function BrowseResources() {
         <div
           style={{
             marginTop: `${marginTop}px`,
-            marginBottom: "2rem", // Tailwind mb-8 = 2rem
+            marginBottom: "2rem",
             transition: "margin-top 0.5s ease-in-out",
           }}
         >
@@ -112,21 +161,19 @@ export default function BrowseResources() {
         </div>
 
         {/* Search Results */}
-        {search === "" ? (
-          <h3 className="text-lg font-semibold text-gray-700 mb-4">
-            Most Searched
-          </h3>
-        ) : (
-          <h3 className="text-lg font-semibold text-gray-700 mb-4">
-            Search Results
-          </h3>
-        )}
+        <h3 className="text-lg font-semibold text-gray-700 mb-4">
+          {search === "" ? "All Resources" : "Search Results"} 
+          <span className="text-sm font-normal text-gray-500 ml-2">
+            ({filtered.length} found)
+          </span>
+        </h3>
 
         <div className="mt-6 space-y-4 min-h-100">
           {filtered.length === 0 && search ? (
             <p className="text-gray-500 italic">No matching resources found.</p>
           ) : (
-            filtered.map((res) => (
+            // MAP OVER currentItems
+            currentItems.map((res) => (
               <div
                 key={res.id}
                 className="bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer"
@@ -143,22 +190,49 @@ export default function BrowseResources() {
           )}
         </div>
 
-        {/* Pagination */}
-        {filtered > 10 && (
-          <div className="flex justify-center mt-8 space-x-2">
-            {[1, 2, 3, "...", 10].map((num, i) => (
-              <button
-                key={i}
-                aria-current={num === 1 ? "page" : undefined}
-                className={`px-3 py-1 rounded-md text-sm ${
-                  num === 1
-                    ? "bg-blue-700 text-white"
-                    : "bg-white border border-gray-300 hover:bg-gray-100"
-                }`}
-              >
-                {num}
-              </button>
+        {/* FUNCTIONAL PAGINATION CONTROLS */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-8 space-x-2">
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-8 space-x-2">
+            <button
+              onClick={() => paginate(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Generate Page Numbers and Ellipses dynamically */}
+            {getPageNumbers().map((num, index) => (
+              num === '...' ? (
+                <span key={`dots-${index}`} className="px-2 py-1 text-gray-500">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={`page-${num}`}
+                  onClick={() => paginate(num)}
+                  className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                    currentPage === num
+                      ? "bg-blue-700 text-white font-medium shadow-sm"
+                      : "bg-white border border-gray-300 hover:bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {num}
+                </button>
+              )
             ))}
+
+            <button
+              onClick={() => paginate(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
           </div>
         )}
       </main>

@@ -53,6 +53,8 @@ function Settings() {
   const [isNotifEnabled, setIsNotifEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  const currentYear = new Date().getFullYear();
+
   useEffect(() => {
     const fetchSettings = async () => {
       if (user) {
@@ -237,7 +239,7 @@ function Settings() {
       <p className="text-gray-500 mt-2">
         A dedicated platform for OUSL students to share and access study materials efficiently.
       </p>
-      <p className="text-sm text-gray-400 mt-6">© 2025 StudyMate Inc.</p>
+      <p className="text-sm text-gray-400 mt-6">© {currentYear} StudyMate Inc.</p>
     </div>
   </Modal>
 )}
