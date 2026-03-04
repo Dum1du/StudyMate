@@ -6,7 +6,6 @@ import axios from "axios";
 import Footer from "../Footer";
 import ed_bg from "../Bg images/ed_bg.jpg";
 
-// Sample course data - replace with your actual data
 const COURSES = [
   // Compulsory Non-GPA Courses
   { code: "FDE3023", subject: "Empowering for Independent Learning" },
@@ -104,13 +103,37 @@ const COURSES = [
   { code: "EEI5466", subject: "Advanced Database Systems" },
 ];
 
+const TAGS = [
+  "final-exam",
+  "midterm",
+  "quiz",
+  "chapter-1",
+  "chapter-2",
+  "chapter-3",
+  "chapter-4",
+  "chapter-5",
+  "chapter-6",
+  "chapter-7",
+  "important",
+  "notes",
+  "summary",
+  "tutorial",
+  "assignment",
+  "practice",
+  "solution",
+  "lecture",
+  "review",
+  "cheatsheet",
+  "guide",
+];
+
 function UploadResources() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [code, setCode] = useState("");
   const [subject, setSubject] = useState("");
   const [type, setType] = useState("");
-  const [tags, setTags] = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
@@ -172,6 +195,13 @@ function UploadResources() {
     setShowSubjectDropdown(false);
   };
 
+  // Toggle tag selection
+  const toggleTag = (tag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  };
+
   // File handling
   const handleFiles = (files) => {
     if (files.length > 0) {
@@ -197,6 +227,12 @@ function UploadResources() {
     e.preventDefault();
     e.stopPropagation();
     handleFiles(e.dataTransfer.files);
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    setType("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleBrowse = () => {
@@ -234,7 +270,7 @@ function UploadResources() {
             setCode("");
             setSubject("");
             setType("");
-            setTags("");
+            setSelectedTags([]);
             setFile(null);
             setProgress(0);
           }, 600);
@@ -278,7 +314,7 @@ function UploadResources() {
     formData.append("description", desc);
     formData.append("courseCode", code);
     formData.append("courseSubject", subject);
-    formData.append("tags", tags);
+    formData.append("tags", selectedTags.join(" "));
     formData.append("materialType", type);
     formData.append("file", file);
 
@@ -309,7 +345,7 @@ function UploadResources() {
       <Navbar />
       <div className="flex flex-col relative items-center">
         <form
-          className="items-start md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6"
+          className="items-start md:w-[60%] sm:w-[50%] bg-white border border-gray-400 rounded-xl shadow-md sm:mt-5 p-6"
           onSubmit={handleSubmit}
         >
           <h1 className="text-2xl font-bold text-black">
@@ -321,7 +357,7 @@ function UploadResources() {
 
           {/* TITLE */}
           <label className="font-medium flex justify-start mt-10 mb-1 mx-1">
-            Resource Title
+            Resource Title <span className="text-red-600">*</span>
           </label>
           <input
             onChange={(e) => setTitle(e.target.value)}
@@ -334,7 +370,7 @@ function UploadResources() {
 
           {/* DESCRIPTION */}
           <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
-            Description
+            Description(optional)
           </label>
           <textarea
             onChange={(e) => setDesc(e.target.value)}
@@ -349,7 +385,7 @@ function UploadResources() {
           <div className="w-full sm:flex justify-around gap-x-10">
             <div className="flex-1 relative">
               <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
-                Course Code
+                Course Code<span className="text-red-600">*</span>
               </label>
               <input
                 onChange={handleCodeChange}
@@ -360,7 +396,7 @@ function UploadResources() {
                 required
               />
               {showCodeDropdown && codeSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white border border-gray-400 rounded-lg mt-1 z-10 shadow-lg">
+                <div className="absolute top-full left-0 right-0 bg-white border border-gray-400 rounded-lg mt-1 z-10 shadow-lg max-h-60 overflow-y-auto">
                   {codeSuggestions.map((course, idx) => (
                     <button
                       key={idx}
@@ -380,7 +416,7 @@ function UploadResources() {
 
             <div className="flex-3 relative">
               <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
-                Course / Subject
+                Course / Subject<span className="text-red-600">*</span>
               </label>
               <input
                 onChange={handleSubjectChange}
@@ -391,7 +427,7 @@ function UploadResources() {
                 required
               />
               {showSubjectDropdown && subjectSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white border border-gray-400 rounded-lg mt-1 z-10 shadow-lg">
+                <div className="absolute top-full left-0 right-0 bg-white border border-gray-400 rounded-lg mt-1 z-10 shadow-lg max-h-50 overflow-y-auto">
                   {subjectSuggestions.map((course, idx) => (
                     <button
                       key={idx}
@@ -415,10 +451,9 @@ function UploadResources() {
               </label>
               <select
                 value={type}
-                className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none bg-gray-100 cursor-not-allowed"
-                disabled
+                className="w-full  border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none bg-gray-100 cursor-not-allowed "
               >
-                <option value="">Select type</option>
+                <option value=""></option>
                 <option value=".pdf">.pdf</option>
                 <option value=".docx">.docx</option>
                 <option value=".jpg">.jpg / .jpeg / .png</option>
@@ -427,21 +462,29 @@ function UploadResources() {
           </div>
 
           {/* TAGS */}
-          <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
-            Tags
+          <label className="font-medium flex justify-start mt-5 mb-3 mx-1">
+            Tags (Select multiple)<span className="text-red-600">*</span>
           </label>
-          <input
-            onChange={(e) => setTags(e.target.value.toLowerCase())}
-            type="text"
-            value={tags}
-            placeholder="eg: #final-exam #chapter-5 #important"
-            className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
-            required
-          />
+          <div className="w-full flex flex-wrap gap-2 p-3 border border-gray-400 rounded-lg bg-gray-50">
+            {TAGS.map((tag, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+                  selectedTags.includes(tag)
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
 
           {/* UPLOAD */}
           <label className="font-medium flex justify-start mt-10 mb-2 mx-1">
-            File Upload
+            File Upload<span className="text-red-600">*</span>
           </label>
           <div
             className="w-full border-2 border-dashed border-gray-400 rounded-lg p-6 flex flex-col items-center justify-center hover:border-blue-500 transition"
@@ -458,7 +501,18 @@ function UploadResources() {
             >
               Browse File
             </button>
-            {file && <p className="mt-2 text-green-600">{file.name}</p>}
+            {file && (
+              <div className="mt-2 flex items-center gap-2">
+                <p className="text-green-600">{file.name}</p>
+                <button
+                  type="button"
+                  onClick={removeFile}
+                  className="text-sm text-red-600 bg-red-100 px-2 py-1 rounded hover:bg-red-200"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
           </div>
 
           <input
