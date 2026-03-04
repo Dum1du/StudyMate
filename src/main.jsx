@@ -18,6 +18,8 @@ import NoticeBoard  from "./Pages/NoticeBoard.jsx";
 import EmailVerify from "./Pages/EmailVerify.jsx";
 import UploadResouces from "./Pages/UploadResouces.jsx";
 import Discussions from "./Pages/Discussions.jsx";
+import AdminRoute from "./AdminRoute.jsx";
+import AdminDashboard from "./Pages/AdminDashboard.jsx";
 
 import Dashboard from "./Pages/Home.jsx";
 
@@ -75,6 +77,14 @@ const router = createBrowserRouter([
   {
     path:"/discussions",
     element:<Discussions />
+  },
+  {
+    path: "/admin",
+    element: (
+      <AdminRoute>
+        <AdminDashboard />
+      </AdminRoute>
+    ),
   }
  
 ]);
