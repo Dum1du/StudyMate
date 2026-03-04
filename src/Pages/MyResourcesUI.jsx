@@ -10,6 +10,14 @@ import {
   Bookmark,
   BookOpen,
   Download,
+  FileText,
+  Table,
+  Presentation,
+  Image,
+  Video,
+  Archive,
+  Code,
+  File,
   X,
   FolderOpen,
 } from "lucide-react";
@@ -100,6 +108,67 @@ const MyResourcesUI = () => {
     } else {
       alert("No download link available for this resource.");
     }
+  };
+
+  // Helper function to get file type icon based on material type
+  const getFileTypeIcon = (materialType) => {
+    if (!materialType) return <File size={28} className="text-gray-500" />;
+
+    const type = materialType.toLowerCase();
+
+    if (type.includes("pdf")) {
+      return <FileText size={28} className="text-red-500" />;
+    } else if (
+      type.includes("word") ||
+      type.includes("doc") ||
+      type.includes("docx")
+    ) {
+      return <FileText size={28} className="text-blue-500" />;
+    } else if (
+      type.includes("excel") ||
+      type.includes("xls") ||
+      type.includes("xlsx") ||
+      type.includes("sheet")
+    ) {
+      return <Table size={28} className="text-green-500" />;
+    } else if (
+      type.includes("powerpoint") ||
+      type.includes("ppt") ||
+      type.includes("pptx")
+    ) {
+      return <Presentation size={28} className="text-orange-500" />;
+    } else if (
+      type.includes("image") ||
+      type.includes("jpg") ||
+      type.includes("png") ||
+      type.includes("gif")
+    ) {
+      return <Image size={28} className="text-purple-500" />;
+    } else if (
+      type.includes("video") ||
+      type.includes("mp4") ||
+      type.includes("avi") ||
+      type.includes("mov")
+    ) {
+      return <Video size={28} className="text-pink-500" />;
+    } else if (
+      type.includes("zip") ||
+      type.includes("rar") ||
+      type.includes("archive")
+    ) {
+      return <Archive size={28} className="text-yellow-600" />;
+    } else if (
+      type.includes("code") ||
+      type.includes("js") ||
+      type.includes("python") ||
+      type.includes("java")
+    ) {
+      return <Code size={28} className="text-slate-700" />;
+    } else if (type.includes("lecture") || type.includes("notes")) {
+      return <FileText size={28} className="text-indigo-500" />;
+    }
+
+    return <File size={28} className="text-gray-500" />;
   };
 
   // use resourceTitle or title for compatibility with older saved docs
@@ -196,60 +265,71 @@ const MyResourcesUI = () => {
                   </h2>
                 </div>
 
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   {pinnedResources.map((res) => (
                     <div
                       key={res.id}
-                      className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-5 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                      className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-3 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                     >
-                      {/* Top-right pin icon */}
+                      {/* Top: Pin icon */}
                       <button
                         onClick={() => togglePin(res.id)}
-                        className="absolute top-3 right-3 text-gray-500 hover:text-yellow-600 transition"
+                        className="absolute top-4 right-3 text-gray-500 hover:text-yellow-600 transition"
                         title="Unpin"
                       >
                         <PinOff size={20} />
                       </button>
 
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-800">
+                      {/* File type icon - centered at top */}
+                      <div
+                        className="flex justify-start mb-2"
+                        title={res.materialType}
+                      >
+                        <div className="text-5xl">
+                          {getFileTypeIcon(res.materialType)}
+                        </div>
+                      </div>
+
+                      {/* Title and description */}
+                      <div className="mb-2">
+                        <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">
                           {res.resourceTitle || "Untitled"}
                         </h3>
-                        <p className="text-sm text-gray-600 mt-2">
+                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                           {res.description}
                         </p>
                       </div>
 
-                      {/* Bottom: Delete left, View right */}
-                      <div className="flex justify-between items-center mt-5">
+                      {/* Action buttons */}
+                      <div className="flex justify-between items-center gap-2">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => removeResource(res.id)}
                             className="text-red-500 hover:text-red-700 transition"
                             title="Delete"
                           >
-                            <Trash2 size={20} />
+                            <Trash2 size={18} />
                           </button>
                           <button
                             onClick={() => viewResource(res)}
                             className="text-gray-600 hover:text-blue-600 transition"
                             title="View Resource"
                           >
-                            <Eye size={20} />
+                            <Eye size={18} />
                           </button>
                           <button
                             onClick={() => downloadResource(res)}
                             className="text-gray-600 hover:text-green-600 transition"
                             title="Download Resource"
                           >
-                            <Download size={20} />
+                            <Download size={18} />
                           </button>
                         </div>
                         <button
                           onClick={() => openQuizModal(res)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg flex items-center gap-1 text-xs whitespace-nowrap"
                         >
-                          <Eye size={16} /> View Quiz
+                          <Eye size={14} /> Quiz
                         </button>
                       </div>
                     </div>
@@ -267,60 +347,71 @@ const MyResourcesUI = () => {
                 </h2>
               </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {otherResources.map((res) => (
                   <div
                     key={res.id}
-                    className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-5 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                    className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-3 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                   >
-                    {/* Top-right pin icon */}
+                    {/* Top: Pin icon */}
                     <button
                       onClick={() => togglePin(res.id)}
-                      className="absolute top-3 right-3 text-gray-500 hover:text-yellow-600 transition"
+                      className="absolute top-4 right-3 text-gray-500 hover:text-yellow-600 transition"
                       title="Pin"
                     >
                       <Pin size={20} />
                     </button>
 
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800">
+                    {/* File type icon - centered at top */}
+                    <div
+                      className="flex justify-left mb-2"
+                      title={res.materialType}
+                    >
+                      <div className="text-5xl">
+                        {getFileTypeIcon(res.materialType)}
+                      </div>
+                    </div>
+
+                    {/* Title and description */}
+                    <div className="mb-2">
+                      <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">
                         {res.resourceTitle || res.title || "Untitled"}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-2">
+                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                         {res.description}
                       </p>
                     </div>
 
-                    {/* Bottom: Delete left, View/Download center, Quiz right */}
-                    <div className="flex justify-between items-center mt-5">
+                    {/* Action buttons */}
+                    <div className="flex justify-between items-center gap-2">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => removeResource(res.id)}
                           className="text-red-500 hover:text-red-700 transition"
                           title="Delete"
                         >
-                          <Trash2 size={20} />
+                          <Trash2 size={18} />
                         </button>
                         <button
                           onClick={() => viewResource(res)}
                           className="text-gray-600 hover:text-blue-600 transition"
                           title="View Resource"
                         >
-                          <Eye size={20} />
+                          <Eye size={18} />
                         </button>
                         <button
                           onClick={() => downloadResource(res)}
                           className="text-gray-600 hover:text-green-600 transition"
                           title="Download Resource"
                         >
-                          <Download size={20} />
+                          <Download size={18} />
                         </button>
                       </div>
                       <button
                         onClick={() => openQuizModal(res)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg flex items-center gap-1 text-xs whitespace-nowrap"
                       >
-                        <Eye size={16} /> View Quiz
+                        <Eye size={14} /> Quiz
                       </button>
                     </div>
                   </div>

@@ -7,6 +7,14 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Table,
+  Presentation,
+  Image,
+  Video,
+  Archive,
+  Code,
+  File,
 } from "lucide-react"; // Added Chevrons for pagination
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -169,6 +177,67 @@ export default function BrowseResources() {
     await deleteDoc(docRef);
   };
 
+  // Helper function to get file type icon based on material type or file extension
+  const getFileTypeIcon = (materialType) => {
+    if (!materialType) return <File size={24} className="text-gray-500" />;
+
+    const type = materialType.toLowerCase();
+
+    if (type.includes("pdf")) {
+      return <FileText size={24} className="text-red-500" />;
+    } else if (
+      type.includes("word") ||
+      type.includes("doc") ||
+      type.includes("docx")
+    ) {
+      return <FileText size={24} className="text-blue-500" />;
+    } else if (
+      type.includes("excel") ||
+      type.includes("xls") ||
+      type.includes("xlsx") ||
+      type.includes("sheet")
+    ) {
+      return <Table size={24} className="text-green-500" />;
+    } else if (
+      type.includes("powerpoint") ||
+      type.includes("ppt") ||
+      type.includes("pptx")
+    ) {
+      return <Presentation size={24} className="text-orange-500" />;
+    } else if (
+      type.includes("image") ||
+      type.includes("jpg") ||
+      type.includes("png") ||
+      type.includes("gif")
+    ) {
+      return <Image size={24} className="text-purple-500" />;
+    } else if (
+      type.includes("video") ||
+      type.includes("mp4") ||
+      type.includes("avi") ||
+      type.includes("mov")
+    ) {
+      return <Video size={24} className="text-pink-500" />;
+    } else if (
+      type.includes("zip") ||
+      type.includes("rar") ||
+      type.includes("archive")
+    ) {
+      return <Archive size={24} className="text-yellow-600" />;
+    } else if (
+      type.includes("code") ||
+      type.includes("js") ||
+      type.includes("python") ||
+      type.includes("java")
+    ) {
+      return <Code size={24} className="text-slate-700" />;
+    } else if (type.includes("lecture") || type.includes("notes")) {
+      return <FileText size={24} className="text-indigo-500" />;
+    }
+
+    return <File size={24} className="text-gray-500" />;
+  };
+
   // change page and scroll to top of list
   const paginate = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -231,10 +300,29 @@ export default function BrowseResources() {
             currentItems.map((res) => (
               <div
                 key={res.id}
-                className="relative bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer"
+                className="relative bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer flex items-center gap-4"
                 onClick={() => setSelectedResource(res)}
               >
-                {/* save/unsave star */}
+                {/* Left side: Large file type icon */}
+                <div className="flex-shrink-0" title={res.materialType}>
+                  <div className="text-9xl">
+                    {getFileTypeIcon(res.materialType)}
+                  </div>
+                </div>
+
+                {/* Center: content */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-lg">{res.resourceTitle}</h4>
+                  <p className="text-sm text-gray-700 mb-1">
+                    {res.description}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Uploaded by:{" "}
+                    {res.displayName || res.uploaderEmail || "Unknown user"}
+                  </p>
+                </div>
+
+                {/* Right side: save button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -244,24 +332,17 @@ export default function BrowseResources() {
                       saveResource(res);
                     }
                   }}
-                  className="absolute top-2 right-2 text-gray-500 hover:text-yellow-500"
+                  className="text-gray-500 hover:text-yellow-500 flex-shrink-0"
                   title={savedIds.includes(res.id) ? "Unsave" : "Save"}
                 >
                   <Star
-                    size={20}
+                    size={24}
                     className={
                       savedIds.includes(res.id) ? "text-yellow-400" : ""
                     }
                     fill={savedIds.includes(res.id) ? "currentColor" : "none"}
                   />
                 </button>
-
-                <h4 className="font-semibold">{res.resourceTitle}</h4>
-                <p className="text-sm text-gray-700 mb-1">{res.description}</p>
-                <p className="text-xs text-gray-500">
-                  Uploaded by:{" "}
-                  {res.displayName || res.uploaderEmail || "Unknown user"}
-                </p>
               </div>
             ))
           )}
