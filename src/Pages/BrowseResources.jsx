@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Star, Eye, Download, X, ChevronLeft, ChevronRight } from "lucide-react"; // Added Chevrons for pagination
+import {
+  Search,
+  Star,
+  Eye,
+  Download,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"; // Added Chevrons for pagination
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
 import Navbar from "../NavigationBar";
 import Fuse from "fuse.js";
 import SearchBar from "../searchbar";
-import { collectionGroup, getDocs } from "firebase/firestore";
+import {
+  collectionGroup,
+  getDocs,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+} from "firebase/firestore";
 import Footer from "../Footer";
 
 export default function BrowseResources() {
@@ -14,6 +30,8 @@ export default function BrowseResources() {
   const [filtered, setFiltered] = useState([]);
   const [marginTop, setMarginTop] = useState(36 * 4);
   const [selectedResource, setSelectedResource] = useState(null);
+  const [user, setUser] = useState(null);
+  const [savedIds, setSavedIds] = useState([]);
 
   // ADD PAGINATION STATE
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,10 +50,29 @@ export default function BrowseResources() {
     fetchAllMaterials();
   }, []);
 
+  // listen for auth state changes so we know where to save/get resources
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        const saveCol = collection(db, "users", u.uid, "savedResources");
+        // realtime snapshot of saved IDs
+        return onSnapshot(saveCol, (snap) => {
+          const ids = snap.docs.map((d) => d.id);
+          setSavedIds(ids);
+        });
+      } else {
+        setSavedIds([]);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      setMarginTop(10 * 4); 
-    }); 
+      setMarginTop(10 * 4);
+    });
     return () => clearTimeout(timer);
   }, []);
 
@@ -49,7 +86,7 @@ export default function BrowseResources() {
         "courseSubject",
         "courseCode",
       ],
-      threshold: 0.4, 
+      threshold: 0.4,
       getFn: (item, path) => {
         const value = item[path];
         if (Array.isArray(value)) return value.map((v) => v.trim());
@@ -68,7 +105,7 @@ export default function BrowseResources() {
         setFiltered(results);
       }
       // RESET TO PAGE 1 ON NEW SEARCH
-      setCurrentPage(1); 
+      setCurrentPage(1);
     }, 400);
 
     return () => clearTimeout(handler);
@@ -98,7 +135,7 @@ export default function BrowseResources() {
         if (i - l === 2) {
           rangeWithDots.push(l + 1);
         } else if (i - l !== 1) {
-          rangeWithDots.push('...');
+          rangeWithDots.push("...");
         }
       }
       rangeWithDots.push(i);
@@ -106,13 +143,31 @@ export default function BrowseResources() {
     });
 
     return rangeWithDots;
-  }
+  };
 
   // CALCULATE CURRENT PAGE ITEMS
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  // helper to save/un-save a resource for the current user
+  const saveResource = async (res) => {
+    if (!user) {
+      alert("Please log in to save resources.");
+      return;
+    }
+    const docRef = doc(db, "users", user.uid, "savedResources", res.id);
+    await setDoc(docRef, { ...res, pinned: false, savedAt: new Date() });
+  };
+
+  const unsaveResource = async (resId) => {
+    if (!user) {
+      return;
+    }
+    const docRef = doc(db, "users", user.uid, "savedResources", resId);
+    await deleteDoc(docRef);
+  };
 
   // change page and scroll to top of list
   const paginate = (pageNumber) => {
@@ -162,7 +217,7 @@ export default function BrowseResources() {
 
         {/* Search Results */}
         <h3 className="text-lg font-semibold text-gray-700 mb-4">
-          {search === "" ? "All Resources" : "Search Results"} 
+          {search === "" ? "All Resources" : "Search Results"}
           <span className="text-sm font-normal text-gray-500 ml-2">
             ({filtered.length} found)
           </span>
@@ -176,9 +231,31 @@ export default function BrowseResources() {
             currentItems.map((res) => (
               <div
                 key={res.id}
-                className="bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer"
+                className="relative bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer"
                 onClick={() => setSelectedResource(res)}
               >
+                {/* save/unsave star */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (savedIds.includes(res.id)) {
+                      unsaveResource(res.id);
+                    } else {
+                      saveResource(res);
+                    }
+                  }}
+                  className="absolute top-2 right-2 text-gray-500 hover:text-yellow-500"
+                  title={savedIds.includes(res.id) ? "Unsave" : "Save"}
+                >
+                  <Star
+                    size={20}
+                    className={
+                      savedIds.includes(res.id) ? "text-yellow-400" : ""
+                    }
+                    fill={savedIds.includes(res.id) ? "currentColor" : "none"}
+                  />
+                </button>
+
                 <h4 className="font-semibold">{res.resourceTitle}</h4>
                 <p className="text-sm text-gray-700 mb-1">{res.description}</p>
                 <p className="text-xs text-gray-500">
@@ -193,46 +270,49 @@ export default function BrowseResources() {
         {/* FUNCTIONAL PAGINATION CONTROLS */}
         {totalPages > 1 && (
           <div className="flex justify-center items-center mt-8 space-x-2">
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center mt-8 space-x-2">
-            <button
-              onClick={() => paginate(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            {/* Generate Page Numbers and Ellipses dynamically */}
-            {getPageNumbers().map((num, index) => (
-              num === '...' ? (
-                <span key={`dots-${index}`} className="px-2 py-1 text-gray-500">
-                  ...
-                </span>
-              ) : (
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center mt-8 space-x-2">
                 <button
-                  key={`page-${num}`}
-                  onClick={() => paginate(num)}
-                  className={`px-3 py-1 rounded-md text-sm transition-colors ${
-                    currentPage === num
-                      ? "bg-blue-700 text-white font-medium shadow-sm"
-                      : "bg-white border border-gray-300 hover:bg-gray-100 text-gray-700"
-                  }`}
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {num}
+                  <ChevronLeft size={16} />
                 </button>
-              )
-            ))}
 
-            <button
-              onClick={() => paginate(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
+                {/* Generate Page Numbers and Ellipses dynamically */}
+                {getPageNumbers().map((num, index) =>
+                  num === "..." ? (
+                    <span
+                      key={`dots-${index}`}
+                      className="px-2 py-1 text-gray-500"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={`page-${num}`}
+                      onClick={() => paginate(num)}
+                      className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                        currentPage === num
+                          ? "bg-blue-700 text-white font-medium shadow-sm"
+                          : "bg-white border border-gray-300 hover:bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ),
+                )}
+
+                <button
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -254,13 +334,43 @@ export default function BrowseResources() {
               {selectedResource.description}
             </p>
             <p className="text-xs text-gray-500 mb-6">
-              Uploaded by: {selectedResource.displayName || selectedResource.uploaderEmail}
+              Uploaded by:{" "}
+              {selectedResource.displayName || selectedResource.uploaderEmail}
             </p>
             <div className="flex gap-3">
+              {/* save/un-save in modal */}
+              <button
+                onClick={() => {
+                  if (savedIds.includes(selectedResource.id)) {
+                    unsaveResource(selectedResource.id);
+                  } else {
+                    saveResource(selectedResource);
+                  }
+                }}
+                className="text-gray-500 hover:text-yellow-500"
+                title={
+                  savedIds.includes(selectedResource.id) ? "Unsave" : "Save"
+                }
+              >
+                <Star
+                  size={20}
+                  className={
+                    savedIds.includes(selectedResource.id)
+                      ? "text-yellow-400"
+                      : ""
+                  }
+                  fill={
+                    savedIds.includes(selectedResource.id)
+                      ? "currentColor"
+                      : "none"
+                  }
+                />
+              </button>
+
               <button
                 onClick={() => {
                   if (selectedResource.fileLink) {
-                    window.open(selectedResource.fileLink, '_blank');
+                    window.open(selectedResource.fileLink, "_blank");
                   } else {
                     alert("No URL available for this resource.");
                   }
@@ -274,9 +384,11 @@ export default function BrowseResources() {
                 onClick={() => {
                   if (selectedResource.fileId) {
                     const downloadUrl = `https://drive.google.com/uc?export=download&id=${selectedResource.fileId}`;
-                    const link = document.createElement('a');
+                    const link = document.createElement("a");
                     link.href = downloadUrl;
-                    link.download = selectedResource.resourceTitle + (selectedResource.materialType || '.pdf');
+                    link.download =
+                      selectedResource.resourceTitle +
+                      (selectedResource.materialType || ".pdf");
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);

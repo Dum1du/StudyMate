@@ -1,7 +1,15 @@
 import React, { useState } from "react";
 import { FaThumbtack, FaTimes } from "react-icons/fa";
 
-function Notice({ id, title, description, onRemove, onTogglePin, pinned, createdAt }) {
+function Notice({
+  id,
+  title,
+  description,
+  onRemove,
+  onTogglePin,
+  pinned,
+  createdAt,
+}) {
   const [approved, setApproved] = useState(false);
 
   const handleRemove = () => {
@@ -12,9 +20,10 @@ function Notice({ id, title, description, onRemove, onTogglePin, pinned, created
 
   return (
     <div className="relative group w-full border border-gray-200 rounded-md p-4 shadow-sm hover:shadow-md transition flex justify-between items-start bg-white">
-      
       {/* Pin button */}
-      <div className={`flex-shrink-0 ${pinned ? 'order-first' : ''} group-hover:order-first`}>
+      <div
+        className={`flex-shrink-0 ${pinned ? "order-first" : ""} group-hover:order-first`}
+      >
         <button
           onClick={() => onTogglePin(id)}
           className={`w-8 h-8 rounded-full border flex items-center justify-center transition ${

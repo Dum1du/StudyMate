@@ -1,45 +1,113 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../NavigationBar";
-import { Pin, PinOff, Eye, Filter, Search, Trash2, Bookmark, BookOpen, X, FolderOpen } from "lucide-react";
+import {
+  Pin,
+  PinOff,
+  Eye,
+  Filter,
+  Search,
+  Trash2,
+  Bookmark,
+  BookOpen,
+  Download,
+  X,
+  FolderOpen,
+} from "lucide-react";
 import Footer from "../Footer";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "../firebase";
+import {
+  collection,
+  doc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+} from "firebase/firestore";
 
 const MyResourcesUI = () => {
-  const [resources, setResources] = useState([
-    // Example data — can be empty later
-    {
-      id: 1,
-      title: "Introduction to Algorithms",
-      description: "A detailed overview of algorithmic concepts and design patterns.",
-      pinned: false,
-    },
-    {
-      id: 2,
-      title: "Database Management Notes",
-      description: "ER diagrams, normalization forms, and SQL practice questions.",
-      pinned: true,
-    },
-  ]);
+  const [resources, setResources] = useState([]);
+  const [user, setUser] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
 
-  const togglePin = (id) => {
+  // subscribe to auth and saved resources for current user
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        const col = collection(db, "users", u.uid, "savedResources");
+        const unsubSnap = onSnapshot(col, (snap) => {
+          const saved = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setResources(saved);
+        });
+        // clean up snapshot when user changes or signs out
+        return () => unsubSnap();
+      } else {
+        setResources([]);
+      }
+    });
+    return () => unsubAuth();
+  }, []);
+
+  const togglePin = async (id) => {
     setResources((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, pinned: !r.pinned } : r))
+      prev.map((r) => {
+        if (r.id === id) {
+          const newPinned = !r.pinned;
+          if (user) {
+            const docRef = doc(db, "users", user.uid, "savedResources", id);
+            updateDoc(docRef, { pinned: newPinned });
+          }
+          return { ...r, pinned: newPinned };
+        }
+        return r;
+      }),
     );
   };
 
-  const removeResource = (id) => {
+  const removeResource = async (id) => {
     setResources((prev) => prev.filter((r) => r.id !== id));
+    if (user) {
+      const docRef = doc(db, "users", user.uid, "savedResources", id);
+      await deleteDoc(docRef);
+    }
   };
 
   const openQuizModal = (resource) => setSelectedQuiz(resource);
   const closeQuizModal = () => setSelectedQuiz(null);
 
+  const viewResource = (res) => {
+    if (res.fileLink) {
+      window.open(res.fileLink, "_blank");
+    } else {
+      alert("No URL available for this resource.");
+    }
+  };
+
+  const downloadResource = (res) => {
+    if (res.fileId) {
+      const downloadUrl = `https://drive.google.com/uc?export=download&id=${res.fileId}`;
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download =
+        (res.resourceTitle || res.title || "resource") +
+        (res.materialType || ".pdf");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert("No download link available for this resource.");
+    }
+  };
+
+  // use resourceTitle or title for compatibility with older saved docs
   const filteredResources = resources
     .filter((r) =>
-      r.title.toLowerCase().includes(searchQuery.toLowerCase())
+      (r.resourceTitle || r.title || "")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()),
     )
     .filter((r) => (showPinnedOnly ? r.pinned : true));
 
@@ -60,7 +128,10 @@ const MyResourcesUI = () => {
           {/* Search + Filter */}
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+              <Search
+                className="absolute left-3 top-2.5 text-gray-400"
+                size={18}
+              />
               <input
                 type="text"
                 placeholder="Search resources..."
@@ -86,17 +157,32 @@ const MyResourcesUI = () => {
         {/* EMPTY STATE */}
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center text-center py-20 text-gray-500">
-            <FolderOpen size={64} className="text-gray-400 mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Resources Yet</h2>
-            <p className="max-w-sm text-gray-500 text-sm mb-6">
-              You haven’t saved any study materials yet. When you save or pin a resource, it will appear here for quick access.
-            </p>
-            <button
-              onClick={() => setShowPinnedOnly(false)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm shadow-md"
-            >
-              Explore Resources
-            </button>
+            {user ? (
+              <>
+                <FolderOpen size={64} className="text-gray-400 mb-4" />
+                <h2 className="text-xl font-semibold mb-2">No Resources Yet</h2>
+                <p className="max-w-sm text-gray-500 text-sm mb-6">
+                  You haven’t saved any study materials yet. When you save or
+                  pin a resource, it will appear here for quick access.
+                </p>
+                <button
+                  onClick={() => setShowPinnedOnly(false)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm shadow-md"
+                >
+                  Explore Resources
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-lg">
+                  Please{" "}
+                  <a href="/logins" className="text-blue-600 hover:underline">
+                    log in
+                  </a>{" "}
+                  to view your saved resources.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -105,7 +191,9 @@ const MyResourcesUI = () => {
               <section className="mb-10">
                 <div className="flex items-center gap-2 mb-3">
                   <Bookmark size={18} className="text-gray-600" />
-                  <h2 className="text-lg font-semibold text-gray-700">Pinned</h2>
+                  <h2 className="text-lg font-semibold text-gray-700">
+                    Pinned
+                  </h2>
                 </div>
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -124,19 +212,39 @@ const MyResourcesUI = () => {
                       </button>
 
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-800">{res.title}</h3>
-                        <p className="text-sm text-gray-600 mt-2">{res.description}</p>
+                        <h3 className="text-lg font-semibold text-gray-800">
+                          {res.resourceTitle || "Untitled"}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-2">
+                          {res.description}
+                        </p>
                       </div>
 
                       {/* Bottom: Delete left, View right */}
                       <div className="flex justify-between items-center mt-5">
-                        <button
-                          onClick={() => removeResource(res.id)}
-                          className="text-red-500 hover:text-red-700 transition"
-                          title="Delete"
-                        >
-                          <Trash2 size={20} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => removeResource(res.id)}
+                            className="text-red-500 hover:text-red-700 transition"
+                            title="Delete"
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                          <button
+                            onClick={() => viewResource(res)}
+                            className="text-gray-600 hover:text-blue-600 transition"
+                            title="View Resource"
+                          >
+                            <Eye size={20} />
+                          </button>
+                          <button
+                            onClick={() => downloadResource(res)}
+                            className="text-gray-600 hover:text-green-600 transition"
+                            title="Download Resource"
+                          >
+                            <Download size={20} />
+                          </button>
+                        </div>
                         <button
                           onClick={() => openQuizModal(res)}
                           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
@@ -175,19 +283,39 @@ const MyResourcesUI = () => {
                     </button>
 
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800">{res.title}</h3>
-                      <p className="text-sm text-gray-600 mt-2">{res.description}</p>
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        {res.resourceTitle || res.title || "Untitled"}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-2">
+                        {res.description}
+                      </p>
                     </div>
 
-                    {/* Bottom: Delete left, View right */}
+                    {/* Bottom: Delete left, View/Download center, Quiz right */}
                     <div className="flex justify-between items-center mt-5">
-                      <button
-                        onClick={() => removeResource(res.id)}
-                        className="text-red-500 hover:text-red-700 transition"
-                        title="Delete"
-                      >
-                        <Trash2 size={20} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => removeResource(res.id)}
+                          className="text-red-500 hover:text-red-700 transition"
+                          title="Delete"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                        <button
+                          onClick={() => viewResource(res)}
+                          className="text-gray-600 hover:text-blue-600 transition"
+                          title="View Resource"
+                        >
+                          <Eye size={20} />
+                        </button>
+                        <button
+                          onClick={() => downloadResource(res)}
+                          className="text-gray-600 hover:text-green-600 transition"
+                          title="Download Resource"
+                        >
+                          <Download size={20} />
+                        </button>
+                      </div>
                       <button
                         onClick={() => openQuizModal(res)}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
@@ -214,7 +342,7 @@ const MyResourcesUI = () => {
               <X size={20} />
             </button>
             <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Quizzes for {selectedQuiz.title}
+              Quizzes for {selectedQuiz.resourceTitle || selectedQuiz.title}
             </h2>
             <p className="text-gray-600 text-sm mb-6">
               Here you can display quiz questions or redirect to the quiz page.
