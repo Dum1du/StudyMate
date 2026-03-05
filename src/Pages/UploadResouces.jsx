@@ -342,7 +342,6 @@ function UploadResources() {
         backgroundImage: `linear-gradient(rgba(249, 249, 249, 0.9), rgba(240, 244, 249, 0.6)), url(${ed_bg})`,
       }}
     >
-      <Navbar />
       <div className="flex flex-col relative items-center">
         <form
           className="items-start md:w-[60%] sm:w-[50%] bg-white border border-gray-400 rounded-xl shadow-md sm:mt-5 p-6"
@@ -564,8 +563,6 @@ function UploadResources() {
           )}
         </form>
       </div>
-
-      <Footer />
     </div>
   );
 }
