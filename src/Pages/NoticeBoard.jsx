@@ -80,8 +80,6 @@ function NoticeBoard() {
 
   return (
     <>
-      <Navbar />
-
       <div className="max-w-3xl mx-auto p-6 bg-white shadow-md rounded-xl mt-8">
         <div className="flex items-center justify-between mb-10">
           <h1 className="text-3xl font-bold text-gray-800">Notice Board</h1>
@@ -130,7 +128,6 @@ function NoticeBoard() {
           ))}
         </div>
       </div>
-      <Footer />
     </>
   );
 }

@@ -37,8 +37,6 @@ function Home() {
 
   return (
     <>
-      <Navbar />
-
       <div
         className="min-h-screen bg-gradient-to-b from-white to-white py-8 bg-cover bg-center"
         style={{
@@ -222,8 +220,6 @@ function Home() {
           </div>
         </div>
       )}
-
-      <Footer />
     </>
   );
 }

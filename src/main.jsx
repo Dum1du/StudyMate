@@ -21,6 +21,7 @@ import Discussions from "./Pages/Discussions.jsx";
 import AdminRoute from "./AdminRoute.jsx";
 import AdminDashboard from "./Pages/AdminDashboard.jsx";
 
+import Layout from "./Layout.jsx";
 import Dashboard from "./Pages/Home.jsx";
 
 
@@ -40,52 +41,58 @@ const router = createBrowserRouter([
   { path: "/register", element: <RegisterUI /> },
   
   {
-    path: "/resources",
-    element: <MyResourcesUI />,
-  },
-    {path:"/home", element:<Home/>},
-      {path:"/browseresources", element:<BrowseResources/>},
-   
-  {
-    path: "/userProfile",
-    element: <UserProfile />,
-  },
-  {
-    path: "/kuppisessions",
-    element: <KuppiSession />,
-  },
-  {
-    path: "settings",
-    element: <Settings />,
-  },
-  {
-    path: "quizeGenerator",
-    element: <QuizeGenerator/>
-  },
-  {
-    path: "/noticeboard",
-    element: <NoticeBoard />
-  },
-  {
-    path:"/verify",
-    element: <EmailVerify />
-  },
-  {
-    path:"/upload",
-    element:<UploadResouces />
-  },
-  {
-    path:"/discussions",
-    element:<Discussions />
-  },
-  {
     path: "/admin",
     element: (
       <AdminRoute>
         <AdminDashboard />
       </AdminRoute>
     ),
-  }
+  },
+
+  {
+    element: <Layout/>,
+    children: [
+      {
+        path: "/resources",
+        element: <MyResourcesUI />,
+      },
+        {path:"/home", element:<Home/>},
+        {path:"/browseresources", element:<BrowseResources/>},
+   
+      {
+        path: "/userProfile",
+        element: <UserProfile />,
+      },
+      {
+        path: "/kuppisessions",
+        element: <KuppiSession />,
+      },
+      {
+        path: "settings",
+        element: <Settings />,
+      },
+      {
+        path: "quizeGenerator",
+        element: <QuizeGenerator/>
+      },
+      {
+        path: "/noticeboard",
+        element: <NoticeBoard />
+      },
+      {
+        path:"/verify",
+        element: <EmailVerify />
+      },
+      {
+        path:"/upload",
+        element:<UploadResouces />
+      },
+      {
+        path:"/discussions",
+        element:<Discussions />
+      },
+    ],
+  },
  
 ]);
 

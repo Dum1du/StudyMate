@@ -36,8 +36,6 @@ function Discussion() {
 
   return (
     <div>
-     
-      <Navbar />
 
       <div className="max-w-3xl mx-auto mt-6 p-5">
         <h2 className="text-2xl font-bold text-gray-700 mb-6">Discussions</h2>

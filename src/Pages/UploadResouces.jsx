@@ -140,7 +140,6 @@ function UploadResources() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar />
       <div className="flex flex-col relative items-center">
         <form
           className="items-start md:w-[60%] sm:w-[50%] bg-white rounded-xl shadow-md sm:mt-5 p-6"
@@ -311,8 +310,6 @@ function UploadResources() {
           )}
         </form>
       </div>
-
-      <Footer />
     </div>
   );
 }
