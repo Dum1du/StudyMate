@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { 
   collection, 
@@ -7,7 +7,8 @@ import {
   getDocs, 
   doc, 
   deleteDoc, 
-  getCountFromServer 
+  getCountFromServer,
+  updateDoc
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -86,7 +87,24 @@ export default function AdminDashboard() {
   // STATE: Search & Pagination
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8; // Adjust how many rows you want per page
+  const itemsPerPage = 8; //how many rows per page
+
+  const [noticesList, setNoticesList] = useState([]);
+  const [loadingNotices, setLoadingNotices] = useState(false);
+  const [viewNotice, setViewNotice] = useState(null);
+
+  useEffect(() => {
+    const fetchNotices = async () => {
+      if (activeTab !== "notices") return;
+      setLoadingNotices(true);
+      try {
+        const querySnapshot = await getDocs(collection(db, "notices"));
+        setNoticesList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      } catch (error) { console.error("Error:", error); } 
+      finally { setLoadingNotices(false); }
+    };
+    fetchNotices();
+  }, [activeTab]);
 
   // Reset search and page when switching tabs
   useEffect(() => {
@@ -186,6 +204,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleApproveNotice = async (noticeId) => {
+    try {
+      await updateDoc(doc(db, "notices", noticeId), { status: "approved" });
+      setNoticesList(noticesList.map(n => n.id === noticeId ? { ...n, status: "approved" } : n));
+      alert("Notice Approved and Published!");
+    } catch (error) {
+      console.error("Error approving notice:", error);
+    }
+  };
+
+  const handleDeleteNotice = async (noticeId) => {
+    if (window.confirm("Delete this notice permanently?")) {
+      try {
+        await deleteDoc(doc(db, "notices", noticeId));
+        setNoticesList(noticesList.filter(n => n.id !== noticeId));
+      } catch (error) { console.error("Error deleting notice:", error); }
+    }
+  };
+
   // --- FILTER & PAGINATION FUNCTION ---
   const getFilteredAndPaginatedData = (dataList, searchKeys) => {
     // 1. Filter
@@ -221,7 +258,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-blue-400">StudyMate Admin</h1>
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          {["dashboard", "users", "materials", "kuppi"].map((tab) => (
+          {["dashboard", "users", "materials", "kuppi", "notices"].map((tab) => (
             <button 
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -231,6 +268,7 @@ export default function AdminDashboard() {
               {tab === "users" && <Users size={20} />}
               {tab === "materials" && <FileText size={20} />}
               {tab === "kuppi" && <Video size={20} />}
+              {tab === "notices" && <Bell size={20} />}
               {tab === "dashboard" ? "Overview" : tab === "kuppi" ? "Kuppi Sessions" : `Manage ${tab}`}
             </button>
           ))}
@@ -472,8 +510,144 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ----- NOTICES TAB ----- */}
+          {activeTab === "notices" && (
+            <div className="flex flex-col h-full">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                {loadingNotices ? (
+                  <div className="p-8 text-center text-gray-500">Loading notices...</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-500 text-sm uppercase tracking-wider border-b">
+                          <th className="p-4 font-medium">Notice Title & Desc</th>
+                          <th className="p-4 font-medium">Author</th>
+                          <th className="p-4 font-medium">Status</th>
+                          <th className="p-4 font-medium text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {noticesList.length === 0 ? (
+                          <tr><td colSpan="4" className="p-8 text-center text-gray-500">No notices found.</td></tr>
+                        ) : (
+                          noticesList.map((notice) => (
+                            <tr key={notice.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="p-4">
+                                <p className="font-semibold text-gray-800">{notice.title}</p>
+                                <p className="text-xs text-gray-500 max-w-sm truncate">{notice.description}</p>
+                              </td>
+                              <td className="p-4">
+                                <p className="text-sm text-gray-800">{notice.authorName}</p>
+                              </td>
+                              <td className="p-4">
+                                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${notice.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                  {notice.status || 'pending'}
+                                </span>
+                              </td>
+                              <td className="p-4 flex justify-center gap-2">
+                                {/* 1. NEW VIEW BUTTON */}
+                                <button 
+                                  onClick={() => setViewNotice(notice)} 
+                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                                  title="View Full Notice"
+                                >
+                                  <Eye size={18} />
+                                </button>
+
+                                {/* 2. APPROVE BUTTON */}
+                                {notice.status !== "approved" && (
+                                  <button 
+                                    onClick={() => handleApproveNotice(notice.id)} 
+                                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" 
+                                    title="Approve & Publish"
+                                  >
+                                    <CheckCircle size={18} />
+                                  </button>
+                                )}
+
+                                {/* 3. DELETE BUTTON */}
+                                <button 
+                                  onClick={() => handleDeleteNotice(notice.id)} 
+                                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                  title="Delete Notice"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
+      {/* ----- VIEW NOTICE MODAL ----- */}
+      {viewNotice && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl relative transform transition-all animate-in fade-in zoom-in duration-200">
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setViewNotice(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Header / Topic */}
+            <h2 className="text-xl font-bold mb-2 text-gray-800 pr-8 break-words leading-tight">
+              {viewNotice.title}
+            </h2>
+            
+            {/* Meta Info */}
+            <div className="flex items-center gap-2 mb-4">
+              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${viewNotice.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                {viewNotice.status || 'pending'}
+              </span>
+              <span className="text-xs text-gray-500 font-medium">
+                By {viewNotice.authorName}
+              </span>
+            </div>
+
+            {/* Full Description Box */}
+            <div className="bg-gray-50 p-4 rounded-xl max-h-96 overflow-y-auto border border-gray-100 shadow-inner">
+              <p className="text-gray-700 text-sm whitespace-pre-wrap break-words leading-relaxed">
+                {viewNotice.description}
+              </p>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setViewNotice(null)}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+              >
+                Close
+              </button>
+              
+              {/* Allow approving directly from the modal! */}
+              {viewNotice.status !== "approved" && (
+                <button
+                  onClick={() => {
+                    handleApproveNotice(viewNotice.id);
+                    setViewNotice({ ...viewNotice, status: "approved" }); // Update modal state so it turns green immediately
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2"
+                >
+                  <CheckCircle size={16} /> Approve Now
+                </button>
+              )}
+            </div>
+            
+          </div>
+        </div>
+      )}
     </div>
   );
 }
