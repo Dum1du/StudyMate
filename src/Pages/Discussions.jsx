@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { collectionGroup, query, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../firebase.js";
 import Discuss from "../Discuss.jsx";
-import Navbar from "../Navigationbar.jsx";
 import ed_bg from "../Bg images/ed_bg.jpg";
 
 function Discussion() {
