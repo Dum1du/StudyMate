@@ -122,8 +122,6 @@ export default function BrowseResources() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
-
       <main className="max-w-6xl mx-auto py-10 px-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">
           Browse Resources
@@ -293,8 +291,6 @@ export default function BrowseResources() {
           </div>
         </div>
       )}
-
-      <Footer />
     </div>
   );
 }

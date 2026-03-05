@@ -50,8 +50,6 @@ const MyResourcesUI = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-200 text-gray-900">
-      <Navbar />
-
       <div className="p-6 sm:p-8 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
@@ -228,7 +226,6 @@ const MyResourcesUI = () => {
           </div>
         </div>
       )}
-      <Footer />
     </div>
   );
 };

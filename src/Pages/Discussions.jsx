@@ -62,7 +62,6 @@ function Discussion() {
 
   return (
     <div className="bg-gray-100 min-h-screen">
-      <Navbar />
       <div className="max-w-4xl mx-auto mt-6 p-5">
         <h2 className="text-3xl font-bold text-blue-900 mb-6">Study Discussion Wall</h2>
 

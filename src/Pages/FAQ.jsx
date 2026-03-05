@@ -38,7 +38,6 @@ const FAQ = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      <Navbar />
       <div className="max-w-4xl mx-auto py-16 px-6">
         <h1 className="text-4xl font-semibold text-center mb-10 text-indigo-600">
           Frequently Asked Questions

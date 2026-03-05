@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../NavigationBar";
 import { IoCameraOutline } from "react-icons/io5";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
@@ -42,6 +42,11 @@ function UserProfile() {
         program: updatedData.program,
         contact: updatedData.contact,
       });
+
+      await updateProfile(auth.currentUser, {
+        displayName: updatedData.displayName
+      });
+      
       setUser((prevUser) => ({ ...prevUser, ...updatedData }));
       alert("Profile updated successfully!");
       setIsModalOpen(false);
@@ -269,7 +274,6 @@ function UserProfile() {
   if (authLoading) {
     return (
       <>
-        <Navbar />
         <div className="flex items-center justify-center min-h-screen">
           <p className="text-gray-500 text-lg">Checking authentication...</p>
         </div>
@@ -281,8 +285,6 @@ function UserProfile() {
 
   return (
     <>
-      <Navbar />
-      
       {/* Desktop View Container */}
       <div className="hidden md:flex max-w-6xl w-full mx-auto mt-10 space-x-6 px-4 mb-20">
         
@@ -439,7 +441,6 @@ function UserProfile() {
       {isModalOpen && (
         <EditProfileModal user={user} onClose={() => setIsModalOpen(false)} onSave={handleProfileUpdate} />
       )}
-      <Footer />
     </>
   );
 }

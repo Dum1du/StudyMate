@@ -182,7 +182,6 @@ function KuppiSessions() {
 
   return (
     <>
-      <Navbar />
       <div className="p-6 max-w-6xl mx-auto md:text-left min-h-screen">
         <h1 className="text-3xl sm:text-4xl font-bold mb-2 text-gray-900">
           Kuppi Sessions
@@ -383,7 +382,6 @@ function KuppiSessions() {
           )}
         </div>
       </div>
-      <Footer />
     </>
   );
 }
