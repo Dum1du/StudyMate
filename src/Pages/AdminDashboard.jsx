@@ -9,9 +9,10 @@ import {
   deleteDoc, 
   getCountFromServer 
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { signOut } from "firebase/auth";
+import { auth, db } from "../firebase";
 
-// --- MOVED OUTSIDE: SearchBar ---
+// SearchBar
 const SearchBar = ({ placeholder, searchTerm, setSearchTerm }) => (
   <div className="mb-4 relative flex-shrink-0">
     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -25,7 +26,7 @@ const SearchBar = ({ placeholder, searchTerm, setSearchTerm }) => (
   </div>
 );
 
-// --- MOVED OUTSIDE: PaginationControls ---
+// PaginationControls
 const PaginationControls = ({ totalPages, totalCount, currentPage, setCurrentPage, itemsPerPage }) => {
   if (totalCount === 0) return null;
   return (
@@ -58,6 +59,15 @@ const PaginationControls = ({ totalPages, totalCount, currentPage, setCurrentPag
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/logins");
+    } catch (error) {
+      console.error("Error loggin out: ", error);
+    }
+  }
 
   // STATE: Dashboard Stats
   const [stats, setStats] = useState({ users: 0, materials: 0, kuppis: 0 });
@@ -226,7 +236,7 @@ export default function AdminDashboard() {
           ))}
         </nav>
         <div className="p-4 border-t border-gray-800">
-          <button onClick={() => navigate("/")} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors text-red-400">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors text-red-400">
             <LogOut size={20} /> Exit Admin
           </button>
         </div>
