@@ -40,7 +40,7 @@ function Home() {
       <div
         className="min-h-screen bg-gradient-to-b from-white to-white py-8 bg-cover bg-center"
         style={{
-          backgroundImage: `linear-gradient(rgba(249, 249, 249, 0.9), rgba(240, 244, 249, 0.9)), url(${ed_bg})`,
+          backgroundImage: `linear-gradient(rgba(249, 249, 249, 0.9), rgba(240, 244, 249, 0.6)), url(${ed_bg})`,
         }}
       >
         <div className="absolute top-15 right-4 flex space-x-3">
@@ -65,82 +65,95 @@ function Home() {
         </div>
 
         {/* Searchbar */}
-        <div className="mt-15"
-        onClick={() => navigate("/browseresources")}
-        >
-        <SearchBar placeholder="Search for resources..."
-        />
+        <div className="mt-15" onClick={() => navigate("/browseresources")}>
+          <SearchBar placeholder="Search for resources..." />
         </div>
 
-      {/* Buttons */}
-      <div className="mt-10 flex flex-wrap justify-center gap-6 px-4 sm:px-8">
-        
-        <Link className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#A0F7FA] text-black shadow-md w-full sm:w-60 transform
+        {/* Buttons */}
+        <div className="mt-10 flex flex-wrap justify-center gap-6 px-4 sm:px-8">
+          <Link
+            className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#A0F7FA] text-black shadow-md w-full sm:w-60 transform
          transition-transform
          hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400"
-         to={"/upload"}
-         >
-          <div className="p-2 bg-white rounded-xl">
-            <FaUpload className="text-blue-500 text-xl" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold">Upload Resource</span>
-            <span className="text-xs text-gray-500">Share your study materials</span>
-          </div>
-        </Link>
+            to={"/upload"}
+          >
+            <div className="p-2 bg-white rounded-xl">
+              <FaUpload className="text-blue-500 text-xl" />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-bold">Upload Resource</span>
+              <span className="text-xs text-gray-500">
+                Share your study materials
+              </span>
+            </div>
+          </Link>
 
-        
-        <Link className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#DAA2F0]
+          <Link
+            className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#DAA2F0]
          text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 
          hover:shadow-xl border border-transparent hover:border-blue-400"
-         onClick={() => navigate("/resources")} >
-          <div className="p-2 bg-white rounded-xl">
-            <FaFolderOpen className="text-blue-500 text-xl" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold">My Resources</span>
-            <span className="text-xs text-gray-500">View your uploaded content</span>
-          </div>
-        </Link>
+            onClick={() => navigate("/resources")}
+          >
+            <div className="p-2 bg-white rounded-xl">
+              <FaFolderOpen className="text-blue-500 text-xl" />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-bold">My Resources</span>
+              <span className="text-xs text-gray-500">
+                View your uploaded content
+              </span>
+            </div>
+          </Link>
 
-       <Link className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-green-300
+          <Link
+            className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-green-300
          text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 
          hover:shadow-xl border border-transparent hover:border-blue-400"
-         onClick={() => navigate("/discussions")} >
-          <div className="p-2 bg-white rounded-xl">
-            <FaComment className="text-blue-500 text-xl" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold">Discussions</span>
-            <span className="text-xs text-gray-500">Join conversations</span>
-          </div>
-        </Link>
+            onClick={() => navigate("/discussions")}
+          >
+            <div className="p-2 bg-white rounded-xl">
+              <FaComment className="text-blue-500 text-xl" />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-bold">Discussions</span>
+              <span className="text-xs text-gray-500">Join conversations</span>
+            </div>
+          </Link>
 
-        
-        <Link
-        onClick={() => navigate("/kuppisessions")} 
-        className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-red-400 text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400">
-          <div className="p-2 bg-white rounded-xl">
-            <FaUsers className="text-blue-500 text-xl" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold">Kuppi Sessions</span>
-            <span className="text-xs text-gray-500">Meet your study group</span>
-          </div>
-        </Link>
-      </div>
+          <Link
+            onClick={() => navigate("/kuppisessions")}
+            className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-red-400 text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400"
+          >
+            <div className="p-2 bg-white rounded-xl">
+              <FaUsers className="text-blue-500 text-xl" />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-bold">Kuppi Sessions</span>
+              <span className="text-xs text-gray-500">
+                Meet your study group
+              </span>
+            </div>
+          </Link>
+        </div>
 
         {/* Recently Added  */}
         <div className="mt-10 px-4">
-          <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-white max-w-7xl mx-auto">
+          <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-blue-200 max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-black">Recently Added</h2>
-              <span className="text-sm text-blue-500 cursor-pointer hover:underline">View All</span>
+              <span className="text-sm text-blue-500 cursor-pointer hover:underline">
+                View All
+              </span>
             </div>
             <section className="mt-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {pdfs.map((pdf, idx) => (
-                  <PdfCard key={idx} title={pdf.title} subtitle={pdf.subtitle} onClick={() => setSelectedResource(pdf)} />
+                  <PdfCard
+                    key={idx}
+                    title={pdf.title}
+                    subtitle={pdf.subtitle}
+                    onClick={() => setSelectedResource(pdf)}
+                  />
                 ))}
               </div>
             </section>
@@ -149,15 +162,24 @@ function Home() {
 
         {/* Popular Resources  */}
         <div className="mt-8 px-4">
-          <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-white max-w-7xl mx-auto">
+          <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-blue-200 max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-black">Popular Resources</h2>
-              <span className="text-sm text-blue-500 cursor-pointer hover:underline">View All</span>
+              <h2 className="text-2xl font-bold text-black">
+                Popular Resources
+              </h2>
+              <span className="text-sm text-blue-500 cursor-pointer hover:underline">
+                View All
+              </span>
             </div>
             <section className="mt-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {pdfs.map((pdf, idx) => (
-                  <PdfCard key={`popular-${idx}`} title={pdf.title} subtitle={pdf.subtitle} onClick={() => setSelectedResource(pdf)} />
+                  <PdfCard
+                    key={`popular-${idx}`}
+                    title={pdf.title}
+                    subtitle={pdf.subtitle}
+                    onClick={() => setSelectedResource(pdf)}
+                  />
                 ))}
               </div>
             </section>
@@ -188,7 +210,7 @@ function Home() {
               <button
                 onClick={() => {
                   if (selectedResource.fileUrl) {
-                    window.open(selectedResource.fileUrl, '_blank');
+                    window.open(selectedResource.fileUrl, "_blank");
                   } else {
                     alert("No URL available for this resource.");
                   }
@@ -201,9 +223,9 @@ function Home() {
               <button
                 onClick={() => {
                   if (selectedResource.fileUrl) {
-                    const link = document.createElement('a');
+                    const link = document.createElement("a");
                     link.href = selectedResource.fileUrl;
-                    link.download = selectedResource.title + '.pdf';
+                    link.download = selectedResource.title + ".pdf";
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);

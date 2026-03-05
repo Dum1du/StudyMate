@@ -1,57 +1,105 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { collectionGroup, query, onSnapshot, doc, getDoc } from "firebase/firestore";
+import { db, auth } from "../firebase.js";
 import Discuss from "../Discuss.jsx";
-import Navbar from "../NavigationBar.jsx"; 
+import Navbar from "../Navigationbar.jsx";
+import ed_bg from "../Bg images/ed_bg.jpg";
 
 function Discussion() {
-  
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      user: "Supun",
-      message: "Here is the lecture notes PDF for reference.",
-      time: "2 hours ago",
-      pdfUrl: "https://example.com/lecture1.pdf",
-      courseName: "Data Structures and Algorithms",
-      courseCode: "EEI4465",
-    },
-    {
-      id: 2,
-      user: "Dumidu",
-      message: "Important tips from yesterday's session.",
-      time: "1 hour ago",
-      pdfUrl: "",
-      courseName: "OOP",
-      courseCode: "EEI3262",
-    },
-    {
-      id: 3,
-      user: "Asitha",
-      message: "Check out this new study guide PDF!",
-      time: "30 mins ago",
-      pdfUrl: "https://example.com/guide.pdf",
-      courseName: "OOD",
-      courseCode: "EEI4362",
-    },
-  ]);
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState({ displayName: "", photoURL: "" });
+  const [userProfiles, setUserProfiles] = useState({}); // Stores { uid: { displayName, profilePicture } }
+
+  // --- Fetch logged-in user info ---
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setCurrentUser(user);
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          setCurrentUserProfile({
+            displayName: userDoc.data().displayName,
+            photoURL: userDoc.data().profilePicture,
+          });
+          // also store in userProfiles so we can use it for uploader info if needed
+          setUserProfiles((prev) => ({ ...prev, [user.uid]: userDoc.data() }));
+        }
+      }
+    });
+    return () => unsubAuth();
+  }, []);
+
+  // --- Fetch all materials and uploader profiles ---
+  useEffect(() => {
+    const q = query(collectionGroup(db, "Materials"));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const allMaterials = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        deptId: doc.ref.parent.parent?.id || "default",
+        ...doc.data(),
+      }));
+
+      setMaterials(allMaterials);
+      setLoading(false);
+
+      const newProfiles = { ...userProfiles };
+      for (const mat of allMaterials) {
+        const uid = mat.uploaderUid;
+        if (uid && !newProfiles[uid]) {
+          const userDoc = await getDoc(doc(db, "users", uid));
+          if (userDoc.exists()) {
+            newProfiles[uid] = userDoc.data();
+          }
+        }
+      }
+      setUserProfiles(newProfiles);
+    });
+
+    return () => unsubscribe();
+  }, [userProfiles]); // depend on userProfiles to ensure we fetch new uploader info
 
   return (
-    <div>
+    <div className="bg-gray-100 min-h-screen">
+      <Navbar />
+      <div className="max-w-4xl mx-auto mt-6 p-5">
+        <h2 className="text-3xl font-bold text-blue-900 mb-6">Study Discussion Wall</h2>
 
-      <div className="max-w-3xl mx-auto mt-6 p-5">
-        <h2 className="text-2xl font-bold text-gray-700 mb-6">Discussions</h2>
+        {loading && <p className="text-center text-blue-600">Loading Feed...</p>}
 
-        
-        {posts.map((post) => (
-          <Discuss
-            key={post.id}
-            user={post.user}          
-            message={post.message}
-            time={post.time}
-            pdfUrl={post.pdfUrl}
-            courseName={post.courseName}
-            courseCode={post.courseCode}
-          />
-        ))}
+        <div className="grid gap-6">
+          {materials.map((mat) => {
+            const uploaderProfile = userProfiles[mat.uploaderUid]; // Uploader info
+
+            return (
+              <Discuss
+                key={mat.id}
+                docId={mat.id}
+                deptId={mat.deptId}
+
+                // ✅ Uploader info
+                uploaderName={uploaderProfile?.displayName || "OUSL Student"}
+                uploaderImage={uploaderProfile?.profilePicture || "https://ui-avatars.com/api/?name=U"}
+
+                // ✅ Current logged-in user info
+                currentUserEmail={currentUser?.email || "guest@ousl.lk"}
+                currentUserName={currentUserProfile.displayName || "User"}
+                currentUserImage={currentUserProfile.photoURL || "https://ui-avatars.com/api/?name=User"}
+
+                // Other props
+                message={mat.description || mat.resourceTitle}
+                pdfUrl={mat.fileLink}
+                fileType={mat.fileType || "application/pdf"}
+                courseName={mat.courseSubject}
+                courseCode={mat.courseCode}
+                initialLikes={mat.likedBy || []}
+                initialComments={mat.comments || []}
+                initialRatings={mat.ratings || {}}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
