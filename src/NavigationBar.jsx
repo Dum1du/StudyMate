@@ -114,10 +114,7 @@ export default function Navbar() {
 
         {/* RIGHT: Bell + Profile */}
         <div className="hidden md:flex items-center space-x-4">
-          <button className="hover:text-gray-200">
-            <Bell size={20} />
-            <NotificationWrapper />
-          </button>
+          <NotificationWrapper />
           
           {/* Conditional rendering: Only show profile if not loading and user exists */}
           {!loading && (
