@@ -23,6 +23,8 @@ import AdminDashboard from "./Pages/AdminDashboard.jsx";
 
 import Layout from "./Layout.jsx";
 import Dashboard from "./Pages/Home.jsx";
+import ResourcePage from "./ResourceWindow.jsx";
+import { ResourcesProvider } from "./ResourcesContext.jsx";
 
 
 const router = createBrowserRouter([
@@ -91,6 +93,10 @@ const router = createBrowserRouter([
         path:"/discussions",
         element:<Discussions />
       },
+      {
+        path:"/material/:resourceId",
+        element:<ResourcePage />
+      },
     ],
   },
  
@@ -98,6 +104,8 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
+    <ResourcesProvider>
     <RouterProvider router={router} />
+    </ResourcesProvider>
   </StrictMode>
 );

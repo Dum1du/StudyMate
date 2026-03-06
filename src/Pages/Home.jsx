@@ -14,14 +14,37 @@ import { Calendar, MailOpen, Eye, Download, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { pdfs, PdfCard } from "../add";
 import Footer from "../Footer";
+import { collectionGroup, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { useResources } from "../ResourcesContext";
 
 function Home() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState(null);
   const [selectedResource, setSelectedResource] = useState(null);
+  const [filtered, setFiltered] = useState([]);
+
+  const dummyResources = [
+    {
+      title: "Calculus Notes",
+      subtitle: "Comprehensive notes on calculus topics.",},
+      {
+        title: "Physics Problems",
+        subtitle: "Practice problems with solutions.",
+      },
+      {
+        title: "Chemistry Formulas",
+        subtitle: "Key formulas for chemistry exams.",
+      },
+      {
+        title: "Biology Diagrams",
+        subtitle: "Labeled diagrams for biology concepts.",
+      },
+  ]
+
+  const { resources, loading } = useResources();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -136,7 +159,30 @@ function Home() {
           </Link>
         </div>
 
-        {/* Recently Added  */}
+        {loading ? (
+          /* Recently Added dummy */
+        <div  className="mt-10 px-4">
+          <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-blue-200 max-w-7xl mx-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-black">Recently Added</h2>
+              <span className="text-sm text-blue-500 cursor-progress hover:underline">
+                View All
+              </span>
+            </div>
+            <section className="mt-4 px-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 blur-sm animate-pulse">
+                {dummyResources.map((dum, idx) => (
+                  <PdfCard
+                    key={idx}
+                    title={dum.title}
+                    subtitle={dum.subtitle}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+        ) : (/* Recently Added  */
         <div className="mt-10 px-4">
           <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-blue-200 max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-4">
@@ -147,18 +193,19 @@ function Home() {
             </div>
             <section className="mt-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {pdfs.map((pdf, idx) => (
+                {resources.map((res, idx) => (
                   <PdfCard
                     key={idx}
-                    title={pdf.title}
-                    subtitle={pdf.subtitle}
-                    onClick={() => setSelectedResource(pdf)}
+                    title={res.resourceTitle}
+                    subtitle={res.description}
+                    onClick={() => setSelectedResource(res)}
                   />
                 ))}
               </div>
             </section>
           </div>
-        </div>
+        </div>)}
+
 
         {/* Popular Resources  */}
         <div className="mt-8 px-4">
