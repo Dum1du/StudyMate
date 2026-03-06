@@ -1,75 +1,126 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import NotificationDropdown from "./NotificationDropdown";
+import { db, auth } from "./firebase"; 
+import { onAuthStateChanged } from "firebase/auth";
+import { 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  writeBatch,
+  collectionGroup // <--- NEW IMPORT
+} from "firebase/firestore";
+import { Bell } from "lucide-react"; 
 
 function NotificationWrapper() {
   const [isOpen, setIsOpen] = useState(false);
-
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "New assignment uploaded!", read: false, time: "10:15 AM", date: "2025-11-03" },
-    { id: 2, message: "Message from your lecturer", read: false, time: "09:45 AM", date: "2025-11-03" },
-    { id: 3, message: "Lab results released", read: false, time: "08:30 AM", date: "2025-11-02" },
-    { id: 4, message: "Exam schedule updated", read: false, time: "07:50 AM", date: "2025-11-02" },
-    { id: 5, message: "New message in group chat", read: false, time: "07:20 AM", date: "2025-11-02" },
-    { id: 6, message: "Library notice posted", read: false, time: "06:50 AM", date: "2025-11-01" },
-    { id: 7, message: "Event reminder", read: false, time: "06:20 AM", date: "2025-11-01" },
-    { id: 8, message: "Assignment graded", read: false, time: "05:50 AM", date: "2025-10-31" },
-    { id: 9, message: "New course material", read: false, time: "05:20 AM", date: "2025-10-31" },
-    { id: 10, message: "Meeting scheduled", read: false, time: "04:50 AM", date: "2025-10-30" },
-    { id: 11, message: "Payment receipt issued", read: false, time: "04:20 AM", date: "2025-10-30" },
-    { id: 12, message: "System maintenance notice", read: false, time: "03:50 AM", date: "2025-10-29" },
-    { id: 13, message: "New forum post", read: false, time: "03:20 AM", date: "2025-10-29" },
-    { id: 14, message: "Profile updated successfully", read: false, time: "02:50 AM", date: "2025-10-28" },
-    { id: 15, message: "New message from admin", read: false, time: "02:20 AM", date: "2025-10-28" },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [user, setUser] = useState(null);
+  const wrapperRef = useRef(null);
 
   useEffect(() => {
-    const bell = document.querySelector("button > svg"); 
-    if (!bell) return;
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    const handleClick = () => setIsOpen((prev) => !prev);
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
 
-    bell.parentElement.addEventListener("click", handleClick);
+    // 1. Use a collectionGroup query to find the subcollections!
+    const q = query(
+      collectionGroup(db, "userNotifications"), 
+      where("userId", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
 
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedNotifs = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        const dateObj = data.createdAt ? data.createdAt.toDate() : new Date();
+        
+        return {
+          id: doc.ref.path, // <--- CRITICAL FIX: We now store the full database path instead of just the ID
+          message: data.message || "New Notification",
+          read: data.read || false,
+          date: dateObj.toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }),
+          time: dateObj.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })
+        };
+      });
+      setNotifications(fetchedNotifs);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!bell.parentElement.contains(event.target)) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      bell.parentElement.removeEventListener("click", handleClick);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleNotificationClick = (id) => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id
-          ? { ...n, read: true } 
-          : n
-      )
-    );
+  const handleNotificationClick = async (path) => {
+    try {
+      // Because 'id' is now the full path, we pass it directly to doc()
+      const notifRef = doc(db, path);
+      await updateDoc(notifRef, { read: true });
+    } catch (error) {
+      console.error("Error updating notification status:", error);
+    }
   };
 
-  const handleClear = () => setNotifications([]);
+  const handleClear = async () => {
+    if (notifications.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      notifications.forEach((notif) => {
+        const notifRef = doc(db, notif.id); // notif.id is the full path
+        batch.delete(notifRef);
+      });
+      await batch.commit();
+      setIsOpen(false); 
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    }
+  };
 
-  return isOpen ? (
-    <div
-      className="absolute z-50"
-      style={{
-        top: "50px", 
-        right: "20px", 
-      }}
-    >
-      <NotificationDropdown
-        notifications={notifications}
-        onClear={handleClear}
-        onClickNotification={handleNotificationClick}
-      />
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <div ref={wrapperRef} className="relative flex items-center">
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="relative text-white hover:text-gray-200 transition-colors focus:outline-none"
+      >
+        <Bell size={20} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-blue-600">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-8 right-0 z-50">
+          <NotificationDropdown
+            notifications={notifications}
+            onClear={handleClear}
+            onClickNotification={handleNotificationClick}
+          />
+        </div>
+      )}
     </div>
-  ) : null;
+  );
 }
 
 export default NotificationWrapper;

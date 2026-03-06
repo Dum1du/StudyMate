@@ -8,7 +8,10 @@ import {
   doc, 
   deleteDoc, 
   getCountFromServer,
-  updateDoc
+  updateDoc,
+  writeBatch,
+  serverTimestamp,
+  Timestamp
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -204,11 +207,73 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- BROADCAST NOTIFICATION TO ALL USERS (STRUCTURED) ---
+  const notifyAllUsers = async (noticeTitle) => {
+    try {
+      const message = `New Notice: ${noticeTitle}`;
+      const timestamp = serverTimestamp();
+
+      let batch = writeBatch(db);
+      let count = 0;
+
+      // 1. Create ONE main notification document in the root collection
+      const mainNotifRef = doc(collection(db, "notifications"));
+      batch.set(mainNotifRef, {
+        title: "Notice Approval",
+        message: message,
+        createdAt: timestamp
+      });
+      count++;
+
+      // 2. Add each user to the "userNotifications" subcollection INSIDE that document
+      const usersSnap = await getDocs(collection(db, "users"));
+
+      usersSnap.forEach((userDoc) => {
+        // Path: notifications/{mainNotifId}/userNotifications/{userId}
+        const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", userDoc.id);
+        
+        batch.set(userNotifRef, {
+          userId: userDoc.id,
+          message: message, // We duplicate the message here so the frontend can read it instantly
+          read: false,
+          createdAt: timestamp
+        });
+
+        count++;
+        // Firestore batches max out at 500. Commit and reset if we get close.
+        if (count >= 490) {
+          batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      });
+
+      // Commit any remaining writes
+      if (count > 0) {
+        await batch.commit();
+      }
+      
+      console.log("Successfully broadcasted structured notifications!");
+    } catch (error) {
+      console.error("Error broadcasting notifications:", error);
+    }
+  };
+
   const handleApproveNotice = async (noticeId) => {
     try {
+      // Update the notice status in Firestore
       await updateDoc(doc(db, "notices", noticeId), { status: "approved" });
+      
+      const approvedNotice = noticesList.find(n => n.id === noticeId);
+      const noticeTitle = approvedNotice ? approvedNotice.title : "Check the Notice Board";
+
       setNoticesList(noticesList.map(n => n.id === noticeId ? { ...n, status: "approved" } : n));
+      
       alert("Notice Approved and Published!");
+
+      // Send the notification
+      notifyAllUsers(noticeTitle);
+
     } catch (error) {
       console.error("Error approving notice:", error);
     }
