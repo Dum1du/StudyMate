@@ -208,7 +208,7 @@ export default function AdminDashboard() {
   };
 
   // --- BROADCAST NOTIFICATION TO ALL USERS (STRUCTURED) ---
-  const notifyAllUsers = async (noticeTitle) => {
+  const notifyAllUsers = async (noticeTitle, noticeId) => {
     try {
       const message = `New Notice: ${noticeTitle}`;
       const timestamp = serverTimestamp();
@@ -221,7 +221,9 @@ export default function AdminDashboard() {
       batch.set(mainNotifRef, {
         title: "Notice Approval",
         message: message,
-        createdAt: timestamp
+        createdAt: timestamp,
+        type: "notice",
+        targetId: noticeId
       });
       count++;
 
@@ -236,7 +238,9 @@ export default function AdminDashboard() {
           userId: userDoc.id,
           message: message, // We duplicate the message here so the frontend can read it instantly
           read: false,
-          createdAt: timestamp
+          createdAt: timestamp,
+          type: "notice",
+          targetId: noticeId
         });
 
         count++;
@@ -272,7 +276,7 @@ export default function AdminDashboard() {
       alert("Notice Approved and Published!");
 
       // Send the notification
-      notifyAllUsers(noticeTitle);
+      notifyAllUsers(noticeTitle, noticeId);
 
     } catch (error) {
       console.error("Error approving notice:", error);

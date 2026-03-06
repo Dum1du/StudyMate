@@ -12,13 +12,15 @@ import {
   writeBatch,
   collectionGroup // <--- NEW IMPORT
 } from "firebase/firestore";
-import { Bell } from "lucide-react"; 
+import { Bell} from "lucide-react"; 
+import { useNavigate } from "react-router-dom";
 
 function NotificationWrapper() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [user, setUser] = useState(null);
   const wrapperRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -33,7 +35,6 @@ function NotificationWrapper() {
       return;
     }
 
-    // 1. Use a collectionGroup query to find the subcollections!
     const q = query(
       collectionGroup(db, "userNotifications"), 
       where("userId", "==", user.uid),
@@ -46,11 +47,13 @@ function NotificationWrapper() {
         const dateObj = data.createdAt ? data.createdAt.toDate() : new Date();
         
         return {
-          id: doc.ref.path, // <--- CRITICAL FIX: We now store the full database path instead of just the ID
+          id: doc.ref.path,
           message: data.message || "New Notification",
           read: data.read || false,
           date: dateObj.toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' }),
-          time: dateObj.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })
+          time: dateObj.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' }),
+          type: data.type || null,
+          targetId: data.targetId || null
         };
       });
       setNotifications(fetchedNotifs);
@@ -71,9 +74,21 @@ function NotificationWrapper() {
 
   const handleNotificationClick = async (path) => {
     try {
-      // Because 'id' is now the full path, we pass it directly to doc()
       const notifRef = doc(db, path);
       await updateDoc(notifRef, { read: true });
+
+      const clickedNotif = notifications.find(n => n.id === path);
+
+      console.log("1. Notification Clicked!");
+      console.log("2. Notification Data:", clickedNotif);
+      console.log("3. Is it a notice?", clickedNotif?.type === "notice");
+
+      if (clickedNotif) {
+        if (clickedNotif.type === "notice") {
+          setIsOpen(false);
+          navigate("/noticeboard")
+        }
+      }
     } catch (error) {
       console.error("Error updating notification status:", error);
     }
