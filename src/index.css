@@ -26,3 +26,21 @@
   flex-direction: column;
   min-height: 100vh;
 }
+
+/* Add this to your index.css or App.css */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e5e7eb; /* gray-200 */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db; /* gray-300 */
+}

@@ -135,6 +135,7 @@ function UploadResources() {
   const [type, setType] = useState("");
   const[materialType, setMaterialType] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
+  const [tagError, setTagError] = useState("");
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
@@ -211,9 +212,22 @@ function UploadResources() {
 
   // Toggle tag selection
   const toggleTag = (tag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
+    setSelectedTags((prev) => {
+    // remove tag if already selected
+    if (prev.includes(tag)) {
+      setTagError("");
+      return prev.filter((t) => t !== tag);
+    }
+
+    // limit to 3
+    if (prev.length >= 3) {
+      setTagError("You can select a maximum of 3 tags.");
+      return prev;
+    }
+
+    setTagError("");
+    return [...prev, tag];
+  });
   };
 
   // File handling
@@ -501,6 +515,9 @@ function UploadResources() {
                 #{tag}
               </button>
             ))}
+            {tagError && (
+  <p className="text-red-500 text-sm mt-2">{tagError}</p>
+)}
           </div>
 
           {/* UPLOAD */}
