@@ -24,7 +24,6 @@ function StudentLogin() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
 
   const userlogingHelper = async (e) => {
     e.preventDefault();
