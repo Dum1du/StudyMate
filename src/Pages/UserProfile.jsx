@@ -5,12 +5,15 @@ import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore"; 
 import { FaFileAlt, FaTrash, FaStar } from "react-icons/fa"; 
 import EditProfileModal from "./EditProfileModal";
 import Footer from "../Footer";
 import axios from "axios";
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import AlertModal from "../AlertModal"; 
+
+// The default avatar image URL
+const DEFAULT_AVATAR = "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80";
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -62,7 +65,6 @@ function UserProfile() {
       
       setUser((prevUser) => ({ ...prevUser, ...updatedData }));
       
-      // REPLACED SUCCESS ALERT
       setAlertConfig({
         isOpen: true,
         title: "Profile Updated",
@@ -72,7 +74,6 @@ function UserProfile() {
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      // REPLACED ERROR ALERT
       setAlertConfig({
         isOpen: true,
         title: "Update Failed",
@@ -102,7 +103,6 @@ function UserProfile() {
       await updateDoc(userRef, { profilePicture: image });
       setUser((prevUser) => ({ ...prevUser, profilePicture: image }));
       
-      // REPLACED SUCCESS ALERT
       setAlertConfig({
         isOpen: true,
         title: "Picture Updated",
@@ -112,7 +112,6 @@ function UserProfile() {
       setPreview(null);
     } catch (error) {
       console.error("Error uploading profile picture:", error);
-      // REPLACED ERROR ALERT
       setAlertConfig({
         isOpen: true,
         title: "Upload Failed",
@@ -124,7 +123,52 @@ function UserProfile() {
     }
   };
 
-  // UPGRADED: Added confirmation modal before logging out
+  // --- REMOVE PROFILE PICTURE ---
+  const handleRemovePicture = () => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Remove Profile Picture",
+      message: "Are you sure you want to remove your profile picture? You will be reverted to the default avatar.",
+      type: "warning",
+      onConfirm: async () => {
+        closeAlert();
+        setIsModalOpen(false); // Close the Edit Profile modal
+        setUploading(true);
+        try {
+          const userRef = doc(db, "users", user.uid);
+          await updateDoc(userRef, { profilePicture: deleteField() });
+          
+          setUser((prevUser) => {
+            const updatedUser = { ...prevUser };
+            delete updatedUser.profilePicture;
+            return updatedUser;
+          });
+          setPreview(null);
+          setImage(null);
+
+          setAlertConfig({
+            isOpen: true,
+            title: "Picture Removed",
+            message: "Your profile picture has been removed successfully.",
+            type: "success",
+            onConfirm: null
+          });
+        } catch (error) {
+          console.error("Error removing profile picture:", error);
+          setAlertConfig({
+            isOpen: true,
+            title: "Error",
+            message: "Failed to remove your profile picture. Please try again.",
+            type: "error",
+            onConfirm: null
+          });
+        } finally {
+          setUploading(false);
+        }
+      }
+    });
+  };
+
   const handleLogout = () => {
     setAlertConfig({
       isOpen: true,
@@ -201,7 +245,7 @@ function UserProfile() {
     }
   }, [user]);
 
-  // --- 4. DELETE HANDLER (UPGRADED TO USE MODAL) ---
+  // --- 4. DELETE HANDLER ---
   const handleDelete = (docId, title) => {
     setAlertConfig({
       isOpen: true,
@@ -209,7 +253,6 @@ function UserProfile() {
       message: `Are you sure you want to delete "${title}"? This action cannot be undone.`,
       type: "warning",
       onConfirm: async () => {
-        // Close the confirm modal immediately and show loading state on the button
         closeAlert();
         setDeletingId(docId);
 
@@ -220,7 +263,6 @@ function UserProfile() {
           });
           setUserPosts((prev) => prev.filter((item) => item.id !== docId));
           
-          // Show success modal
           setAlertConfig({
             isOpen: true,
             title: "Resource Deleted",
@@ -230,7 +272,6 @@ function UserProfile() {
           });
         } catch (error) {
           console.error("Delete failed:", error);
-          // Show error modal
           setAlertConfig({
             isOpen: true,
             title: "Delete Failed",
@@ -391,7 +432,7 @@ function UserProfile() {
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex items-center space-x-6">
              <div className="relative shrink-0">
               <img
-                src={preview || user.profilePicture || "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"}
+                src={preview || user.profilePicture || DEFAULT_AVATAR}
                 alt="User"
                 className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-sm"
               />
@@ -400,20 +441,26 @@ function UserProfile() {
                 <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
               </label>
             </div>
-            {preview && (
-              <button onClick={handleUpload} disabled={uploading} className="mt-3 bg-blue-600 text-white px-3 py-1 rounded-md text-sm">
-                {uploading ? "Saving..." : "Save Picture"}
-              </button>
-            )}
+            
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
               <p className="text-gray-600 font-medium">{user.faculty || "Faculty not set"}</p>
               <div className="flex items-center mt-2 text-gray-500 text-sm">
                 <span>Joined {user?.joinedMonth} {user?.joinedYear}</span>
               </div>
-              <button onClick={() => setIsModalOpen(true)} className="mt-4 px-4 py-1.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
-                Edit Profile
-              </button>
+              
+              <div className="flex items-center gap-3 mt-4">
+                <button onClick={() => setIsModalOpen(true)} className="px-4 py-1.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+                  Edit Profile
+                </button>
+                
+                {/* Save New Picture Button (Only shows if a new picture is selected) */}
+                {preview && (
+                  <button onClick={handleUpload} disabled={uploading} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+                    {uploading ? "Saving..." : "Save Picture"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -432,12 +479,10 @@ function UserProfile() {
                 <div>
                   <h3 className="text-lg font-semibold mb-4 text-gray-800">Contributions</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    {/* Dynamic Uploads Count */}
                     <div className="bg-blue-50 rounded-xl p-4 text-center">
                       <p className="text-3xl font-bold text-blue-600">{userPosts.length}</p>
                       <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mt-1">Uploads</p>
                     </div>
-                    {/* Hardcoded Ratings */}
                     <div className="bg-green-50 rounded-xl p-4 text-center">
                       <p className="text-3xl font-bold text-green-600">42</p>
                       <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mt-1">Ratings Received</p>
@@ -464,14 +509,23 @@ function UserProfile() {
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col items-center text-center">
            <div className="relative mb-4">
             <img
-              src={preview || user.profilePicture || "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80"}
+              src={preview || user.profilePicture || DEFAULT_AVATAR}
               alt="User"
               className="w-24 h-24 rounded-full object-cover border-4 border-white shadow"
             />
           </div>
            <h2 className="text-xl font-bold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
            <p className="text-gray-500 text-sm mt-1">{user.faculty || "Faculty not set"}</p>
-           <button onClick={() => setIsModalOpen(true)} className="mt-4 px-6 py-2 border border-gray-300 rounded-full text-sm font-medium">Edit Profile</button>
+           
+           <div className="flex flex-col gap-2 mt-4">
+             <button onClick={() => setIsModalOpen(true)} className="px-6 py-2 border border-gray-300 rounded-full text-sm font-medium mb-2">Edit Profile</button>
+             {/* Save New Picture Button (Mobile) */}
+             {preview && (
+               <button onClick={handleUpload} disabled={uploading} className="px-6 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700">
+                 {uploading ? "Saving..." : "Save Picture"}
+               </button>
+             )}
+           </div>
         </div>
 
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
@@ -495,7 +549,6 @@ function UserProfile() {
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Program</span><span className="text-gray-800">{user.program || "Not set"}</span></div>
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Email</span><span className="text-gray-800 truncate ml-4">{user.email}</span></div>
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Uploads</span><span className="text-gray-800 font-bold">{userPosts.length}</span></div>
-                   {/* Restored Ratings for Mobile */}
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Ratings Received</span><span className="text-green-600 font-bold">42</span></div>
                 </div>
                 <div onClick={handleLogout} className="flex items-center justify-center space-x-2 text-red-500 font-medium py-2 cursor-pointer">
@@ -510,8 +563,14 @@ function UserProfile() {
         </div>
       </div>
       
+      {/* PASSED onRemovePhoto TO MODAL HERE */}
       {isModalOpen && (
-        <EditProfileModal user={user} onClose={() => setIsModalOpen(false)} onSave={handleProfileUpdate} />
+        <EditProfileModal 
+          user={user} 
+          onClose={() => setIsModalOpen(false)} 
+          onSave={handleProfileUpdate} 
+          onRemovePhoto={handleRemovePicture} 
+        />
       )}
 
       {/* NEW ALERT MODAL INJECTION */}
