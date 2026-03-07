@@ -11,6 +11,7 @@ import EditProfileModal from "./EditProfileModal";
 import Footer from "../Footer";
 import axios from "axios";
 import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import { Slice } from "lucide-react";
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -202,7 +203,9 @@ function UserProfile() {
   }, [user]);
 
   // --- 4. DELETE HANDLER (UPGRADED TO USE MODAL) ---
-  const handleDelete = (docId, title) => {
+  const handleDelete = (docId, title, courseCode) => {
+    const diptId = courseCode.slice( 0, 3).toUpperCase();
+
     setAlertConfig({
       isOpen: true,
       title: "Delete Resource",
@@ -217,6 +220,7 @@ function UserProfile() {
           const token = await auth.currentUser.getIdToken();
           await axios.delete(`http://localhost:4000/delete-upload/${docId}`, {
             headers: { Authorization: `Bearer ${token}` },
+            params: { diptId }
           });
           setUserPosts((prev) => prev.filter((item) => item.id !== docId));
           
@@ -290,7 +294,7 @@ function UserProfile() {
                   <td className="p-4 text-sm text-gray-500">{formatDate(post.createdAt)}</td>
                   <td className="p-4 text-center">
                     <button
-                      onClick={() => handleDelete(post.id, post.resourceTitle)}
+                      onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
                       disabled={deletingId === post.id}
                       className={`p-2 rounded-full transition ${
                         deletingId === post.id 
@@ -329,7 +333,7 @@ function UserProfile() {
               <div className="mt-4 flex items-center justify-between border-t pt-3">
                 <span className="text-xs text-gray-400">{formatDate(post.createdAt)}</span>
                 <button 
-                  onClick={() => handleDelete(post.id, post.resourceTitle)}
+                  onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
                   disabled={deletingId === post.id}
                   className="flex items-center space-x-1 text-red-500 text-xs font-medium hover:text-red-700"
                 >

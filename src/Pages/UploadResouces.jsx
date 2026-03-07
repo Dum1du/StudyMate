@@ -133,6 +133,7 @@ function UploadResources() {
   const [code, setCode] = useState("");
   const [subject, setSubject] = useState("");
   const [type, setType] = useState("");
+  const[materialType, setMaterialType] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -329,7 +330,7 @@ function UploadResources() {
     formData.append("courseCode", code);
     formData.append("courseSubject", subject);
     formData.append("tags", selectedTags.join(" "));
-    formData.append("materialType", type);
+    formData.append("materialType", materialType);
     formData.append("file", file);
 
     setProgress(0);
@@ -397,7 +398,6 @@ function UploadResources() {
             placeholder="Briefly describe the content..."
             className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
             rows={3}
-            required
           />
 
           {/* COURSE + SUBJECT + TYPE */}
@@ -466,23 +466,25 @@ function UploadResources() {
 
             <div className="flex-1">
               <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
-                Material Type
+                Material Type<span className="text-red-600">*</span>
               </label>
               <select
-                value={type}
-                className="w-full  border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none bg-gray-100 cursor-not-allowed "
+                value={materialType}
+                onChange={(e) => setMaterialType(e.target.value)}
+                className="w-full  border-gray-400 rounded-lg pl-2 pr-2 py-2 focus:outline-none bg-gray-100 cursor-pointer"
+                required
               >
                 <option value=""></option>
-                <option value=".pdf">.pdf</option>
-                <option value=".docx">.docx</option>
-                <option value=".jpg">.jpg / .jpeg / .png</option>
+                <option value="study_material">Study Material</option>
+                <option value="Past Paper">Past Paper</option>
+                <option value="Other">Other</option>
               </select>
             </div>
           </div>
 
           {/* TAGS */}
           <label className="font-medium flex justify-start mt-5 mb-3 mx-1">
-            Tags (Select multiple)<span className="text-red-600">*</span>
+            Tags (Select multiple)
           </label>
           <div className="w-full flex flex-wrap gap-2 p-3 border border-gray-400 rounded-lg bg-gray-50">
             {TAGS.map((tag, idx) => (
