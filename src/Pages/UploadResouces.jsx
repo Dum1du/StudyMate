@@ -143,6 +143,7 @@ function UploadResources() {
   const [showCodeDropdown, setShowCodeDropdown] = useState(false);
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
   // Handle course code input and show suggestions
   const handleCodeChange = (e) => {
@@ -238,7 +239,7 @@ function UploadResources() {
     fileInputRef.current.click();
   };
 
-  // Stable callback using useCallback so React doesn't recreate it on each render
+  // Stable callback using useCallback
   const handleUploadStatus = useCallback((data) => {
     console.log("Upload step:", data.step, data.message);
     setShowProgress(true);
@@ -262,24 +263,15 @@ function UploadResources() {
           setShowSuccessOverlay(false);
 
           setTimeout(() => {
-            setSuccess(false);
-            setShowProgress(false);
-            setTitle("");
-            setDesc("");
-            setCode("");
-            setSubject("");
-            setType("");
-            setSelectedTags([]);
-            setFile(null);
-            setProgress(0);
+            navigate("/home"); 
           }, 600);
-        }, 3000);
+        }, 2500);
 
         break;
       default:
         break;
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!socket) return;
