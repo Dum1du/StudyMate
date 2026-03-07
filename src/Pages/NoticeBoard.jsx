@@ -3,6 +3,7 @@ import Notice from "../Notice";
 import { collection, addDoc, query, where, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../firebase"; 
 import { Plus, X } from "lucide-react"; 
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 function NoticeBoard() {
   const [notices, setNotices] = useState([]);
@@ -14,6 +15,18 @@ function NoticeBoard() {
   const [newNotice, setNewNotice] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
 
   // Fetch only APPROVED notices in real-time
   useEffect(() => {
@@ -57,14 +70,26 @@ function NoticeBoard() {
         createdAt: serverTimestamp(),
       });
       
-      alert("Notice submitted successfully! It will appear once approved by an admin.");
+      // REPLACED SUCCESS ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Notice Submitted!",
+        message: "Your notice was submitted successfully! It will appear on the board once approved by an admin.",
+        type: "success"
+      });
       
       setNewNotice("");
       setNewDescription("");
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error adding notice:", error);
-      alert("Failed to submit notice.");
+      // REPLACED ERROR ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Submission Failed",
+        message: "Failed to submit the notice. Please try again.",
+        type: "error"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -198,6 +223,16 @@ function NoticeBoard() {
           </div>
         </div>
       )}
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </>
   );
 }

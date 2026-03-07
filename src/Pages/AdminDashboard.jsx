@@ -10,11 +10,11 @@ import {
   getCountFromServer,
   updateDoc,
   writeBatch,
-  serverTimestamp,
-  Timestamp
+  serverTimestamp
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
+import AlertModal from "../AlertModal";
 
 // SearchBar
 const SearchBar = ({ placeholder, searchTerm, setSearchTerm }) => (
@@ -64,6 +64,17 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const navigate = useNavigate();
 
+  // STATE: Custom Alert Modal (Now supports 'onConfirm')
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -87,10 +98,9 @@ export default function AdminDashboard() {
   const [kuppiList, setKuppiList] = useState([]);
   const [loadingKuppis, setLoadingKuppis] = useState(false);
 
-  // STATE: Search & Pagination
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8; //how many rows per page
+  const itemsPerPage = 8; 
 
   const [noticesList, setNoticesList] = useState([]);
   const [loadingNotices, setLoadingNotices] = useState(false);
@@ -109,18 +119,15 @@ export default function AdminDashboard() {
     fetchNotices();
   }, [activeTab]);
 
-  // Reset search and page when switching tabs
   useEffect(() => {
     setSearchTerm("");
     setCurrentPage(1);
   }, [activeTab]);
 
-  // Reset to page 1 when typing in search
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // --- FETCHING LOGIC ---
   useEffect(() => {
     const fetchStats = async () => {
       if (activeTab !== "dashboard") return;
@@ -179,35 +186,71 @@ export default function AdminDashboard() {
     fetchKuppis();
   }, [activeTab]);
 
-  // --- DELETE HANDLERS ---
-  const handleDeleteUser = async (userId, userName) => {
-    if (window.confirm(`Remove ${userName || "this user"}?`)) {
-      try {
-        await deleteDoc(doc(db, "users", userId));
-        setUsersList(usersList.filter(user => user.id !== userId));
-      } catch (error) { console.error("Error:", error); }
-    }
+  // --- REPLACED: ALL DELETE HANDLERS NOW USE THE MODAL ---
+  const handleDeleteUser = (userId, userName) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Confirm Deletion",
+      message: `Are you sure you want to remove ${userName || "this user"}?`,
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "users", userId));
+          setUsersList(usersList.filter(user => user.id !== userId));
+          closeAlert(); // Close modal on success
+        } catch (error) { console.error("Error:", error); }
+      }
+    });
   };
 
-  const handleDeleteMaterial = async (material) => {
-    if (window.confirm(`Delete "${material.resourceTitle}"?`)) {
-      try {
-        await deleteDoc(material.ref);
-        setMaterialsList(materialsList.filter(m => m.id !== material.id));
-      } catch (error) { console.error("Error:", error); }
-    }
+  const handleDeleteMaterial = (material) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Material",
+      message: `Are you sure you want to delete "${material.resourceTitle}"?`,
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(material.ref);
+          setMaterialsList(materialsList.filter(m => m.id !== material.id));
+          closeAlert();
+        } catch (error) { console.error("Error:", error); }
+      }
+    });
   };
 
-  const handleDeleteKuppi = async (sessionId, sessionTitle) => {
-    if (window.confirm(`Delete session "${sessionTitle}"?`)) {
-      try {
-        await deleteDoc(doc(db, "sessions", sessionId));
-        setKuppiList(kuppiList.filter(session => session.id !== sessionId));
-      } catch (error) { console.error("Error:", error); }
-    }
+  const handleDeleteKuppi = (sessionId, sessionTitle) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Session",
+      message: `Are you sure you want to delete the session "${sessionTitle}"?`,
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "sessions", sessionId));
+          setKuppiList(kuppiList.filter(session => session.id !== sessionId));
+          closeAlert();
+        } catch (error) { console.error("Error:", error); }
+      }
+    });
   };
 
-  // --- BROADCAST NOTIFICATION TO ALL USERS (STRUCTURED) ---
+  const handleDeleteNotice = (noticeId) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Notice",
+      message: "Are you sure you want to delete this notice permanently?",
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "notices", noticeId));
+          setNoticesList(noticesList.filter(n => n.id !== noticeId));
+          closeAlert();
+        } catch (error) { console.error("Error deleting notice:", error); }
+      }
+    });
+  };
+
   const notifyAllUsers = async (noticeTitle, noticeId) => {
     try {
       const message = `New Notice: ${noticeTitle}`;
@@ -216,7 +259,6 @@ export default function AdminDashboard() {
       let batch = writeBatch(db);
       let count = 0;
 
-      // 1. Create ONE main notification document in the root collection
       const mainNotifRef = doc(collection(db, "notifications"));
       batch.set(mainNotifRef, {
         title: "Notice Approval",
@@ -227,16 +269,14 @@ export default function AdminDashboard() {
       });
       count++;
 
-      // 2. Add each user to the "userNotifications" subcollection INSIDE that document
       const usersSnap = await getDocs(collection(db, "users"));
 
       usersSnap.forEach((userDoc) => {
-        // Path: notifications/{mainNotifId}/userNotifications/{userId}
         const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", userDoc.id);
         
         batch.set(userNotifRef, {
           userId: userDoc.id,
-          message: message, // We duplicate the message here so the frontend can read it instantly
+          message: message, 
           read: false,
           createdAt: timestamp,
           type: "notice",
@@ -244,7 +284,6 @@ export default function AdminDashboard() {
         });
 
         count++;
-        // Firestore batches max out at 500. Commit and reset if we get close.
         if (count >= 490) {
           batch.commit();
           batch = writeBatch(db);
@@ -252,12 +291,9 @@ export default function AdminDashboard() {
         }
       });
 
-      // Commit any remaining writes
       if (count > 0) {
         await batch.commit();
       }
-      
-      console.log("Successfully broadcasted structured notifications!");
     } catch (error) {
       console.error("Error broadcasting notifications:", error);
     }
@@ -265,7 +301,6 @@ export default function AdminDashboard() {
 
   const handleApproveNotice = async (noticeId) => {
     try {
-      // Update the notice status in Firestore
       await updateDoc(doc(db, "notices", noticeId), { status: "approved" });
       
       const approvedNotice = noticesList.find(n => n.id === noticeId);
@@ -273,28 +308,30 @@ export default function AdminDashboard() {
 
       setNoticesList(noticesList.map(n => n.id === noticeId ? { ...n, status: "approved" } : n));
       
-      alert("Notice Approved and Published!");
+      // Pass null for onConfirm here so it only displays the "Okay" button!
+      setAlertConfig({
+        isOpen: true,
+        title: "Success!",
+        message: "Notice Approved and Published successfully.",
+        type: "success",
+        onConfirm: null 
+      });
 
-      // Send the notification
       notifyAllUsers(noticeTitle, noticeId);
 
     } catch (error) {
       console.error("Error approving notice:", error);
+      setAlertConfig({
+        isOpen: true,
+        title: "Error",
+        message: "Failed to approve the notice. Please try again.",
+        type: "error",
+        onConfirm: null
+      });
     }
   };
 
-  const handleDeleteNotice = async (noticeId) => {
-    if (window.confirm("Delete this notice permanently?")) {
-      try {
-        await deleteDoc(doc(db, "notices", noticeId));
-        setNoticesList(noticesList.filter(n => n.id !== noticeId));
-      } catch (error) { console.error("Error deleting notice:", error); }
-    }
-  };
-
-  // --- FILTER & PAGINATION FUNCTION ---
   const getFilteredAndPaginatedData = (dataList, searchKeys) => {
-    // 1. Filter
     const filtered = dataList.filter(item => {
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
@@ -304,7 +341,6 @@ export default function AdminDashboard() {
       });
     });
 
-    // 2. Paginate
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
     const indexOfLast = currentPage * itemsPerPage;
     const indexOfFirst = indexOfLast - itemsPerPage;
@@ -313,7 +349,6 @@ export default function AdminDashboard() {
     return { currentItems, totalPages, totalCount: filtered.length };
   };
 
-  // Process Data for current active tab
   const usersData = getFilteredAndPaginatedData(usersList, ['displayName', 'email', 'faculty', 'role']);
   const materialsData = getFilteredAndPaginatedData(materialsList, ['resourceTitle', 'courseCode', 'courseSubject', 'displayName']);
   const kuppiData = getFilteredAndPaginatedData(kuppiList, ['title', 'host']);
@@ -717,6 +752,16 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }

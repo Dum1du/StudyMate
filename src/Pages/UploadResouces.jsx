@@ -4,6 +4,7 @@ import socket from "../socket";
 import axios from "axios";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { useNavigate } from "react-router-dom";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 const COURSES = [
   // Compulsory Non-GPA Courses
@@ -144,6 +145,18 @@ function UploadResources() {
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
 
   // Handle course code input and show suggestions
   const handleCodeChange = (e) => {
@@ -291,7 +304,17 @@ function UploadResources() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return alert("Please select a file!");
+    
+    // REPLACED ALERT
+    if (!file) {
+      setAlertConfig({
+        isOpen: true,
+        title: "No File Selected",
+        message: "Please browse or drag-and-drop a file to upload.",
+        type: "warning"
+      });
+      return;
+    }
 
     const token = await auth.currentUser.getIdToken();
 
@@ -322,7 +345,13 @@ function UploadResources() {
       console.log("Upload success:", res.data);
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Upload failed");
+      // REPLACED ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Upload Failed",
+        message: "There was a problem uploading your file. Please check your connection and try again.",
+        type: "error"
+      });
     }
   };
 
@@ -554,6 +583,16 @@ function UploadResources() {
           )}
         </form>
       </div>
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }
