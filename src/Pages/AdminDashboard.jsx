@@ -10,7 +10,10 @@ import {
   getCountFromServer,
   updateDoc,
   writeBatch,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  limit,
+  startAfter
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -31,26 +34,26 @@ const SearchBar = ({ placeholder, searchTerm, setSearchTerm }) => (
 );
 
 // PaginationControls
-const PaginationControls = ({ totalPages, totalCount, currentPage, setCurrentPage, itemsPerPage }) => {
+const PaginationControls = ({ totalPages, totalCount, currentPage, handlePrevPage, handleNextPage, hasNextPage }) => {
   if (totalCount === 0) return null;
   return (
     <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
       <p className="text-sm text-gray-500">
-        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of <span className="font-medium">{totalCount}</span> results
+        Total Items: <span className="font-medium">{totalCount}</span>
       </p>
       <div className="flex gap-2">
         <button 
-          onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+          onClick={handlePrevPage} 
           disabled={currentPage === 1}
-          className="p-1 rounded bg-white border border-gray-300 disabled:opacity-50 hover:bg-gray-100"
+          className="p-1 rounded bg-white border border-gray-300 disabled:opacity-50 hover:bg-gray-100 transition"
         >
           <ChevronLeft size={18} />
         </button>
-        <span className="text-sm text-gray-600 px-3 py-1">Page {currentPage} of {totalPages}</span>
+        <span className="text-sm text-gray-600 px-3 py-1">Page {currentPage} of {totalPages || "?"}</span>
         <button 
-          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-          disabled={currentPage === totalPages || totalPages === 0}
-          className="p-1 rounded bg-white border border-gray-300 disabled:opacity-50 hover:bg-gray-100"
+          onClick={handleNextPage} 
+          disabled={!hasNextPage}
+          className="p-1 rounded bg-white border border-gray-300 disabled:opacity-50 hover:bg-gray-100 transition"
         >
           <ChevronRight size={18} />
         </button>
@@ -59,12 +62,10 @@ const PaginationControls = ({ totalPages, totalCount, currentPage, setCurrentPag
   );
 };
 
-// --- MAIN COMPONENT STARTS HERE ---
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const navigate = useNavigate();
 
-  // STATE: Custom Alert Modal (Now supports 'onConfirm')
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -80,7 +81,7 @@ export default function AdminDashboard() {
       await signOut(auth);
       navigate("/logins");
     } catch (error) {
-      console.error("Error loggin out: ", error);
+      console.error("Error logging out: ", error);
     }
   }
 
@@ -88,46 +89,42 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({ users: 0, materials: 0, kuppis: 0 });
   const [loadingStats, setLoadingStats] = useState(false);
 
-  // STATE: Data Lists
+  // STATE: Pagination & Data tracking
+  const itemsPerPage = 8;
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // --- USERS STATE ---
   const [usersList, setUsersList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersCursors, setUsersCursors] = useState([null]); // Array to store the starting document of each page
+  const [usersHasNext, setUsersHasNext] = useState(false);
 
+  // --- MATERIALS STATE ---
   const [materialsList, setMaterialsList] = useState([]);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
+  const [materialsPage, setMaterialsPage] = useState(1);
+  const [materialsCursors, setMaterialsCursors] = useState([null]);
+  const [materialsHasNext, setMaterialsHasNext] = useState(false);
 
+  // --- KUPPIS STATE ---
   const [kuppiList, setKuppiList] = useState([]);
   const [loadingKuppis, setLoadingKuppis] = useState(false);
+  const [kuppisPage, setKuppisPage] = useState(1);
+  const [kuppisCursors, setKuppisCursors] = useState([null]);
+  const [kuppisHasNext, setKuppisHasNext] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8; 
-
+  // --- NOTICES STATE ---
   const [noticesList, setNoticesList] = useState([]);
   const [loadingNotices, setLoadingNotices] = useState(false);
   const [viewNotice, setViewNotice] = useState(null);
 
-  useEffect(() => {
-    const fetchNotices = async () => {
-      if (activeTab !== "notices") return;
-      setLoadingNotices(true);
-      try {
-        const querySnapshot = await getDocs(collection(db, "notices"));
-        setNoticesList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      } catch (error) { console.error("Error:", error); } 
-      finally { setLoadingNotices(false); }
-    };
-    fetchNotices();
-  }, [activeTab]);
-
+  // Reset search when switching tabs
   useEffect(() => {
     setSearchTerm("");
-    setCurrentPage(1);
   }, [activeTab]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
+  // --- 1. FETCH OVERVIEW STATS ---
   useEffect(() => {
     const fetchStats = async () => {
       if (activeTab !== "dashboard") return;
@@ -147,46 +144,119 @@ export default function AdminDashboard() {
     fetchStats();
   }, [activeTab]);
 
+  // --- 2. PAGINATED FETCH FUNCTIONS ---
+  const loadUsersPage = async (pageIndex) => {
+    setLoadingUsers(true);
+    try {
+      let q = query(collection(db, "users"), limit(itemsPerPage));
+      if (usersCursors[pageIndex - 1]) {
+        q = query(collection(db, "users"), startAfter(usersCursors[pageIndex - 1]), limit(itemsPerPage));
+      }
+      
+      const snap = await getDocs(q);
+      const docs = snap.docs;
+      setUsersList(docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+      if (docs.length === itemsPerPage) {
+        setUsersHasNext(true);
+        const newCursors = [...usersCursors];
+        newCursors[pageIndex] = docs[docs.length - 1]; // Save the last document to be the starting cursor of the next page
+        setUsersCursors(newCursors);
+      } else {
+        setUsersHasNext(false);
+      }
+      setUsersPage(pageIndex);
+    } catch (error) { console.error("Error loading users:", error); } 
+    finally { setLoadingUsers(false); }
+  };
+
+  const loadMaterialsPage = async (pageIndex) => {
+    setLoadingMaterials(true);
+    try {
+      let q = query(collectionGroup(db, "Materials"), limit(itemsPerPage));
+      if (materialsCursors[pageIndex - 1]) {
+        q = query(collectionGroup(db, "Materials"), startAfter(materialsCursors[pageIndex - 1]), limit(itemsPerPage));
+      }
+      
+      const snap = await getDocs(q);
+      const docs = snap.docs;
+      setMaterialsList(docs.map(doc => ({ id: doc.id, ref: doc.ref, ...doc.data() })));
+
+      if (docs.length === itemsPerPage) {
+        setMaterialsHasNext(true);
+        const newCursors = [...materialsCursors];
+        newCursors[pageIndex] = docs[docs.length - 1];
+        setMaterialsCursors(newCursors);
+      } else {
+        setMaterialsHasNext(false);
+      }
+      setMaterialsPage(pageIndex);
+    } catch (error) { console.error("Error loading materials:", error); } 
+    finally { setLoadingMaterials(false); }
+  };
+
+  const loadKuppisPage = async (pageIndex) => {
+    setLoadingKuppis(true);
+    try {
+      let q = query(collection(db, "sessions"), limit(itemsPerPage));
+      if (kuppisCursors[pageIndex - 1]) {
+        q = query(collection(db, "sessions"), startAfter(kuppisCursors[pageIndex - 1]), limit(itemsPerPage));
+      }
+      
+      const snap = await getDocs(q);
+      const docs = snap.docs;
+      setKuppiList(docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+      if (docs.length === itemsPerPage) {
+        setKuppisHasNext(true);
+        const newCursors = [...kuppisCursors];
+        newCursors[pageIndex] = docs[docs.length - 1];
+        setKuppisCursors(newCursors);
+      } else {
+        setKuppisHasNext(false);
+      }
+      setKuppisPage(pageIndex);
+    } catch (error) { console.error("Error loading sessions:", error); } 
+    finally { setLoadingKuppis(false); }
+  };
+
+  // Automatically load the first page when switching tabs
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (activeTab !== "users") return;
-      setLoadingUsers(true);
-      try {
-        const querySnapshot = await getDocs(collection(db, "users"));
-        setUsersList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      } catch (error) { console.error("Error:", error); } 
-      finally { setLoadingUsers(false); }
-    };
-    fetchUsers();
+    if (activeTab === "users" && usersList.length === 0) loadUsersPage(1);
+    if (activeTab === "materials" && materialsList.length === 0) loadMaterialsPage(1);
+    if (activeTab === "kuppi" && kuppiList.length === 0) loadKuppisPage(1);
   }, [activeTab]);
 
+  // --- 3. FETCH NOTICES (Not paginated) ---
   useEffect(() => {
-    const fetchMaterials = async () => {
-      if (activeTab !== "materials") return;
-      setLoadingMaterials(true);
+    const fetchNotices = async () => {
+      if (activeTab !== "notices") return;
+      setLoadingNotices(true);
       try {
-        const querySnapshot = await getDocs(collectionGroup(db, "Materials"));
-        setMaterialsList(querySnapshot.docs.map((doc) => ({ id: doc.id, ref: doc.ref, ...doc.data() })));
-      } catch (error) { console.error("Error:", error); } 
-      finally { setLoadingMaterials(false); }
+        const querySnapshot = await getDocs(collection(db, "notices"));
+        setNoticesList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      } catch (error) { console.error("Error fetching notices:", error); } 
+      finally { setLoadingNotices(false); }
     };
-    fetchMaterials();
+    fetchNotices();
   }, [activeTab]);
 
-  useEffect(() => {
-    const fetchKuppis = async () => {
-      if (activeTab !== "kuppi") return;
-      setLoadingKuppis(true);
-      try {
-        const querySnapshot = await getDocs(collection(db, "sessions"));
-        setKuppiList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      } catch (error) { console.error("Error:", error); } 
-      finally { setLoadingKuppis(false); }
-    };
-    fetchKuppis();
-  }, [activeTab]);
 
-  // --- REPLACED: ALL DELETE HANDLERS NOW USE THE MODAL ---
+  // --- SEARCH FALLBACK ---
+  // Filters ONLY the currently loaded page of items so it doesn't break pagination
+  const getFilteredData = (dataList, searchKeys) => {
+    if (!searchTerm) return dataList;
+    const term = searchTerm.toLowerCase();
+    return dataList.filter(item => {
+      return searchKeys.some(key => {
+        const val = item[key];
+        return val && String(val).toLowerCase().includes(term);
+      });
+    });
+  };
+
+
+  // --- DELETE HANDLERS ---
   const handleDeleteUser = (userId, userName) => {
     setAlertConfig({
       isOpen: true,
@@ -197,7 +267,7 @@ export default function AdminDashboard() {
         try {
           await deleteDoc(doc(db, "users", userId));
           setUsersList(usersList.filter(user => user.id !== userId));
-          closeAlert(); // Close modal on success
+          closeAlert(); 
         } catch (error) { console.error("Error:", error); }
       }
     });
@@ -308,7 +378,6 @@ export default function AdminDashboard() {
 
       setNoticesList(noticesList.map(n => n.id === noticeId ? { ...n, status: "approved" } : n));
       
-      // Pass null for onConfirm here so it only displays the "Okay" button!
       setAlertConfig({
         isOpen: true,
         title: "Success!",
@@ -331,27 +400,10 @@ export default function AdminDashboard() {
     }
   };
 
-  const getFilteredAndPaginatedData = (dataList, searchKeys) => {
-    const filtered = dataList.filter(item => {
-      if (!searchTerm) return true;
-      const term = searchTerm.toLowerCase();
-      return searchKeys.some(key => {
-        const val = item[key];
-        return val && String(val).toLowerCase().includes(term);
-      });
-    });
-
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentItems = filtered.slice(indexOfFirst, indexOfLast);
-
-    return { currentItems, totalPages, totalCount: filtered.length };
-  };
-
-  const usersData = getFilteredAndPaginatedData(usersList, ['displayName', 'email', 'faculty', 'role']);
-  const materialsData = getFilteredAndPaginatedData(materialsList, ['resourceTitle', 'courseCode', 'courseSubject', 'displayName']);
-  const kuppiData = getFilteredAndPaginatedData(kuppiList, ['title', 'host']);
+  // Compute what arrays should be shown on the screen based on search filters
+  const displayUsers = getFilteredData(usersList, ['displayName', 'email', 'faculty', 'role']);
+  const displayMaterials = getFilteredData(materialsList, ['resourceTitle', 'courseCode', 'courseSubject', 'displayName']);
+  const displayKuppis = getFilteredData(kuppiList, ['title', 'host']);
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
@@ -414,7 +466,7 @@ export default function AdminDashboard() {
           {activeTab === "users" && (
             <div className="flex flex-col h-full">
               <SearchBar 
-                placeholder="Search users by name, email, or faculty..." 
+                placeholder="Search users on current page..." 
                 searchTerm={searchTerm} 
                 setSearchTerm={setSearchTerm} 
               />
@@ -434,10 +486,10 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {usersData.currentItems.length === 0 ? (
+                          {displayUsers.length === 0 ? (
                             <tr><td colSpan="4" className="p-8 text-center text-gray-500">No users found.</td></tr>
                           ) : (
-                            usersData.currentItems.map((user) => (
+                            displayUsers.map((user) => (
                               <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4">
                                   <div className="flex items-center gap-3">
@@ -467,13 +519,16 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
-                    <PaginationControls 
-                      totalPages={usersData.totalPages} 
-                      totalCount={usersData.totalCount}
-                      currentPage={currentPage}
-                      setCurrentPage={setCurrentPage}
-                      itemsPerPage={itemsPerPage}
-                    />
+                    {!searchTerm && (
+                      <PaginationControls 
+                        totalPages={Math.ceil(stats.users / itemsPerPage)} 
+                        totalCount={stats.users}
+                        currentPage={usersPage}
+                        hasNextPage={usersHasNext}
+                        handlePrevPage={() => loadUsersPage(usersPage - 1)}
+                        handleNextPage={() => loadUsersPage(usersPage + 1)}
+                      />
+                    )}
                   </>
                 )}
               </div>
@@ -484,7 +539,7 @@ export default function AdminDashboard() {
           {activeTab === "materials" && (
             <div className="flex flex-col h-full">
               <SearchBar 
-                placeholder="Search materials by title, course code, or uploader..." 
+                placeholder="Search materials on current page..." 
                 searchTerm={searchTerm} 
                 setSearchTerm={setSearchTerm} 
               />
@@ -504,10 +559,10 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {materialsData.currentItems.length === 0 ? (
+                          {displayMaterials.length === 0 ? (
                             <tr><td colSpan="4" className="p-8 text-center text-gray-500">No materials found.</td></tr>
                           ) : (
-                            materialsData.currentItems.map((material) => (
+                            displayMaterials.map((material) => (
                               <tr key={material.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4">
                                   <p className="font-semibold text-gray-800">{material.resourceTitle || "Untitled Resource"}</p>
@@ -536,13 +591,16 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
-                    <PaginationControls 
-                      totalPages={materialsData.totalPages} 
-                      totalCount={materialsData.totalCount}
-                      currentPage={currentPage}
-                      setCurrentPage={setCurrentPage}
-                      itemsPerPage={itemsPerPage}
-                    />
+                    {!searchTerm && (
+                      <PaginationControls 
+                        totalPages={Math.ceil(stats.materials / itemsPerPage)} 
+                        totalCount={stats.materials}
+                        currentPage={materialsPage}
+                        hasNextPage={materialsHasNext}
+                        handlePrevPage={() => loadMaterialsPage(materialsPage - 1)}
+                        handleNextPage={() => loadMaterialsPage(materialsPage + 1)}
+                      />
+                    )}
                   </>
                 )}
               </div>
@@ -553,7 +611,7 @@ export default function AdminDashboard() {
           {activeTab === "kuppi" && (
             <div className="flex flex-col h-full">
               <SearchBar 
-                placeholder="Search sessions by topic or host..." 
+                placeholder="Search sessions on current page..." 
                 searchTerm={searchTerm} 
                 setSearchTerm={setSearchTerm} 
               />
@@ -573,10 +631,10 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {kuppiData.currentItems.length === 0 ? (
+                          {displayKuppis.length === 0 ? (
                             <tr><td colSpan="4" className="p-8 text-center text-gray-500">No active sessions found.</td></tr>
                           ) : (
-                            kuppiData.currentItems.map((session) => (
+                            displayKuppis.map((session) => (
                               <tr key={session.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4">
                                   <p className="font-semibold text-gray-800">{session.title || "Untitled Session"}</p>
@@ -601,13 +659,16 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
-                    <PaginationControls 
-                      totalPages={kuppiData.totalPages} 
-                      totalCount={kuppiData.totalCount}
-                      currentPage={currentPage}
-                      setCurrentPage={setCurrentPage}
-                      itemsPerPage={itemsPerPage}
-                    />
+                    {!searchTerm && (
+                      <PaginationControls 
+                        totalPages={Math.ceil(stats.kuppis / itemsPerPage)} 
+                        totalCount={stats.kuppis}
+                        currentPage={kuppisPage}
+                        hasNextPage={kuppisHasNext}
+                        handlePrevPage={() => loadKuppisPage(kuppisPage - 1)}
+                        handleNextPage={() => loadKuppisPage(kuppisPage + 1)}
+                      />
+                    )}
                   </>
                 )}
               </div>
@@ -650,7 +711,6 @@ export default function AdminDashboard() {
                                 </span>
                               </td>
                               <td className="p-4 flex justify-center gap-2">
-                                {/* 1. NEW VIEW BUTTON */}
                                 <button 
                                   onClick={() => setViewNotice(notice)} 
                                   className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
@@ -658,8 +718,6 @@ export default function AdminDashboard() {
                                 >
                                   <Eye size={18} />
                                 </button>
-
-                                {/* 2. APPROVE BUTTON */}
                                 {notice.status !== "approved" && (
                                   <button 
                                     onClick={() => handleApproveNotice(notice.id)} 
@@ -669,8 +727,6 @@ export default function AdminDashboard() {
                                     <CheckCircle size={18} />
                                   </button>
                                 )}
-
-                                {/* 3. DELETE BUTTON */}
                                 <button 
                                   onClick={() => handleDeleteNotice(notice.id)} 
                                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
@@ -691,25 +747,20 @@ export default function AdminDashboard() {
           )}
         </div>
       </main>
+
       {/* ----- VIEW NOTICE MODAL ----- */}
       {viewNotice && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl relative transform transition-all animate-in fade-in zoom-in duration-200">
-            
-            {/* Close Button */}
             <button
               onClick={() => setViewNotice(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
             >
               <X size={20} />
             </button>
-
-            {/* Header / Topic */}
             <h2 className="text-xl font-bold mb-2 text-gray-800 pr-8 break-words leading-tight">
               {viewNotice.title}
             </h2>
-            
-            {/* Meta Info */}
             <div className="flex items-center gap-2 mb-4">
               <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${viewNotice.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                 {viewNotice.status || 'pending'}
@@ -718,15 +769,11 @@ export default function AdminDashboard() {
                 By {viewNotice.authorName}
               </span>
             </div>
-
-            {/* Full Description Box */}
             <div className="bg-gray-50 p-4 rounded-xl max-h-96 overflow-y-auto border border-gray-100 shadow-inner">
               <p className="text-gray-700 text-sm whitespace-pre-wrap break-words leading-relaxed">
                 {viewNotice.description}
               </p>
             </div>
-
-            {/* Bottom Actions */}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setViewNotice(null)}
@@ -734,13 +781,11 @@ export default function AdminDashboard() {
               >
                 Close
               </button>
-              
-              {/* Allow approving directly from the modal! */}
               {viewNotice.status !== "approved" && (
                 <button
                   onClick={() => {
                     handleApproveNotice(viewNotice.id);
-                    setViewNotice({ ...viewNotice, status: "approved" }); // Update modal state so it turns green immediately
+                    setViewNotice({ ...viewNotice, status: "approved" }); 
                   }}
                   className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2"
                 >
@@ -748,7 +793,6 @@ export default function AdminDashboard() {
                 </button>
               )}
             </div>
-            
           </div>
         </div>
       )}
