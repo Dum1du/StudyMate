@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import Navbar from "../NavigationBar";
 import { auth } from "../firebase";
 import socket from "../socket";
 import axios from "axios";
-import Footer from "../Footer";
 import ed_bg from "../Bg images/ed_bg.jpg";
+import { useNavigate } from "react-router-dom";
 
 const COURSES = [
   // Compulsory Non-GPA Courses
@@ -12,33 +11,33 @@ const COURSES = [
   { code: "MHZ2250", subject: "Elementary Mathematics" },
 
   // Year 1 Compulsory
-  { code: "EE13346", subject: "Web Application Development" },
-  { code: "EE13366", subject: "Database Systems" },
-  { code: "EE13372", subject: "Programming in Python" },
+  { code: "EEI3346", subject: "Web Application Development" },
+  { code: "EEI3366", subject: "Database Systems" },
+  { code: "EEI3372", subject: "Programming in Python" },
   { code: "EEX3467", subject: "Software Engineering Concepts and Programming" },
   { code: "LTE34SI", subject: "English for Academic Purposes" },
-  { code: "EE13347", subject: "Web Technology" },
-  { code: "EE13262", subject: "Introduction to Object Oriented Programming" },
-  { code: "EE13269", subject: "Mobile Application Design" },
+  { code: "EEI3347", subject: "Web Technology" },
+  { code: "EEI3262", subject: "Introduction to Object Oriented Programming" },
+  { code: "EEI3269", subject: "Mobile Application Design" },
   { code: "EEL3263", subject: "Communication Skills" },
   { code: "EEX3273", subject: "Communication and Computer Technology" },
   { code: "MHZ3356", subject: "Mathematics for Computing 1" },
 
   // Year 2 Compulsory
   { code: "AGM4367", subject: "Economics and Marketing for Engineers" },
-  { code: "EE14267", subject: "Requirement Engineering" },
-  { code: "EE14270", subject: "Computer Security Concepts" },
-  { code: "EE14360", subject: "Introduction to Artificial Intelligence" },
+  { code: "EEI4267", subject: "Requirement Engineering" },
+  { code: "EEI4270", subject: "Computer Security Concepts" },
+  { code: "EEI4360", subject: "Introduction to Artificial Intelligence" },
   { code: "EEX4365", subject: "Data Structures and Algorithms" },
   { code: "MHZ4359", subject: "Mathematics for Computing II" },
-  { code: "EE14361", subject: "User Experience Engineering" },
-  { code: "EE14362", subject: "Object Oriented Design" },
-  { code: "EE14466", subject: "Data Modelling and Database Systems" },
+  { code: "EEI4361", subject: "User Experience Engineering" },
+  { code: "EEI4362", subject: "Object Oriented Design" },
+  { code: "EEI4466", subject: "Data Modelling and Database Systems" },
   { code: "EEY4189", subject: "Software Design in Group" },
   { code: "MHZ4377", subject: "Applied Statistics" },
 
   // Year 3 Compulsory
-  { code: "EE15467", subject: "Software Testing and Quality Assurance" },
+  { code: "EEI5467", subject: "Software Testing and Quality Assurance" },
   { code: "EEX5263", subject: "Computer Architecture" },
   { code: "EEX5364", subject: "Data Communication" },
   { code: "LLJ5265", subject: "Introduction to Laws of Sri Lanka" },
@@ -57,38 +56,38 @@ const COURSES = [
   { code: "MHZ5375", subject: "Discrete Mathematics" },
 
   // Year 4 Compulsory
-  { code: "EE16360", subject: "Software Project Management" },
+  { code: "EEI6360", subject: "Software Project Management" },
   { code: "EEI6171", subject: "Emerging Technologies" },
-  { code: "EE16567", subject: "Software Architecture and Design" },
+  { code: "EEI6567", subject: "Software Architecture and Design" },
   { code: "EEY6689", subject: "Final Project - Software Engineering" },
   { code: "EEM6202", subject: "Professional Practice" },
   { code: "EEX6373", subject: "Performance Modelling" },
 
   // Elective Courses
   { code: "EEM3366", subject: "Introduction to Business Studies" },
-  { code: "EE14369", subject: "Mobile App Development with Android" },
+  { code: "EEI4369", subject: "Mobile App Development with Android" },
   { code: "EEX4373", subject: "Data Science" },
   { code: "MHJ4271", subject: "History of Technology" },
   { code: "EEX5378", subject: "Neural Networks and Fuzzy Logic Applications" },
   { code: "EEX5376", subject: "Embedded systems and IOT" },
   { code: "EEI6279", subject: "Natural Language Processing" },
-  { code: "EE16280", subject: "Creative Design" },
+  { code: "EEI6280", subject: "Creative Design" },
   { code: "EEI6366", subject: "Big Data Technologies & Distributed Systems" },
   { code: "EEI6377", subject: "Principles and Applications of Data Mining" },
   { code: "EEI6369", subject: "Cloud Computing" },
   { code: "EEX6363", subject: "Compiler Design" },
 
   // Previous Curriculum (RC 2019) Courses mapped in Annexure 2
-  { code: "EE14346", subject: "Web Technology" },
-  { code: "EE13266", subject: "Database Systems" },
+  { code: "EEI4346", subject: "Web Technology" },
+  { code: "EEI3266", subject: "Database Systems" },
   { code: "AGM3263", subject: "Communication Skills" },
   { code: "EEX3373", subject: "Communication and Computer Technology" },
   { code: "LTE3407", subject: "English for Academic Purposes" },
   { code: "MHZ4256", subject: "Mathematics for Computing I" },
-  { code: "EE15270", subject: "Computer Security Concepts" },
+  { code: "EEI5270", subject: "Computer Security Concepts" },
   { code: "EEX6340", subject: "Introduction to Artificial Intelligence" },
   { code: "EEX4465", subject: "Data Structures and Algorithms" },
-  { code: "EE14366", subject: "Data Modelling and Database Systems" },
+  { code: "EEI4366", subject: "Data Modelling and Database Systems" },
   { code: "MHZ3459", subject: "Basic Mathematics for Computing" },
   { code: "EEX5563", subject: "Computer Architecture and Systems" },
   { code: "EEX5464", subject: "Data Communication" },
@@ -98,7 +97,7 @@ const COURSES = [
   },
   { code: "EEY6189", subject: "Identification" },
   { code: "EEX6278", subject: "Neural Networks and Fuzzy Logic" },
-  { code: "EE15280", subject: "Creative Design" },
+  { code: "EEI5280", subject: "Creative Design" },
   { code: "DMM6602", subject: "Management for Engineers" },
   { code: "EEI5466", subject: "Advanced Database Systems" },
 ];
