@@ -5,34 +5,60 @@ import { FaUser } from "react-icons/fa";
 import { SlLock } from "react-icons/sl";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 function StudentLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
 
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
   const userlogingHelper = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     if (!email || !password) {
-      setError("Please fill all the fields!");
+      setAlertConfig({
+        isOpen: true,
+        title: "Missing Fields",
+        message: "Please fill all the fields before logging in!",
+        type: "warning"
+      });
       setLoading(false);
       return;
     }
 
     if (!email.startsWith("s") || !email.endsWith("@ousl.lk")) {
-      setError("Are you sure, this is your OUSL email address ?");
+      setAlertConfig({
+        isOpen: true,
+        title: "Invalid Email",
+        message: "Are you sure this is your OUSL email address? It should end with @ousl.lk",
+        type: "warning"
+      });
       setLoading(false);
       return;
     }
 
     if (password.length <= 5) {
-      setError("Check the password again!");
+      setAlertConfig({
+        isOpen: true,
+        title: "Invalid Password",
+        message: "Check the password again! It must be at least 6 characters.",
+        type: "warning"
+      });
       setLoading(false);
       return;
     }
@@ -54,26 +80,41 @@ function StudentLogin() {
         navigate("/home");
       } else {
         console.log("Email not verified");
-        alert("Please verify your email before logging in.");
+        // REPLACED NATIVE ALERT
+        setAlertConfig({
+          isOpen: true,
+          title: "Email Not Verified",
+          message: "Please verify your email before logging in. Check your inbox or spam folder.",
+          type: "warning"
+        });
         await auth.signOut(); // SIGN OUT UNVERIFIED EMAILS
       }
     } catch (err) {
       console.error("Login error:", err);
 
-      // DETECT FIREBASE ERROR
+      // DETECT FIREBASE ERROR AND SHOW IN MODAL
+      let errorMsg = "Something went wrong. Please try again later.";
       switch (err.code) {
         case "auth/user-not-found":
-          setError("No account found for this email.");
+          errorMsg = "No account found for this email.";
           break;
         case "auth/wrong-password":
-          setError("Incorrect password. Please try again.");
+        case "auth/invalid-credential":
+          errorMsg = "Incorrect email or password. Please try again.";
           break;
         case "auth/invalid-email":
-          setError("Please enter a valid email address.");
+          errorMsg = "Please enter a valid email address.";
           break;
         default:
-          setError("Something went wrong. Please try again later.");
+          errorMsg = "Something went wrong. Please try again later.";
       }
+
+      setAlertConfig({
+        isOpen: true,
+        title: "Login Failed",
+        message: errorMsg,
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -145,15 +186,13 @@ function StudentLogin() {
             {/* button */}
             <button
               type="submit"
-              className="bg-blue-600 text-amber-50 mt-8 py-3 w-full rounded-lg"
+              className="bg-blue-600 text-amber-50 mt-8 py-3 w-full rounded-lg hover:bg-blue-700 transition"
               disabled={loading}
             >
-              <h1>{loading ? "Logging..." : "Log in"}</h1>
+              <h1>{loading ? "Logging in..." : "Log in"}</h1>
             </button>
           </div>
         </form>
-
-        <p className="text-red-700 text-[14px]">{error}</p>
 
         <div className="flex items-center my-6">
           <div className="flex-grow border-t border-gray-400"></div>
@@ -163,13 +202,23 @@ function StudentLogin() {
         <div className="flex justify-center flex-col items-center">
           {/* button */}
           <Link
-            className="text-gray-800 py-3 w-full border-1 border-gray-800 rounded-lg"
+            className="text-gray-800 py-3 w-full border-1 border-gray-800 rounded-lg hover:bg-gray-100 transition"
             to={"/register"}
           >
             <h1>Register new account</h1>
           </Link>
         </div>
       </div>
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }

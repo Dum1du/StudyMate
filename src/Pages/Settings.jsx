@@ -7,6 +7,7 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FaChevronRight, FaSignOutAlt } from "react-icons/fa";
 import logo from "../assets/logo.png";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 // logout
 const SettingItem = ({ title, subtitle, onClick, isRed }) => (
@@ -53,6 +54,18 @@ function Settings() {
   const [isNotifEnabled, setIsNotifEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
@@ -68,13 +81,24 @@ function Settings() {
     fetchSettings();
   }, [user]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/logins");
-    } catch (error) {
-      console.error("Logout Error:", error);
-    }
+  // UPGRADED: Added confirmation modal before logging out!
+  const handleLogout = () => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out of StudyMate?",
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await signOut(auth);
+          navigate("/logins");
+        } catch (error) {
+          console.error("Logout Error:", error);
+        } finally {
+          closeAlert();
+        }
+      }
+    });
   };
 
   const handleChangePassword = async (e) => {
@@ -90,13 +114,28 @@ function Settings() {
     try {
       await reauthenticateWithCredential(currentUser, credential);
       await updatePassword(currentUser, newPassword);
-      alert("Password updated successfully!");
+      
+      // REPLACED SUCCESS ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Password Updated",
+        message: "Your password has been updated successfully!",
+        type: "success"
+      });
+      
       setActiveModal(null);
       setNewPassword("");
       setCurrentPassword("");
     } catch (error) {
       console.error("Password Update Error:", error);
-      alert("Error: " + error.message);
+      
+      // REPLACED ERROR ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Update Failed",
+        message: error.message || "Failed to update password. Please check your current password and try again.",
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -170,6 +209,7 @@ function Settings() {
           />
         </div>
       </div>
+      
       {/* --- MODALS --- */}
       {activeModal === 'password' && (
         <Modal title="Change Password" onClose={() => setActiveModal(null)}>
@@ -222,23 +262,32 @@ function Settings() {
       )}
 
       {activeModal === 'about' && (
-  <Modal title="About StudyMate" onClose={() => setActiveModal(null)}>
-    <div className="text-center">
-      <img 
-        src={logo} 
-        alt="StudyMate Logo" 
-        className="w-24 h-24 mx-auto mb-4 object-contain" 
-      />
-      
-      <h4 className="text-xl font-bold text-gray-800">StudyMate v1.0</h4>
-      <p className="text-gray-500 mt-2">
-        A dedicated platform for OUSL students to share and access study materials efficiently.
-      </p>
-      <p className="text-sm text-gray-400 mt-6">© {currentYear} StudyMate Inc.</p>
-    </div>
-  </Modal>
-)}
+        <Modal title="About StudyMate" onClose={() => setActiveModal(null)}>
+          <div className="text-center">
+            <img 
+              src={logo} 
+              alt="StudyMate Logo" 
+              className="w-24 h-24 mx-auto mb-4 object-contain" 
+            />
+            
+            <h4 className="text-xl font-bold text-gray-800">StudyMate v1.0</h4>
+            <p className="text-gray-500 mt-2">
+              A dedicated platform for OUSL students to share and access study materials efficiently.
+            </p>
+            <p className="text-sm text-gray-400 mt-6">© {currentYear} StudyMate Inc.</p>
+          </div>
+        </Modal>
+      )}
 
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Navbar from "../NavigationBar";
 import { Pin, PinOff, Eye, Filter, Search, Trash2, Bookmark, BookOpen, X, FolderOpen } from "lucide-react";
 import Footer from "../Footer";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 const MyResourcesUI = () => {
   const [resources, setResources] = useState([
@@ -24,14 +25,36 @@ const MyResourcesUI = () => {
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
 
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
   const togglePin = (id) => {
     setResources((prev) =>
       prev.map((r) => (r.id === id ? { ...r, pinned: !r.pinned } : r))
     );
   };
 
+  // UPGRADED TO USE CONFIRMATION MODAL
   const removeResource = (id) => {
-    setResources((prev) => prev.filter((r) => r.id !== id));
+    setAlertConfig({
+      isOpen: true,
+      title: "Remove Resource",
+      message: "Are you sure you want to remove this resource from your saved list?",
+      type: "warning",
+      onConfirm: () => {
+        setResources((prev) => prev.filter((r) => r.id !== id));
+        closeAlert();
+      }
+    });
   };
 
   const openQuizModal = (resource) => setSelectedQuiz(resource);
@@ -226,6 +249,16 @@ const MyResourcesUI = () => {
           </div>
         </div>
       )}
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 };

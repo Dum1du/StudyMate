@@ -17,12 +17,11 @@ import {
   doc,
   getDocs,
 } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth"; // Import this for user tracking
+import { onAuthStateChanged } from "firebase/auth"; 
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 function KuppiSessions() {
-  // FIXED: Track user state so buttons appear correctly on refresh
   const [user, setUser] = useState(null);
-
   const [loading, setLoading] = useState(false);
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -30,9 +29,19 @@ function KuppiSessions() {
   const [formData, setFormData] = useState({ title: "", date: "", time: "" });
   const [q1, setQ1] = useState("");
   const [q2, setQ2] = useState("");
-
-  //forum hide and show
   const [showSurvey, setShowSurvey] = useState(false);
+
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
 
   // 1. LISTEN FOR USER AUTH CHANGES
   useEffect(() => {
@@ -79,27 +88,38 @@ function KuppiSessions() {
     return () => unsubscribe();
   }, []);
 
-  // DELETE FUNCTION
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this session?")) {
-      try {
-        await deleteDoc(doc(db, "sessions", id));
-      } catch (error) {
-        console.error("Error deleting:", error);
-        alert("Failed to delete session.");
+  // DELETE FUNCTION (UPGRADED WITH CUSTOM CONFIRMATION MODAL)
+  const handleDelete = (id) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Session",
+      message: "Are you sure you want to delete this session? This cannot be undone.",
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "sessions", id));
+          closeAlert(); // Close the modal on success
+        } catch (error) {
+          console.error("Error deleting:", error);
+          setAlertConfig({
+            isOpen: true,
+            title: "Error",
+            message: "Failed to delete session.",
+            type: "error",
+            onConfirm: null
+          });
+        }
       }
-    }
+    });
   };
 
   // PREPARE EDIT
   const handleEditClick = (session) => {
-    // Safety check in case time is missing
     if (!session.time) return;
 
     setIsEditing(true);
     setEditId(session.id);
 
-    // FIXED: Added try/catch for split logic safety
     try {
       const [datePart, timePart] = session.time.split("T");
       setFormData({
@@ -125,7 +145,13 @@ function KuppiSessions() {
     const { title, date, time } = formData;
 
     if (!title || !date || !time) {
-      alert("Please fill in all fields!");
+      setAlertConfig({
+        isOpen: true,
+        title: "Missing Fields",
+        message: "Please fill in all fields before scheduling the session!",
+        type: "warning",
+        onConfirm: null
+      });
       return;
     }
 
@@ -141,7 +167,15 @@ function KuppiSessions() {
           title: title,
           time: dateTimeString,
         });
-        alert("Session updated successfully!");
+        
+        setAlertConfig({
+          isOpen: true,
+          title: "Success",
+          message: "Session updated successfully!",
+          type: "success",
+          onConfirm: null
+        });
+        
         setIsEditing(false);
         setEditId(null);
       } else {
@@ -157,12 +191,25 @@ function KuppiSessions() {
           link: jitsiLink,
           createdAt: serverTimestamp(),
         });
-        alert("Session created successfully!");
+        
+        setAlertConfig({
+          isOpen: true,
+          title: "Session Created",
+          message: "Your new Kuppi session has been scheduled successfully!",
+          type: "success",
+          onConfirm: null
+        });
       }
       setFormData({ title: "", date: "", time: "" });
     } catch (error) {
       console.error("Error saving session: ", error);
-      alert("Failed to save session.");
+      setAlertConfig({
+        isOpen: true,
+        title: "Error",
+        message: "Failed to save session. Please try again.",
+        type: "error",
+        onConfirm: null
+      });
     } finally {
       setLoading(false);
     }
@@ -175,7 +222,13 @@ function KuppiSessions() {
 
   const handleSurveySubmit = (e) => {
     e.preventDefault();
-    alert(`Feedback submitted!`);
+    setAlertConfig({
+      isOpen: true,
+      title: "Survey Submitted",
+      message: "Feedback submitted successfully! Thank you.",
+      type: "success",
+      onConfirm: null
+    });
     setQ1("");
     setQ2("");
   };
@@ -382,6 +435,16 @@ function KuppiSessions() {
           )}
         </div>
       </div>
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </>
   );
 }

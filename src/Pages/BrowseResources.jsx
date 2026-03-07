@@ -9,6 +9,7 @@ import { collection, collectionGroup, getDocs, limit, orderBy, Query, query } fr
 import Footer from "../Footer";
 import { useNavigate } from "react-router";
 import { useResources } from "../ResourcesContext";
+import AlertModal from "../AlertModal"; // <-- Imported AlertModal
 
 export default function BrowseResources() {
   const { resources: recentResources, loading: recentLoading } = useResources();
@@ -19,12 +20,23 @@ export default function BrowseResources() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
   const dummyResources = [
     { id: 1, resourceTitle: "Calculus Notes", description: "Comprehensive notes on calculus.", displayName: "Alice" },
     { id: 2, resourceTitle: "Physics Past Papers", description: "Past papers for physics exams.", displayName: "Bob" },
     { id: 3, resourceTitle: "Chemistry Formulas", description: "A handy sheet of chemistry formulas.", displayName: "Charlie" },
   ]; // Placeholder for loading state
-
 
   const navigate = useNavigate();
 
@@ -90,9 +102,16 @@ export default function BrowseResources() {
 
             results = fullFuse.search(search).map(r => r.item);
           }catch(err){
-          console.error("Error searching all resources:", err);
+            console.error("Error searching all resources:", err);
+            // REPLACED SILENT CONSOLE ERROR WITH VISUAL ALERT
+            setAlertConfig({
+              isOpen: true,
+              title: "Search Error",
+              message: "Failed to search the database. Please check your connection and try again.",
+              type: "error"
+            });
+          }
         }
-      }
         setFiltered(results);
         setCurrentPage(1);
         setLoading(false);
@@ -102,8 +121,6 @@ export default function BrowseResources() {
 
     return () => clearTimeout(handler);
   }, [search, fuse, recentResources]);
-
-
 
   // ADD PAGINATION STATE
   useEffect(() => {
@@ -210,7 +227,7 @@ export default function BrowseResources() {
           {filtered.length === 0 && search ? (
             <p className="text-gray-500 italic">No matching resources found.</p>
           ) : (
-            // MAP OVER currentItems
+            // MAP OVER dummyResources
             dummyResources.map((res) => (
               <div
                 key={res.id}
@@ -252,9 +269,6 @@ export default function BrowseResources() {
         </div>
 
         {/* FUNCTIONAL PAGINATION CONTROLS */}
-
-          {totalPages > 1 && (
-          <div className="flex justify-center items-center mt-8 space-x-2">
         {totalPages > 1 && (
           <div className="flex justify-center items-center mt-8 space-x-2">
             <button
@@ -295,9 +309,7 @@ export default function BrowseResources() {
             </button>
           </div>
         )}
-          </div>
-        )}
-</>
+        </>
         )}
         
       </main>
@@ -327,7 +339,13 @@ export default function BrowseResources() {
                   if (selectedResource.fileLink) {
                     window.open(selectedResource.fileLink, '_blank');
                   } else {
-                    alert("No URL available for this resource.");
+                    // UPDATED: Replaced alert with AlertModal state
+                    setAlertConfig({
+                      isOpen: true,
+                      title: "Not Found",
+                      message: "No URL available for this resource.",
+                      type: "warning"
+                    });
                   }
                   setSelectedResource(null);
                 }}
@@ -346,7 +364,13 @@ export default function BrowseResources() {
                     link.click();
                     document.body.removeChild(link);
                   } else {
-                    alert("No download link available for this resource.");
+                    // UPDATED: Replaced alert with AlertModal state
+                    setAlertConfig({
+                      isOpen: true,
+                      title: "Not Found",
+                      message: "No download link available for this resource.",
+                      type: "warning"
+                    });
                   }
                   setSelectedResource(null);
                 }}
@@ -358,6 +382,16 @@ export default function BrowseResources() {
           </div>
         </div>
       )} */}
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }

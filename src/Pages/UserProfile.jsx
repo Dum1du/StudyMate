@@ -6,10 +6,11 @@ import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
 import { useNavigate } from "react-router";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
-import { FaFileAlt, FaTrash, FaStar } from "react-icons/fa"; // Added FaStar for visual
+import { FaFileAlt, FaTrash, FaStar } from "react-icons/fa"; 
 import EditProfileModal from "./EditProfileModal";
 import Footer from "../Footer";
 import axios from "axios";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -31,6 +32,18 @@ function UserProfile() {
   const [userPosts, setUserPosts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
   // --- 1. PROFILE UPDATES ---
   const handleProfileUpdate = async (updatedData) => {
     if (!user) return;
@@ -48,11 +61,24 @@ function UserProfile() {
       });
       
       setUser((prevUser) => ({ ...prevUser, ...updatedData }));
-      alert("Profile updated successfully!");
+      
+      // REPLACED SUCCESS ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Profile Updated",
+        message: "Your profile information has been updated successfully!",
+        type: "success"
+      });
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("Failed to update profile.");
+      // REPLACED ERROR ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Update Failed",
+        message: "Failed to update your profile. Please try again.",
+        type: "error"
+      });
     }
   };
 
@@ -75,23 +101,47 @@ function UserProfile() {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, { profilePicture: image });
       setUser((prevUser) => ({ ...prevUser, profilePicture: image }));
-      alert("Profile picture updated successfully!");
+      
+      // REPLACED SUCCESS ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Picture Updated",
+        message: "Profile picture updated successfully!",
+        type: "success"
+      });
       setPreview(null);
     } catch (error) {
       console.error("Error uploading profile picture:", error);
-      alert("Failed to upload picture!");
+      // REPLACED ERROR ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Upload Failed",
+        message: "Failed to upload picture! Please try again.",
+        type: "error"
+      });
     } finally {
       setUploading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/logins"); 
-    } catch (error) {
-      console.error("Logout failed!", error);
-    }
+  // UPGRADED: Added confirmation modal before logging out
+  const handleLogout = () => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out?",
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await signOut(auth);
+          navigate("/logins"); 
+        } catch (error) {
+          console.error("Logout failed!", error);
+        } finally {
+          closeAlert();
+        }
+      }
+    });
   };
 
   // --- 2. AUTH LISTENER ---
@@ -151,26 +201,48 @@ function UserProfile() {
     }
   }, [user]);
 
-  // --- 4. DELETE HANDLER ---
-  const handleDelete = async (docId, title) => {
-    const confirmDelete = window.confirm(`Are you sure you want to delete "${title}"?`);
-    if (!confirmDelete) return;
+  // --- 4. DELETE HANDLER (UPGRADED TO USE MODAL) ---
+  const handleDelete = (docId, title) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Resource",
+      message: `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+      type: "warning",
+      onConfirm: async () => {
+        // Close the confirm modal immediately and show loading state on the button
+        closeAlert();
+        setDeletingId(docId);
 
-    setDeletingId(docId);
-
-    try {
-      const token = await auth.currentUser.getIdToken();
-      await axios.delete(`http://localhost:4000/delete-upload/${docId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUserPosts((prev) => prev.filter((item) => item.id !== docId));
-      alert("Resource deleted successfully.");
-    } catch (error) {
-      console.error("Delete failed:", error);
-      alert("Failed to delete. Please try again.");
-    } finally {
-      setDeletingId(null);
-    }
+        try {
+          const token = await auth.currentUser.getIdToken();
+          await axios.delete(`http://localhost:4000/delete-upload/${docId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setUserPosts((prev) => prev.filter((item) => item.id !== docId));
+          
+          // Show success modal
+          setAlertConfig({
+            isOpen: true,
+            title: "Resource Deleted",
+            message: "The resource was deleted successfully.",
+            type: "success",
+            onConfirm: null
+          });
+        } catch (error) {
+          console.error("Delete failed:", error);
+          // Show error modal
+          setAlertConfig({
+            isOpen: true,
+            title: "Delete Failed",
+            message: "Failed to delete the resource. Please try again.",
+            type: "error",
+            onConfirm: null
+          });
+        } finally {
+          setDeletingId(null);
+        }
+      }
+    });
   };
 
   const formatDate = (isoString) => {
@@ -441,6 +513,16 @@ function UserProfile() {
       {isModalOpen && (
         <EditProfileModal user={user} onClose={() => setIsModalOpen(false)} onSave={handleProfileUpdate} />
       )}
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </>
   );
 }
