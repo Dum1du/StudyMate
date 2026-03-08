@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Download, Star, User } from "lucide-react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { createPortal } from "react-dom";
@@ -15,6 +15,8 @@ import {
   runTransaction,
   updateDoc,
   onSnapshot,
+  limit,
+  setDoc,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { FaStar, FaPaperPlane } from "react-icons/fa"; // Added FaPaperPlane
@@ -201,13 +203,13 @@ const ResourcePage = () => {
         );
 
         // Just map them directly without recursion
-      commentData.replies = replySnap.docs.map((r) => ({
-        id: r.id,
-        ref: r.ref,
-        commentId: docSnap.id, // Reference to the top-level parent
-        ...r.data(),
-      }));
-        
+        commentData.replies = replySnap.docs.map((r) => ({
+          id: r.id,
+          ref: r.ref,
+          commentId: docSnap.id, // Reference to the top-level parent
+          ...r.data(),
+        }));
+
         commentList.push(commentData);
       }
       setComments(commentList);
@@ -216,13 +218,16 @@ const ResourcePage = () => {
     }
   };
 
+  const isProcessing = useRef(false);
+
   // Submit Comment / Reply
   const submitComment = async () => {
-    if (!commentText.trim()) return;
+    if (!commentText.trim() || isProcessing.current) return;
     if (!auth.currentUser) {
       alert("Please login to comment.");
       return;
     }
+    isProcessing.current = true;
     setSubmittingComment(true);
     try {
       if (editingCommentRef) {
@@ -231,17 +236,41 @@ const ResourcePage = () => {
         setCommentText("");
         setReplyTo(null);
         loadComments();
+        cleanupStates();
         return;
       }
       if (!replyTo) {
         const commentsRef = collection(materialRef, "comments");
-        await addDoc(commentsRef, {
+
+        // check if this is the first comment
+        const existingComments = await getDocs(query(commentsRef, limit(1)));
+        const isFirstComment = existingComments.empty;
+
+        const commentDoc = await addDoc(commentsRef, {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
           text: commentText,
           createdAt: serverTimestamp(),
         });
+
+        // first comment → create discussion
+        if (isFirstComment) {
+          const discussionRef = doc(db, "discussions", materialRef.id);
+
+          await setDoc(discussionRef, {
+                    materialId: materialRef.id,
+                    materialRef: materialRef,
+                    resourceTitle: resource?.resourceTitle || "Untitled",
+                    courseCode: resource?.courseCode || "N/A",
+                    deptId: dept || "Unknown",
+                    firstCommentId: commentDoc.id,
+                    firstCommentText: commentText,
+                    creatorName: currentUserProfile.displayName || "User",
+                    creatorImage: currentUserProfile.photoURL || "",
+                    createdAt: serverTimestamp(),
+                });
+        }
       } else {
         const repliesRef = collection(
           materialRef,
@@ -258,17 +287,23 @@ const ResourcePage = () => {
           parentReplyId: replyTo.parentReplyId || null,
         });
       }
-      setCommentText("");
-      setReplyTo(null);
-      setEditingCommentRef(null);
+      cleanupStates();
       loadComments();
     } catch (error) {
       console.error("Error adding comment:", error);
       alert("Failed to post comment.");
     } finally {
+      isProcessing.current = false;
       setSubmittingComment(false);
     }
   };
+
+  // Helper to clear inputs
+const cleanupStates = () => {
+    setCommentText("");
+    setReplyTo(null);
+    setEditingCommentRef(null);
+};
 
   // Delete Comment
   const deleteComment = async (ref) => {
@@ -290,69 +325,100 @@ const ResourcePage = () => {
     setCommentText(`@${comment.userName} `);
 
     // Smooth scroll/focus to input
-  const input = document.getElementById("comment-input");
-  input?.focus();
+    const input = document.getElementById("comment-input");
+    input?.focus();
   };
 
   // Render Comments
   const renderComments = (commentList) => {
-  return commentList.map((c) => (
-    <div key={c.id} className="mt-6">
-      {/* TOP LEVEL COMMENT */}
-      <div className="flex gap-3 sm:ml-10">
-        <img
-          src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
-          className="w-10 h-10 rounded-full border shadow-sm"
-          alt=""
-        />
-        <div className="flex-1">
-          <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
-            <h5 className="text-[13px] font-bold text-gray-900">{c.userName}</h5>
-            <p className="text-[14px] text-gray-800 mt-1 whitespace-pre-wrap">{c.text}</p>
-          </div>
-          <div className="flex gap-3 text-[12px] font-bold text-gray-500 mt-1 ml-2">
-            <button className="hover:underline" onClick={() => handleReplyClick(c)}>Reply</button>
-            <span className="font-normal">{formatTime(c.createdAt)}</span>
-            {c.userEmail === currentUserEmail && (
-              <button className="text-red-500 hover:underline" onClick={() => deleteComment(c.ref)}>Delete</button>
-            )}
-          </div>
+    return commentList.map((c) => (
+      <div key={c.id} className="mt-6">
+        {/* TOP LEVEL COMMENT */}
+        <div className="flex gap-3 sm:ml-10">
+          <img
+            src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
+            className="w-10 h-10 rounded-full border shadow-sm"
+            alt=""
+          />
+          <div className="flex-1">
+            <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
+              <h5 className="text-[13px] font-bold text-gray-900">
+                {c.userName}
+              </h5>
+              <p className="text-[14px] text-gray-800 mt-1 whitespace-pre-wrap">
+                {c.text}
+              </p>
+            </div>
+            <div className="flex gap-3 text-[12px] font-bold text-gray-500 mt-1 ml-2">
+              <button
+                className="hover:underline"
+                onClick={() => handleReplyClick(c)}
+              >
+                Reply
+              </button>
+              <span className="font-normal">{formatTime(c.createdAt)}</span>
+              {c.userEmail === currentUserEmail && (
+                <button
+                  className="text-red-500 hover:underline"
+                  onClick={() => deleteComment(c.ref)}
+                >
+                  Delete
+                </button>
+              )}
+            </div>
 
-          {/* SECOND LEVEL REPLIES (FLAT) */}
-          {c.replies?.length > 0 && (
-            <div className="mt-3 ml-10 space-y-4 border-l-2 border-gray-100 pl-4 sm:pl-10">
-              {c.replies.map((reply) => (
-                <div key={reply.id} className="flex gap-2">
-                  <img
-                    src={reply.userProfile || "https://ui-avatars.com/api/?name=User"}
-                    className="w-8 h-8 rounded-full border shadow-sm"
-                    alt=""
-                  />
-                  <div className="flex-1">
-                    <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50 ">
-                      <h5 className="text-[12px] font-bold text-gray-900">{reply.userName}</h5>
-                      <p className="text-[13px] text-gray-800 whitespace-pre-wrap">
-                        {/* Highlights the @mention if you want, or just leave as text */}
-                        {reply.text}
-                      </p>
-                    </div>
-                    <div className="flex gap-3 text-[11px] font-bold text-gray-500 mt-0.5 ml-2">
-                      <button className="hover:underline" onClick={() => handleReplyClick(reply)}>Reply</button>
-                      <span className="font-normal">{formatTime(reply.createdAt)}</span>
-                      {reply.userEmail === currentUserEmail && (
-                        <button className="text-red-500 hover:underline" onClick={() => deleteComment(reply.ref)}>Delete</button>
-                      )}
+            {/* SECOND LEVEL REPLIES (FLAT) */}
+            {c.replies?.length > 0 && (
+              <div className="mt-3 ml-10 space-y-4 border-l-2 border-gray-100 pl-4 sm:pl-10">
+                {c.replies.map((reply) => (
+                  <div key={reply.id} className="flex gap-2">
+                    <img
+                      src={
+                        reply.userProfile ||
+                        "https://ui-avatars.com/api/?name=User"
+                      }
+                      className="w-8 h-8 rounded-full border shadow-sm"
+                      alt=""
+                    />
+                    <div className="flex-1">
+                      <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50 ">
+                        <h5 className="text-[12px] font-bold text-gray-900">
+                          {reply.userName}
+                        </h5>
+                        <p className="text-[13px] text-gray-800 whitespace-pre-wrap">
+                          {/* Highlights the @mention if you want, or just leave as text */}
+                          {reply.text}
+                        </p>
+                      </div>
+                      <div className="flex gap-3 text-[11px] font-bold text-gray-500 mt-0.5 ml-2">
+                        <button
+                          className="hover:underline"
+                          onClick={() => handleReplyClick(reply)}
+                        >
+                          Reply
+                        </button>
+                        <span className="font-normal">
+                          {formatTime(reply.createdAt)}
+                        </span>
+                        {reply.userEmail === currentUserEmail && (
+                          <button
+                            className="text-red-500 hover:underline"
+                            onClick={() => deleteComment(reply.ref)}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  ));
-};
+    ));
+  };
 
   // --- QUIZ LOGIC (UNTOUCHED) ---
   const fetchQuiz = async () => {
