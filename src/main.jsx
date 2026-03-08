@@ -13,7 +13,7 @@ import BrowseResources from "./Pages/BrowseResources.jsx";
 import UserProfile from "./Pages/UserProfile.jsx";
 import KuppiSession from "./Pages/KuppiSessions.jsx";
 import Settings from "./Pages/Settings.jsx";
-import NoticeBoard from "./Pages/NoticeBoard.jsx";
+import NoticeBoard  from "./Pages/NoticeBoard.jsx";
 import EmailVerify from "./Pages/EmailVerify.jsx";
 import UploadResouces from "./Pages/UploadResouces.jsx";
 import Discussions from "./Pages/Discussions.jsx";
