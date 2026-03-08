@@ -11,6 +11,7 @@ import { FaUser } from "react-icons/fa";
 import { AiOutlineMail } from "react-icons/ai";
 import { SlLock } from "react-icons/sl";
 import { auth, db } from "../firebase";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 function RegisterUI() {
   const [email, setEmail] = useState("");
@@ -18,36 +19,66 @@ function RegisterUI() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfiPass, setConfirPass] = useState(false);
 
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     if (!email || !name || !password || !confirmPassword) {
-      setError("Please fill all the fields!");
+      setAlertConfig({
+        isOpen: true,
+        title: "Missing Fields",
+        message: "Please fill all the fields before registering!",
+        type: "warning"
+      });
       setLoading(false);
       return;
     }
 
     if (!email.startsWith("s") || !email.endsWith("@ousl.lk")) {
-      setError("Please use a Valid OUSL email");
+      setAlertConfig({
+        isOpen: true,
+        title: "Invalid Email",
+        message: "Please use a valid OUSL student email (e.g., sXXXXX@ousl.lk).",
+        type: "warning"
+      });
       setLoading(false);
       return;
     }
 
-    if (password != confirmPassword) {
-      setError("Passwords not matching!");
+    if (password !== confirmPassword) {
+      setAlertConfig({
+        isOpen: true,
+        title: "Password Mismatch",
+        message: "The passwords you entered do not match!",
+        type: "warning"
+      });
       setLoading(false);
       return;
     } else {
       if (confirmPassword.length <= 5) {
-        setError("Passwords at least need 6 characters");
+        setAlertConfig({
+          isOpen: true,
+          title: "Weak Password",
+          message: "Your password must be at least 6 characters long.",
+          type: "warning"
+        });
         setLoading(false);
         return;
       }
@@ -74,29 +105,42 @@ function RegisterUI() {
       console.log("User registered:", userCredintials.user);
       navigate("/verify");
     } catch (err) {
+      let errorMsg = "An unexpected error occurred. Please try again.";
+      
       if (typeof err?.message === "string") {
         if (
           err.message.includes("email-already-in-use") ||
           err.message.includes("auth/email-already-in-use")
         ) {
-          setError("This email already have an account");
+          errorMsg = "This email address is already registered to an account.";
         } else if (
           err.message.includes("invalid-email") ||
           err.message.includes("auth/invalid-email")
         ) {
-          setError("auth/invalid-email");
+          errorMsg = "The email address is improperly formatted.";
         } else if (
           err.message.includes("weak-password") ||
           err.message.includes("auth/weak-password")
         ) {
-          setError("auth/weak-password");
+          errorMsg = "The password provided is too weak.";
+        } else {
+          errorMsg = err.message;
         }
       }
-      console.error(err); // setError(err.message);
+      
+      setAlertConfig({
+        isOpen: true,
+        title: "Registration Failed",
+        message: errorMsg,
+        type: "error"
+      });
+      
+      console.error(err); 
     } finally {
       setLoading(false);
     }
   };
+
   const addUserToFirestore = async (user) => {
     const joinDate = new Date(user.metadata.creationTime);
     const joinMonth = joinDate.toLocaleString("default", { month: "long" });
@@ -238,7 +282,6 @@ function RegisterUI() {
             </button>
           </div>
         </form>
-        <p className="text-red-700 text-[14px]">{error}</p>
 
         <div className="flex items-center my-6">
           <div className="flex-grow border-t border-gray-400"></div>
@@ -248,13 +291,23 @@ function RegisterUI() {
         <div className="flex justify-center flex-col items-center">
           {/* button */}
           <Link
-            className="text-gray-800 py-3 w-full border-1 border-gray-800 rounded-lg"
+            className="text-gray-800 py-3 w-full border-1 border-gray-800 rounded-lg hover:bg-gray-100 transition"
             to={"/logins"}
           >
             <h1>Log in</h1>
           </Link>
         </div>
       </div>
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FaChevronRight, FaSignOutAlt } from "react-icons/fa";
 import logo from "../assets/logo.png";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 // logout
 const SettingItem = ({ title, subtitle, onClick, isRed }) => (
@@ -66,6 +67,18 @@ function Settings() {
   const [isNotifEnabled, setIsNotifEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+    onConfirm: null,
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
@@ -81,13 +94,24 @@ function Settings() {
     fetchSettings();
   }, [user]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/logins");
-    } catch (error) {
-      console.error("Logout Error:", error);
-    }
+  // UPGRADED: Added confirmation modal before logging out!
+  const handleLogout = () => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out of StudyMate?",
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await signOut(auth);
+          navigate("/logins");
+        } catch (error) {
+          console.error("Logout Error:", error);
+        } finally {
+          closeAlert();
+        }
+      },
+    });
   };
 
   const handleChangePassword = async (e) => {
@@ -106,13 +130,30 @@ function Settings() {
     try {
       await reauthenticateWithCredential(currentUser, credential);
       await updatePassword(currentUser, newPassword);
-      alert("Password updated successfully!");
+
+      // REPLACED SUCCESS ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Password Updated",
+        message: "Your password has been updated successfully!",
+        type: "success",
+      });
+
       setActiveModal(null);
       setNewPassword("");
       setCurrentPassword("");
     } catch (error) {
       console.error("Password Update Error:", error);
-      alert("Error: " + error.message);
+
+      // REPLACED ERROR ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Update Failed",
+        message:
+          error.message ||
+          "Failed to update password. Please check your current password and try again.",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -133,10 +174,8 @@ function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col ">
-      <Navbar />
-
-      <div className="flex-grow container mx-auto px-4 py-8 max-w-3xl border-1 border-gray-200 rounded-xl bg-white shadow-md">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="flex-grow container mx-auto px-4 py-8 max-w-3xl">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
 
         {/* SECTION 1: ACCOUNT */}
@@ -198,8 +237,6 @@ function Settings() {
           <SettingItem title="Log Out" isRed onClick={handleLogout} />
         </div>
       </div>
-
-      <Footer />
 
       {/* --- MODALS --- */}
       {activeModal === "password" && (
@@ -283,6 +320,16 @@ function Settings() {
           </div>
         </Modal>
       )}
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }

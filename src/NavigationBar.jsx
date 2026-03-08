@@ -13,11 +13,11 @@ export default function Navbar() {
   const [profilePic, setProfilePic] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   
-  // 1. Add loading state to prevent flickering before we know the user status
+  
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
-  const location = useLocation(); // Used to prevent redirect loops
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -42,6 +42,10 @@ export default function Navbar() {
           if (userSnap.exists()) {
             const data = userSnap.data();
             setProfilePic(data.profilePicture || "");
+
+            if (data.displayName) {
+              setUsername(data.displayName);
+            }
           } else {
             setProfilePic("");
           }
@@ -51,10 +55,8 @@ export default function Navbar() {
           setLoading(false);
         }
       } else {
-        // 2. Logic: If no user, and we are NOT already on the login page, redirect.
         console.log("User not found, redirecting...");
         
-        // This check prevents an infinite loop if you accidentally put Navbar on the login page
         if (location.pathname !== "/logins") {
           navigate("/logins");
         }
@@ -68,14 +70,6 @@ export default function Navbar() {
 
     return () => unsubscribe();
   }, [navigate, location.pathname]);
-
-  // 3. Optional: You can return nothing or a skeleton while checking auth
-  // However, for a Navbar, it is usually better to render it so the layout doesn't jump.
-  // If you want to hide the navbar completely while loading, uncomment the next 3 lines:
-  /* if (loading) {
-    return null; // Or return <div className="h-16 bg-blue-600"></div> to hold space
-  } 
-  */
 
   return (
     <nav className="bg-blue-600 text-white shadow-md relative">
@@ -120,10 +114,7 @@ export default function Navbar() {
 
         {/* RIGHT: Bell + Profile */}
         <div className="hidden md:flex items-center space-x-4">
-          <button className="hover:text-gray-200">
-            <Bell size={20} />
-            <NotificationWrapper />
-          </button>
+          <NotificationWrapper />
           
           {/* Conditional rendering: Only show profile if not loading and user exists */}
           {!loading && (

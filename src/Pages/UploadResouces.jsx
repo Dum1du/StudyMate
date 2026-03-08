@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import Navbar from "../NavigationBar";
 import { auth } from "../firebase";
 import socket from "../socket";
 import axios from "axios";
-import Footer from "../Footer";
 import ed_bg from "../Bg images/ed_bg.jpg";
+import { useNavigate } from "react-router-dom";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 const COURSES = [
   // Compulsory Non-GPA Courses
@@ -12,33 +12,33 @@ const COURSES = [
   { code: "MHZ2250", subject: "Elementary Mathematics" },
 
   // Year 1 Compulsory
-  { code: "EE13346", subject: "Web Application Development" },
-  { code: "EE13366", subject: "Database Systems" },
-  { code: "EE13372", subject: "Programming in Python" },
+  { code: "EEI3346", subject: "Web Application Development" },
+  { code: "EEI3366", subject: "Database Systems" },
+  { code: "EEI3372", subject: "Programming in Python" },
   { code: "EEX3467", subject: "Software Engineering Concepts and Programming" },
   { code: "LTE34SI", subject: "English for Academic Purposes" },
-  { code: "EE13347", subject: "Web Technology" },
-  { code: "EE13262", subject: "Introduction to Object Oriented Programming" },
-  { code: "EE13269", subject: "Mobile Application Design" },
+  { code: "EEI3347", subject: "Web Technology" },
+  { code: "EEI3262", subject: "Introduction to Object Oriented Programming" },
+  { code: "EEI3269", subject: "Mobile Application Design" },
   { code: "EEL3263", subject: "Communication Skills" },
   { code: "EEX3273", subject: "Communication and Computer Technology" },
   { code: "MHZ3356", subject: "Mathematics for Computing 1" },
 
   // Year 2 Compulsory
   { code: "AGM4367", subject: "Economics and Marketing for Engineers" },
-  { code: "EE14267", subject: "Requirement Engineering" },
-  { code: "EE14270", subject: "Computer Security Concepts" },
-  { code: "EE14360", subject: "Introduction to Artificial Intelligence" },
+  { code: "EEI4267", subject: "Requirement Engineering" },
+  { code: "EEI4270", subject: "Computer Security Concepts" },
+  { code: "EEI4360", subject: "Introduction to Artificial Intelligence" },
   { code: "EEX4365", subject: "Data Structures and Algorithms" },
   { code: "MHZ4359", subject: "Mathematics for Computing II" },
-  { code: "EE14361", subject: "User Experience Engineering" },
-  { code: "EE14362", subject: "Object Oriented Design" },
-  { code: "EE14466", subject: "Data Modelling and Database Systems" },
+  { code: "EEI4361", subject: "User Experience Engineering" },
+  { code: "EEI4362", subject: "Object Oriented Design" },
+  { code: "EEI4466", subject: "Data Modelling and Database Systems" },
   { code: "EEY4189", subject: "Software Design in Group" },
   { code: "MHZ4377", subject: "Applied Statistics" },
 
   // Year 3 Compulsory
-  { code: "EE15467", subject: "Software Testing and Quality Assurance" },
+  { code: "EEI5467", subject: "Software Testing and Quality Assurance" },
   { code: "EEX5263", subject: "Computer Architecture" },
   { code: "EEX5364", subject: "Data Communication" },
   { code: "LLJ5265", subject: "Introduction to Laws of Sri Lanka" },
@@ -57,38 +57,38 @@ const COURSES = [
   { code: "MHZ5375", subject: "Discrete Mathematics" },
 
   // Year 4 Compulsory
-  { code: "EE16360", subject: "Software Project Management" },
+  { code: "EEI6360", subject: "Software Project Management" },
   { code: "EEI6171", subject: "Emerging Technologies" },
-  { code: "EE16567", subject: "Software Architecture and Design" },
+  { code: "EEI6567", subject: "Software Architecture and Design" },
   { code: "EEY6689", subject: "Final Project - Software Engineering" },
   { code: "EEM6202", subject: "Professional Practice" },
   { code: "EEX6373", subject: "Performance Modelling" },
 
   // Elective Courses
   { code: "EEM3366", subject: "Introduction to Business Studies" },
-  { code: "EE14369", subject: "Mobile App Development with Android" },
+  { code: "EEI4369", subject: "Mobile App Development with Android" },
   { code: "EEX4373", subject: "Data Science" },
   { code: "MHJ4271", subject: "History of Technology" },
   { code: "EEX5378", subject: "Neural Networks and Fuzzy Logic Applications" },
   { code: "EEX5376", subject: "Embedded systems and IOT" },
   { code: "EEI6279", subject: "Natural Language Processing" },
-  { code: "EE16280", subject: "Creative Design" },
+  { code: "EEI6280", subject: "Creative Design" },
   { code: "EEI6366", subject: "Big Data Technologies & Distributed Systems" },
   { code: "EEI6377", subject: "Principles and Applications of Data Mining" },
   { code: "EEI6369", subject: "Cloud Computing" },
   { code: "EEX6363", subject: "Compiler Design" },
 
   // Previous Curriculum (RC 2019) Courses mapped in Annexure 2
-  { code: "EE14346", subject: "Web Technology" },
-  { code: "EE13266", subject: "Database Systems" },
+  { code: "EEI4346", subject: "Web Technology" },
+  { code: "EEI3266", subject: "Database Systems" },
   { code: "AGM3263", subject: "Communication Skills" },
   { code: "EEX3373", subject: "Communication and Computer Technology" },
   { code: "LTE3407", subject: "English for Academic Purposes" },
   { code: "MHZ4256", subject: "Mathematics for Computing I" },
-  { code: "EE15270", subject: "Computer Security Concepts" },
+  { code: "EEI5270", subject: "Computer Security Concepts" },
   { code: "EEX6340", subject: "Introduction to Artificial Intelligence" },
   { code: "EEX4465", subject: "Data Structures and Algorithms" },
-  { code: "EE14366", subject: "Data Modelling and Database Systems" },
+  { code: "EEI4366", subject: "Data Modelling and Database Systems" },
   { code: "MHZ3459", subject: "Basic Mathematics for Computing" },
   { code: "EEX5563", subject: "Computer Architecture and Systems" },
   { code: "EEX5464", subject: "Data Communication" },
@@ -98,7 +98,7 @@ const COURSES = [
   },
   { code: "EEY6189", subject: "Identification" },
   { code: "EEX6278", subject: "Neural Networks and Fuzzy Logic" },
-  { code: "EE15280", subject: "Creative Design" },
+  { code: "EEI5280", subject: "Creative Design" },
   { code: "DMM6602", subject: "Management for Engineers" },
   { code: "EEI5466", subject: "Advanced Database Systems" },
 ];
@@ -133,7 +133,9 @@ function UploadResources() {
   const [code, setCode] = useState("");
   const [subject, setSubject] = useState("");
   const [type, setType] = useState("");
+  const[materialType, setMaterialType] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
+  const [tagError, setTagError] = useState("");
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
@@ -144,6 +146,19 @@ function UploadResources() {
   const [showCodeDropdown, setShowCodeDropdown] = useState(false);
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
 
   // Handle course code input and show suggestions
   const handleCodeChange = (e) => {
@@ -197,9 +212,22 @@ function UploadResources() {
 
   // Toggle tag selection
   const toggleTag = (tag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
+    setSelectedTags((prev) => {
+    // remove tag if already selected
+    if (prev.includes(tag)) {
+      setTagError("");
+      return prev.filter((t) => t !== tag);
+    }
+
+    // limit to 3
+    if (prev.length >= 3) {
+      setTagError("You can select a maximum of 3 tags.");
+      return prev;
+    }
+
+    setTagError("");
+    return [...prev, tag];
+  });
   };
 
   // File handling
@@ -239,7 +267,7 @@ function UploadResources() {
     fileInputRef.current.click();
   };
 
-  // Stable callback using useCallback so React doesn't recreate it on each render
+  // Stable callback using useCallback
   const handleUploadStatus = useCallback((data) => {
     console.log("Upload step:", data.step, data.message);
     setShowProgress(true);
@@ -263,24 +291,15 @@ function UploadResources() {
           setShowSuccessOverlay(false);
 
           setTimeout(() => {
-            setSuccess(false);
-            setShowProgress(false);
-            setTitle("");
-            setDesc("");
-            setCode("");
-            setSubject("");
-            setType("");
-            setSelectedTags([]);
-            setFile(null);
-            setProgress(0);
+            navigate("/home"); 
           }, 600);
-        }, 3000);
+        }, 2500);
 
         break;
       default:
         break;
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!socket) return;
@@ -300,7 +319,17 @@ function UploadResources() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return alert("Please select a file!");
+    
+    // REPLACED ALERT
+    if (!file) {
+      setAlertConfig({
+        isOpen: true,
+        title: "No File Selected",
+        message: "Please browse or drag-and-drop a file to upload.",
+        type: "warning"
+      });
+      return;
+    }
 
     const token = await auth.currentUser.getIdToken();
 
@@ -315,7 +344,7 @@ function UploadResources() {
     formData.append("courseCode", code);
     formData.append("courseSubject", subject);
     formData.append("tags", selectedTags.join(" "));
-    formData.append("materialType", type);
+    formData.append("materialType", materialType);
     formData.append("file", file);
 
     setProgress(0);
@@ -331,7 +360,13 @@ function UploadResources() {
       console.log("Upload success:", res.data);
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Upload failed");
+      // REPLACED ALERT
+      setAlertConfig({
+        isOpen: true,
+        title: "Upload Failed",
+        message: "There was a problem uploading your file. Please check your connection and try again.",
+        type: "error"
+      });
     }
   };
 
@@ -342,7 +377,6 @@ function UploadResources() {
         backgroundImage: `linear-gradient(rgba(249, 249, 249, 0.9), rgba(240, 244, 249, 0.6)), url(${ed_bg})`,
       }}
     >
-      <Navbar />
       <div className="flex flex-col relative items-center">
         <form
           className="items-start md:w-[60%] sm:w-[50%] bg-white border border-gray-400 rounded-xl shadow-md sm:mt-5 p-6"
@@ -378,7 +412,6 @@ function UploadResources() {
             placeholder="Briefly describe the content..."
             className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
             rows={3}
-            required
           />
 
           {/* COURSE + SUBJECT + TYPE */}
@@ -447,23 +480,25 @@ function UploadResources() {
 
             <div className="flex-1">
               <label className="font-medium flex justify-start mt-5 mb-1 mx-1">
-                Material Type
+                Material Type<span className="text-red-600">*</span>
               </label>
               <select
-                value={type}
-                className="w-full  border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none bg-gray-100 cursor-not-allowed "
+                value={materialType}
+                onChange={(e) => setMaterialType(e.target.value)}
+                className="w-full  border-gray-400 rounded-lg pl-2 pr-2 py-2 focus:outline-none bg-gray-100 cursor-pointer"
+                required
               >
                 <option value=""></option>
-                <option value=".pdf">.pdf</option>
-                <option value=".docx">.docx</option>
-                <option value=".jpg">.jpg / .jpeg / .png</option>
+                <option value="study_material">Study Material</option>
+                <option value="Past Paper">Past Paper</option>
+                <option value="Other">Other</option>
               </select>
             </div>
           </div>
 
           {/* TAGS */}
           <label className="font-medium flex justify-start mt-5 mb-3 mx-1">
-            Tags (Select multiple)<span className="text-red-600">*</span>
+            Tags (Select multiple)
           </label>
           <div className="w-full flex flex-wrap gap-2 p-3 border border-gray-400 rounded-lg bg-gray-50">
             {TAGS.map((tag, idx) => (
@@ -480,6 +515,9 @@ function UploadResources() {
                 #{tag}
               </button>
             ))}
+            {tagError && (
+  <p className="text-red-500 text-sm mt-2">{tagError}</p>
+)}
           </div>
 
           {/* UPLOAD */}
@@ -565,7 +603,15 @@ function UploadResources() {
         </form>
       </div>
 
-      <Footer />
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 }

@@ -22,15 +22,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import Footer from "../Footer";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "../firebase";
-import {
-  collection,
-  doc,
-  updateDoc,
-  deleteDoc,
-  onSnapshot,
-} from "firebase/firestore";
+import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
 
 const MyResourcesUI = () => {
   const [resources, setResources] = useState([]);
@@ -40,26 +32,19 @@ const MyResourcesUI = () => {
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
 
-  // subscribe to auth and saved resources for current user
-  useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (u) {
-        const col = collection(db, "users", u.uid, "savedResources");
-        const unsubSnap = onSnapshot(col, (snap) => {
-          const saved = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setResources(saved);
-        });
-        // clean up snapshot when user changes or signs out
-        return () => unsubSnap();
-      } else {
-        setResources([]);
-      }
-    });
-    return () => unsubAuth();
-  }, []);
+  // --- ADDED ALERT STATE ---
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+    onConfirm: null,
+  });
 
-  const togglePin = async (id) => {
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
+  const togglePin = (id) => {
     setResources((prev) =>
       prev.map((r) => {
         if (r.id === id) {
@@ -75,12 +60,19 @@ const MyResourcesUI = () => {
     );
   };
 
-  const removeResource = async (id) => {
-    setResources((prev) => prev.filter((r) => r.id !== id));
-    if (user) {
-      const docRef = doc(db, "users", user.uid, "savedResources", id);
-      await deleteDoc(docRef);
-    }
+  // UPGRADED TO USE CONFIRMATION MODAL
+  const removeResource = (id) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Remove Resource",
+      message:
+        "Are you sure you want to remove this resource from your saved list?",
+      type: "warning",
+      onConfirm: () => {
+        setResources((prev) => prev.filter((r) => r.id !== id));
+        closeAlert();
+      },
+    });
   };
 
   const openQuizModal = (resource) => setSelectedQuiz(resource);
@@ -187,8 +179,6 @@ const MyResourcesUI = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-200 text-gray-900">
-      <Navbar />
-
       <div className="p-6 sm:p-8 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
@@ -447,7 +437,16 @@ const MyResourcesUI = () => {
           </div>
         </div>
       )}
-      <Footer />
+
+      {/* NEW ALERT MODAL INJECTION */}
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 };
