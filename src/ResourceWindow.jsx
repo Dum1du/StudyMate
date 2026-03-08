@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Star, User } from "lucide-react";
+import { Download, Star, User, Bookmark } from "lucide-react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
@@ -7,7 +7,6 @@ import {
   doc,
   getDoc,
   addDoc,
-  setDoc,
   deleteDoc,
   serverTimestamp,
   getDocs,
