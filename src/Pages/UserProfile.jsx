@@ -4,14 +4,16 @@ import { IoCameraOutline } from "react-icons/io5";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom"; // Ensure this is from react-router-dom
 import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore"; 
-import { FaFileAlt, FaTrash, FaStar } from "react-icons/fa"; 
+import { FaFileAlt, FaTrash, FaEye } from "react-icons/fa"; // Added FaEye for the View button
 import EditProfileModal from "./EditProfileModal";
 import Footer from "../Footer";
 import axios from "axios";
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
-import { Slice } from "lucide-react";
+import AlertModal from "../AlertModal"; 
+
+// The default avatar image URL
+const DEFAULT_AVATAR = "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80";
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -43,7 +45,6 @@ function UserProfile() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
 
   // --- 1. PROFILE UPDATES ---
   const handleProfileUpdate = async (updatedData) => {
@@ -130,7 +131,7 @@ function UserProfile() {
       type: "warning",
       onConfirm: async () => {
         closeAlert();
-        setIsModalOpen(false); // Close the Edit Profile modal
+        setIsModalOpen(false); 
         setUploading(true);
         try {
           const userRef = doc(db, "users", user.uid);
@@ -243,9 +244,9 @@ function UserProfile() {
     }
   }, [user]);
 
-  // --- 4. DELETE HANDLER (UPGRADED TO USE MODAL) ---
+  // --- 4. DELETE HANDLER ---
   const handleDelete = (docId, title, courseCode) => {
-    const diptId = courseCode.slice( 0, 3).toUpperCase();
+    const diptId = courseCode.slice(0, 3).toUpperCase();
 
     setAlertConfig({
       isOpen: true,
@@ -330,19 +331,30 @@ function UserProfile() {
                   </td>
                   <td className="p-4 text-sm text-gray-600">{post.courseSubject}</td>
                   <td className="p-4 text-sm text-gray-500">{formatDate(post.createdAt)}</td>
-                  <td className="p-4 text-center">
-                    <button
-                      onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
-                      disabled={deletingId === post.id}
-                      className={`p-2 rounded-full transition ${
-                        deletingId === post.id 
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
-                        : "text-red-500 hover:bg-red-50 hover:text-red-700"
-                      }`}
-                      title="Delete File"
-                    >
-                      {deletingId === post.id ? "..." : <FaTrash size={16} />}
-                    </button>
+                  <td className="p-4">
+                    <div className="flex justify-center items-center gap-3">
+                      {/* VIEW BUTTON */}
+                      <button
+                        onClick={() => navigate(`/resourcewindow/${post.id}`, { state: { resource: post } })}
+                        className="p-2 text-blue-500 hover:bg-blue-50 hover:text-blue-700 rounded-full transition"
+                        title="View File"
+                      >
+                        <FaEye size={16} />
+                      </button>
+                      {/* DELETE BUTTON */}
+                      <button
+                        onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
+                        disabled={deletingId === post.id}
+                        className={`p-2 rounded-full transition ${
+                          deletingId === post.id 
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                          : "text-red-500 hover:bg-red-50 hover:text-red-700"
+                        }`}
+                        title="Delete File"
+                      >
+                        {deletingId === post.id ? "..." : <FaTrash size={16} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -370,13 +382,23 @@ function UserProfile() {
               
               <div className="mt-4 flex items-center justify-between border-t pt-3">
                 <span className="text-xs text-gray-400">{formatDate(post.createdAt)}</span>
-                <button 
-                  onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
-                  disabled={deletingId === post.id}
-                  className="flex items-center space-x-1 text-red-500 text-xs font-medium hover:text-red-700"
-                >
-                   {deletingId === post.id ? <span>Deleting...</span> : <><FaTrash /> <span>Delete</span></>}
-                </button>
+                <div className="flex items-center gap-4">
+                  {/* VIEW BUTTON (MOBILE) */}
+                  <button 
+                    onClick={() => navigate(`/resourcewindow/${post.id}`, { state: { resource: post } })}
+                    className="flex items-center space-x-1 text-blue-500 text-xs font-medium hover:text-blue-700"
+                  >
+                    <FaEye /> <span>View</span>
+                  </button>
+                  {/* DELETE BUTTON (MOBILE) */}
+                  <button 
+                    onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
+                    disabled={deletingId === post.id}
+                    className="flex items-center space-x-1 text-red-500 text-xs font-medium hover:text-red-700"
+                  >
+                     {deletingId === post.id ? <span>Deleting...</span> : <><FaTrash /> <span>Delete</span></>}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -387,11 +409,9 @@ function UserProfile() {
 
   if (authLoading) {
     return (
-      <>
-        <div className="flex items-center justify-center min-h-screen">
-          <p className="text-gray-500 text-lg">Loading Profile...</p>
-        </div>
-      </>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-500 text-lg">Loading Profile...</p>
+      </div>
     );
   }
 
@@ -406,17 +426,17 @@ function UserProfile() {
         <div className="w-64 bg-white border border-gray-200 rounded-xl shadow-sm p-6 h-fit shrink-0">
           <h3 className="text-lg font-semibold mb-4">Menu</h3>
           <div className="flex flex-col space-y-3">
-            {["overview", "posts"].map((tab) => (
+            {["overview", "uploads"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`text-left px-3 py-2 rounded-md capitalize transition-colors ${
+                className={`text-left px-3 py-2 rounded-md transition-colors ${
                   activeTab === tab
                     ? "bg-blue-100 text-blue-600 font-medium"
                     : "text-gray-600 hover:bg-gray-100"
                 }`}
               >
-                {tab}
+                {tab === "uploads" ? "My Uploads" : "Overview"}
               </button>
             ))}
           </div>
@@ -493,7 +513,7 @@ function UserProfile() {
               </div>
             )}
 
-            {activeTab === "posts" && (
+            {activeTab === "uploads" && (
               <div className="w-full animate-fadeIn">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">My Uploads</h3>
@@ -531,15 +551,15 @@ function UserProfile() {
 
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
           <div className="flex border-b border-gray-200 mb-6">
-            {["overview", "posts"].map((tab) => (
+            {["overview", "uploads"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 capitalize py-2 text-sm font-medium cursor-pointer transition-colors ${
+                className={`flex-1 py-2 text-sm font-medium cursor-pointer transition-colors ${
                   activeTab === tab ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
                 }`}
               >
-                {tab}
+                {tab === "uploads" ? "My Uploads" : "Overview"}
               </button>
             ))}
           </div>
@@ -558,7 +578,7 @@ function UserProfile() {
             </div>
           )}
 
-          {activeTab === "posts" && (
+          {activeTab === "uploads" && (
              <PostList />
           )}
         </div>

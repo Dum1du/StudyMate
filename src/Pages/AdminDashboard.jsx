@@ -160,7 +160,7 @@ export default function AdminDashboard() {
       if (docs.length === itemsPerPage) {
         setUsersHasNext(true);
         const newCursors = [...usersCursors];
-        newCursors[pageIndex] = docs[docs.length - 1]; // Save the last document to be the starting cursor of the next page
+        newCursors[pageIndex] = docs[docs.length - 1];
         setUsersCursors(newCursors);
       } else {
         setUsersHasNext(false);
