@@ -19,7 +19,7 @@ import {
   setDoc,
   increment,
   startAfter,
-  writeBatch // <-- IMPORTED writeBatch
+  writeBatch
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { FaStar, FaPaperPlane } from "react-icons/fa";
@@ -182,16 +182,36 @@ const ResourcePage = () => {
 
     const fetchEverything = async () => {
       setLoading(true);
-      let currentResource = { ...resourceData };
+      let currentResource = resourceData ? { ...resourceData } : null;
 
-      // Fetch full material from Firestore to guarantee fileLink and fileId
-      if (currentResource.courseCode && resourceId) {
+      // Step A: Fetch full material from Firestore
+      if (resourceId) {
         try {
-          const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
-          const matRef = doc(db, "studyMaterials", currentDept, "Materials", resourceId);
-          const matSnap = await getDoc(matRef);
-          
-          if (matSnap.exists()) {
+          let matSnap = null;
+
+          if (currentResource?.courseCode) {
+            // We know the course code, fetch normally
+            const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
+            const matRef = doc(db, "studyMaterials", currentDept, "Materials", resourceId);
+            matSnap = await getDoc(matRef);
+          } else {
+            // WE CAME FROM A NOTIFICATION: We only have resourceId!
+            // Let's find the material using the discussions collection
+            const discRef = doc(db, "discussions", resourceId);
+            const discSnap = await getDoc(discRef);
+            
+            if (discSnap.exists()) {
+              const discData = discSnap.data();
+              if (discData.materialRef) {
+                matSnap = await getDoc(discData.materialRef);
+              } else if (discData.deptId) {
+                const matRef = doc(db, "studyMaterials", discData.deptId, "Materials", resourceId);
+                matSnap = await getDoc(matRef);
+              }
+            }
+          }
+
+          if (matSnap && matSnap.exists()) {
             currentResource = { id: matSnap.id, ...matSnap.data() };
             setResourceData(currentResource); 
           }
@@ -200,35 +220,36 @@ const ResourcePage = () => {
         }
       }
 
-      // Fetch Uploader Profile
-      try {
-        if (!currentResource.uploaderUid) {
-          setUserName(currentResource.displayName || "Unknown User");
-        } else {
-          const userDocRef = doc(db, "users", currentResource.uploaderUid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            setUserDoc(userDocSnap.data());
-            setUserName(userDocSnap.data().displayName || "Unknown User");
-          } else {
-            setUserName(currentResource.displayName || "Unknown User");
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error);
-        setUserName(currentResource.displayName || "Unknown User");
-      }
-
-      // Fetch Quizzes
-      if (currentResource.courseCode && resourceId) {
+      // Step B: Fetch Uploader Profile & Quiz (Only if we successfully fetched the resource)
+      if (currentResource) {
         try {
-          const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
-          const quizRef = collection(db, "studyMaterials", currentDept, "Materials", resourceId, "Quizes");
-          const q = query(quizRef, orderBy("createdAt"));
-          const quizSnap = await getDocs(q);
-          setQuizQuestions(quizSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+          if (!currentResource.uploaderUid) {
+            setUserName(currentResource.displayName || "Unknown User");
+          } else {
+            const userDocRef = doc(db, "users", currentResource.uploaderUid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              setUserDoc(userDocSnap.data());
+              setUserName(userDocSnap.data().displayName || "Unknown User");
+            } else {
+              setUserName(currentResource.displayName || "Unknown User");
+            }
+          }
         } catch (error) {
-          console.error("Error fetching quiz:", error);
+          console.error("Error fetching user:", error);
+          setUserName(currentResource.displayName || "Unknown User");
+        }
+
+        if (currentResource.courseCode && resourceId) {
+          try {
+            const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
+            const quizRef = collection(db, "studyMaterials", currentDept, "Materials", resourceId, "Quizes");
+            const q = query(quizRef, orderBy("createdAt"));
+            const quizSnap = await getDocs(q);
+            setQuizQuestions(quizSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+          } catch (error) {
+            console.error("Error fetching quiz:", error);
+          }
         }
       }
 
@@ -238,7 +259,7 @@ const ResourcePage = () => {
     fetchEverything();
   }, [resourceId]);
 
-  // Fetch Logged-In User Profile
+  // Fetch Logged-In User Profile for Commenting
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -299,8 +320,6 @@ const ResourcePage = () => {
       setComments((prev) => {
         return commentList.map((newComment) => {
           const existing = prev.find((c) => c.id === newComment.id);
-          const cached = prefetchedRepliesRef.current[newComment.id];
-
           return {
             ...newComment,
             replies: existing?.replies ?? null,
@@ -395,22 +414,19 @@ const ResourcePage = () => {
 
   const isProcessing = useRef(false);
 
-  // --- NEW: HELPER TO SEND NOTIFICATIONS ---
+  // --- HELPER TO SEND NOTIFICATIONS ---
   const sendNotification = async (targetUid, message, type) => {
     try {
       const batch = writeBatch(db);
-      
-      // 1. Create main notification doc
       const mainNotifRef = doc(collection(db, "notifications"));
       batch.set(mainNotifRef, {
         title: type === "comment" ? "New Comment" : "New Reply",
         message: message,
         createdAt: serverTimestamp(),
         type: type,
-        targetId: resourceId // To route directly to this resource page
+        targetId: resourceId 
       });
 
-      // 2. Deliver it to the target user's subcollection
       const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", targetUid);
       batch.set(userNotifRef, {
         userId: targetUid,
@@ -445,12 +461,11 @@ const ResourcePage = () => {
         userEmail: currentUserEmail,
         userName: currentUserProfile.displayName || "User",
         userProfile: currentUserProfile.photoURL || "",
-        userId: auth.currentUser.uid, // Add UID locally
+        userId: auth.currentUser.uid, 
         text: commentText,
         createdAt: new Date(), 
         pending: true, 
       };
-
       setComments((prev) => [tempComment, ...prev]); 
     }
 
@@ -468,14 +483,13 @@ const ResourcePage = () => {
       }
       
       if (!replyTo) {
-        // --- ADDING A TOP LEVEL COMMENT ---
         const commentsRef = collection(materialRef, "comments");
 
         const commentDoc = await addDoc(commentsRef, {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
-          userId: auth.currentUser.uid, // SAVED TO DB
+          userId: auth.currentUser.uid, 
           text: commentText,
           createdAt: serverTimestamp(),
           repliesCount: 0,
@@ -499,7 +513,6 @@ const ResourcePage = () => {
           });
         }
 
-        // Notify the Uploader (if the uploader isn't the one commenting)
         if (resourceData?.uploaderUid && resourceData.uploaderUid !== auth.currentUser.uid) {
           await sendNotification(
             resourceData.uploaderUid,
@@ -524,7 +537,6 @@ const ResourcePage = () => {
           );
         }
       } else {
-        // --- ADDING A REPLY ---
         const repliesRef = collection(
           materialRef,
           "comments",
@@ -535,7 +547,7 @@ const ResourcePage = () => {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
-          userId: auth.currentUser.uid, // SAVED TO DB
+          userId: auth.currentUser.uid, 
           text: commentText,
           createdAt: serverTimestamp(),
           parentReplyId: replyTo.parentReplyId || null,
@@ -544,7 +556,6 @@ const ResourcePage = () => {
         const commentRef = doc(materialRef, "comments", replyTo.commentId);
         await updateDoc(commentRef, { repliesCount: increment(1) });
 
-        // Notify the person being replied to
         if (replyTo.replyToUid && replyTo.replyToUid !== auth.currentUser.uid) {
           await sendNotification(
             replyTo.replyToUid,
@@ -611,13 +622,12 @@ const ResourcePage = () => {
     }
   };
 
-  // Grab the UID of the person we are replying to so we can notify them later!
   const handleReplyClick = (comment) => {
     setReplyTo({
       commentId: comment.commentId || comment.id,
       parentReplyId: comment.commentId ? comment.id : null,
       author: comment.userName,
-      replyToUid: comment.userId // Track who to notify
+      replyToUid: comment.userId 
     });
 
     setCommentText(`@${comment.userName} `);
@@ -744,6 +754,7 @@ const ResourcePage = () => {
     };
   }, [showQuiz]);
 
+  // THIS PREVENTS THE REDIRECT BUG!
   if (!resourceData && !loading) {
     return <Navigate to="/browseresources" />;
   }
