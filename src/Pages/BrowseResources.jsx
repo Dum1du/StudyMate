@@ -1,32 +1,26 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react"; 
+import { Search, Star, Eye, Download, X, ChevronLeft, ChevronRight } from "lucide-react"; // Added Chevrons for pagination
+import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
 import Navbar from "../NavigationBar";
 import Fuse from "fuse.js";
 import SearchBar from "../searchbar";
-import { collectionGroup, getDocs, limit, orderBy, query, startAfter } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, limit, orderBy, Query, query } from "firebase/firestore";
 import Footer from "../Footer";
 import { useNavigate } from "react-router";
-import AlertModal from "../AlertModal"; 
+import { useResources } from "../ResourcesContext";
+import AlertModal from "../AlertModal"; // <-- Imported AlertModal
 
 export default function BrowseResources() {
-  const navigate = useNavigate();
-
-  // Search & Filter States
+  const { resources: recentResources, loading: recentLoading } = useResources();
   const [search, setSearch] = useState("");
-  const [filtered, setFiltered] = useState([]); // Used only during active search
-  const [isSearching, setIsSearching] = useState(false);
+  const [filtered, setFiltered] = useState([]);
+  const [loading, setLoading] = useState(false); // for Firestore search
   const [marginTop, setMarginTop] = useState(36 * 4);
-
-  // --- PAGINATION STATES (For default browsing) ---
-  const [browseList, setBrowseList] = useState([]);
-  const [loadingBrowse, setLoadingBrowse] = useState(true);
-  const [browsePage, setBrowsePage] = useState(1);
-  const [browseCursors, setBrowseCursors] = useState([null]); // Cursor history
-  const [browseHasNext, setBrowseHasNext] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
-  // --- ALERT STATE ---
+  // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -34,15 +28,101 @@ export default function BrowseResources() {
     type: "info",
     onConfirm: null 
   });
+
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+  // -------------------------
+
+  const dummyResources = [
+    { id: 1, resourceTitle: "Calculus Notes", description: "Comprehensive notes on calculus.", displayName: "Alice" },
+    { id: 2, resourceTitle: "Physics Past Papers", description: "Past papers for physics exams.", displayName: "Bob" },
+    { id: 3, resourceTitle: "Chemistry Formulas", description: "A handy sheet of chemistry formulas.", displayName: "Charlie" },
+  ]; // Placeholder for loading state
+
+  const navigate = useNavigate();
 
   const navigateTo = (res) =>{
     if (res.id) {
-      navigate(`/resourcewindow/${res.id}`, { state: { resource: res } }); // Make sure this path matches your App.jsx!
+      navigate(`/material/${res.id}`, { state: { resource: res } });
     }
   }
 
-  // Animation for search bar
+  // Fuse.js setup
+  const fuse = useMemo(() => {
+    return new Fuse(recentResources, {
+      keys: [
+        "resourceTitle",
+        "description",
+        "tags",
+        "courseSubject",
+        "courseCode",
+      ],
+      threshold: 0.4, 
+      getFn: (item, path) => {
+        const value = item[path];
+        if (Array.isArray(value)) return value.map((v) => v.trim());
+        return value;
+      },
+    });
+  }, [recentResources]);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      if (!search.trim()) {
+        setFiltered(recentResources);
+      } else {
+        setLoading(true);
+
+        let results = fuse.search(search).map((r) => r.item);
+
+        if(results.length === 0){
+          try{
+            const q = query(
+              collectionGroup(db, "Materials"),
+              orderBy("createdAt", "desc"),
+            );
+
+            const snapshot = await getDocs(q);
+            const allDocs = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+
+            //fused search on all docs
+            const fullFuse = new Fuse(allDocs, {
+              keys: [
+              "resourceTitle",
+                "description",
+                 "tags",
+                "courseSubject",
+                "courseCode",
+                ],
+                threshold: 0.4,
+            });
+
+            results = fullFuse.search(search).map(r => r.item);
+          }catch(err){
+            console.error("Error searching all resources:", err);
+            // REPLACED SILENT CONSOLE ERROR WITH VISUAL ALERT
+            setAlertConfig({
+              isOpen: true,
+              title: "Search Error",
+              message: "Failed to search the database. Please check your connection and try again.",
+              type: "error"
+            });
+          }
+        }
+        setFiltered(results);
+        setCurrentPage(1);
+        setLoading(false);
+      }
+      
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [search, fuse, recentResources]);
+
+  // ADD PAGINATION STATE
   useEffect(() => {
     const timer = setTimeout(() => {
       setMarginTop(10 * 4); 
@@ -50,103 +130,51 @@ export default function BrowseResources() {
     return () => clearTimeout(timer);
   }, []);
 
-  // --- 1. DEFAULT PAGINATED FETCH ---
-  // This replaces the context so we can load 7 at a time securely from Firestore
-  const loadBrowsePage = async (pageIndex) => {
-    setLoadingBrowse(true);
-    try {
-      let q = query(collectionGroup(db, "Materials"), orderBy("createdAt", "desc"), limit(itemsPerPage));
-      
-      if (browseCursors[pageIndex - 1]) {
-        q = query(
-          collectionGroup(db, "Materials"), 
-          orderBy("createdAt", "desc"), 
-          startAfter(browseCursors[pageIndex - 1]), 
-          limit(itemsPerPage)
-        );
-      }
-      
-      const snap = await getDocs(q);
-      const docs = snap.docs;
-      setBrowseList(docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  // CALCULATE CURRENT PAGE ITEMS
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
-      if (docs.length === itemsPerPage) {
-        setBrowseHasNext(true);
-        const newCursors = [...browseCursors];
-        newCursors[pageIndex] = docs[docs.length - 1]; // Save cursor for next page
-        setBrowseCursors(newCursors);
-      } else {
-        setBrowseHasNext(false);
-      }
-      setBrowsePage(pageIndex);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (error) { 
-      console.error("Error loading resources:", error); 
-      setAlertConfig({
-        isOpen: true,
-        title: "Connection Error",
-        message: "Failed to load resources. Please check your connection.",
-        type: "error"
-      });
-    } finally { 
-      setLoadingBrowse(false); 
-    }
+  // change page and scroll to top of list
+  const paginate = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0.5, behavior: "smooth" });
   };
 
-  // Load first page on mount
-  useEffect(() => {
-    if (search === "") {
-      loadBrowsePage(1);
+  // Calculate which page numbers to show
+  const getPageNumbers = () => {
+    const delta = 1; //How many next to current page
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    // build the range
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        range.push(i);
+      }
     }
-  }, [search]);
 
-  // --- 2. SEARCH LOGIC (FUSE.JS) ---
-  // Only runs if the user actually types something
-  useEffect(() => {
-    const handler = setTimeout(async () => {
-      if (!search.trim()) {
-        setIsSearching(false);
-        setFiltered([]);
-        return;
+    // insert dots for gaps
+    range.forEach((i) => {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
       }
-      
-      setIsSearching(true);
-      setLoadingBrowse(true);
+      rangeWithDots.push(i);
+      l = i;
+    });
 
-      try {
-        // NOTE: Downloading all docs for Fuse.js works for small databases, 
-        // but as your app grows, you will want to move to Algolia or Typesense!
-        const q = query(collectionGroup(db, "Materials"), orderBy("createdAt", "desc"));
-        const snapshot = await getDocs(q);
-        const allDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const fullFuse = new Fuse(allDocs, {
-          keys: ["resourceTitle", "description", "tags", "courseSubject", "courseCode"],
-          threshold: 0.4,
-        });
-
-        const results = fullFuse.search(search).map(r => r.item);
-        setFiltered(results);
-      } catch(err) {
-        console.error("Error searching resources:", err);
-        setAlertConfig({
-          isOpen: true,
-          title: "Search Error",
-          message: "Failed to search the database. Please try again.",
-          type: "error"
-        });
-      } finally {
-        setLoadingBrowse(false);
-      }
-    }, 500); // 500ms debounce to prevent spamming Firestore
-
-    return () => clearTimeout(handler);
-  }, [search]);
-
-
-  // --- 3. DETERMINE WHAT TO DISPLAY ---
-  // If searching, show all filtered results (client-side). If not, show paginated Firestore results.
-  const displayItems = isSearching ? filtered : browseList;
+    return rangeWithDots;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -179,90 +207,183 @@ export default function BrowseResources() {
           {["Course", "Subject", "Material Type", "Tags"].map((filter) => (
             <button
               key={filter}
-              className="border border-gray-300 bg-white rounded-md px-4 py-1 text-sm hover:bg-gray-100 transition-colors"
+              className="border border-gray-300 rounded-md px-4 py-1 text-sm hover:bg-gray-100"
             >
               {filter}
             </button>
           ))}
         </div>
 
-        {/* Search Results Header */}
+        {/* Search Results */}
         <h3 className="text-lg font-semibold text-gray-700 mb-4">
           {search === "" ? "Recent Resources" : "Search Results"} 
-          {isSearching && (
-            <span className="text-sm font-normal text-gray-500 ml-2">
-              ({displayItems.length} found)
-            </span>
-          )}
+          <span className="text-sm font-normal text-gray-500 ml-2">
+            ({filtered.length} found)
+          </span>
         </h3>
 
-        {/* DATA LIST */}
-        {loadingBrowse ? (
-          <div className="mt-6 space-y-4 min-h-[400px] blur-sm animate-pulse">
-            {[1,2,3,4].map((skeleton) => (
-              <div key={skeleton} className="bg-green-100/50 p-4 rounded-lg shadow-sm h-24"></div>
-            ))}
-          </div>
-        ) : (
-          <>
-            <div className="mt-6 space-y-4 min-h-[400px]">
-              {displayItems.length === 0 ? (
-                <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
-                  <p className="text-gray-500 italic">No matching resources found.</p>
-                </div>
-              ) : (
-                displayItems.map((res) => (
-                  <div
-                    key={res.id}
-                    className="bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer border border-green-200 hover:shadow-md"
-                    onClick={() => navigateTo(res)}
-                  >
-                    <h4 className="font-bold text-gray-800">{res.resourceTitle || "Untitled"}</h4>
-                    <p className="text-sm text-gray-700 mb-1 line-clamp-2">{res.description || "No description provided."}</p>
-                    <div className="flex justify-between items-center mt-2">
-                      <p className="text-xs text-gray-500 font-medium">
-                        Uploaded by: {res.displayName || res.uploaderEmail || "Unknown user"}
-                      </p>
-                      {res.courseCode && (
-                        <span className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded-full font-bold">
-                          {res.courseCode}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* FIRESTORE CURSOR PAGINATION (Only shows when NOT actively searching) */}
-            {!isSearching && (browsePage > 1 || browseHasNext) && (
-              <div className="flex justify-center items-center mt-8 space-x-4 bg-white p-3 rounded-xl border border-gray-200 w-fit mx-auto shadow-sm">
-                <button
-                  onClick={() => loadBrowsePage(browsePage - 1)}
-                  disabled={browsePage === 1}
-                  className="p-2 rounded-md bg-gray-50 border border-gray-200 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft size={18} className="text-gray-700" />
-                </button>
-
-                <span className="text-sm font-semibold text-gray-600 px-2">
-                  Page {browsePage}
-                </span>
-
-                <button
-                  onClick={() => loadBrowsePage(browsePage + 1)}
-                  disabled={!browseHasNext}
-                  className="p-2 rounded-md bg-gray-50 border border-gray-200 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight size={18} className="text-gray-700" />
-                </button>
+        {loading || recentLoading ? (
+          <div className="mt-6 space-y-4 min-h-100 blur-sm animate-pulse">
+          {filtered.length === 0 && search ? (
+            <p className="text-gray-500 italic">No matching resources found.</p>
+          ) : (
+            // MAP OVER dummyResources
+            dummyResources.map((res) => (
+              <div
+                key={res.id}
+                className="bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer"
+                onClick={() => navigateTo(res)}
+              >
+                <h4 className="font-semibold">{res.resourceTitle}</h4>
+                <p className="text-sm text-gray-700 mb-1">{res.description}</p>
+                <p className="text-xs text-gray-500">
+                  Uploaded by:{" "}
+                  {res.displayName || res.uploaderEmail || "Unknown user"}
+                </p>
               </div>
-            )}
-          </>
+            ))
+          )}
+        </div>
+        ):(
+          <>
+          <div className="mt-6 space-y-4 min-h-100">
+          {currentItems.length === 0 ? (
+            <p className="text-gray-500 italic">No matching resources found.</p>
+          ) : (
+            // MAP OVER currentItems
+            currentItems.map((res) => (
+              <div
+                key={res.id}
+                className="bg-green-100 p-4 rounded-lg shadow-sm hover:bg-green-200 transition cursor-pointer"
+                onClick={() => navigateTo(res)}
+              >
+                <h4 className="font-semibold">{res.resourceTitle}</h4>
+                <p className="text-sm text-gray-700 mb-1">{res.description}</p>
+                <p className="text-xs text-gray-500">
+                  Uploaded by:{" "}
+                  {res.displayName || res.uploaderEmail || "Unknown user"}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* FUNCTIONAL PAGINATION CONTROLS */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-8 space-x-2">
+            <button
+              onClick={() => paginate(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Generate Page Numbers and Ellipses dynamically */}
+            {getPageNumbers().map((num, index) => (
+              num === '...' ? (
+                <span key={`dots-${index}`} className="px-2 py-1 text-gray-500">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={`page-${num}`}
+                  onClick={() => paginate(num)}
+                  className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                    currentPage === num
+                      ? "bg-blue-700 text-white font-medium shadow-sm"
+                      : "bg-white border border-gray-300 hover:bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {num}
+                </button>
+              )
+            ))}
+
+            <button
+              onClick={() => paginate(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-md bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+        </>
         )}
         
       </main>
 
+      {/* Resource Details Modal */}
+      {/* {selectedResource && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl relative transform transition-all duration-300 scale-100 hover:scale-[1.02]">
+            <button
+              onClick={() => setSelectedResource(null)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              {selectedResource.resourceTitle}
+            </h2>
+            <p className="text-gray-600 text-sm mb-4">
+              {selectedResource.description}
+            </p>
+            <p className="text-xs text-gray-500 mb-6">
+              Uploaded by: {selectedResource.displayName || selectedResource.uploaderEmail}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (selectedResource.fileLink) {
+                    window.open(selectedResource.fileLink, '_blank');
+                  } else {
+                    // UPDATED: Replaced alert with AlertModal state
+                    setAlertConfig({
+                      isOpen: true,
+                      title: "Not Found",
+                      message: "No URL available for this resource.",
+                      type: "warning"
+                    });
+                  }
+                  setSelectedResource(null);
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm flex-1 justify-center"
+              >
+                <Eye size={16} /> View
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedResource.fileId) {
+                    const downloadUrl = `https://drive.google.com/uc?export=download&id=${selectedResource.fileId}`;
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = selectedResource.resourceTitle + (selectedResource.materialType || '.pdf');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  } else {
+                    // UPDATED: Replaced alert with AlertModal state
+                    setAlertConfig({
+                      isOpen: true,
+                      title: "Not Found",
+                      message: "No download link available for this resource.",
+                      type: "warning"
+                    });
+                  }
+                  setSelectedResource(null);
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm flex-1 justify-center"
+              >
+                <Download size={16} /> Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )} */}
+
+      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}
