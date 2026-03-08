@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   addDoc,
+  setDoc,
   deleteDoc,
   serverTimestamp,
   getDocs,
@@ -36,6 +37,7 @@ const ResourcePage = () => {
   const [hover, setHover] = useState(0);
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState([]);
+  const [isSaved, setIsSaved] = useState(false);
 
   // --- Comment & Discussion States ---
   const [comments, setComments] = useState(resource?.comments || []);
@@ -76,6 +78,61 @@ const ResourcePage = () => {
           currentUser.uid,
         )
       : null;
+
+  // Check if resource is already saved
+  useEffect(() => {
+    const checkSaved = async () => {
+      const user = auth.currentUser;
+      if (user && resourceId) {
+        try {
+          const docRef = doc(
+            db,
+            "users",
+            user.uid,
+            "savedResources",
+            resourceId,
+          );
+          const docSnap = await getDoc(docRef);
+          setIsSaved(docSnap.exists());
+        } catch (err) {
+          console.error("Error checking saved status:", err);
+        }
+      }
+    };
+    checkSaved();
+  }, [resourceId, currentUserEmail]);
+
+  const handleSave = async () => {
+    if (!auth.currentUser) {
+      alert("Please login to save resources.");
+      return;
+    }
+
+    try {
+      const docRef = doc(
+        db,
+        "users",
+        auth.currentUser.uid,
+        "savedResources",
+        resourceId,
+      );
+      if (isSaved) {
+        await deleteDoc(docRef);
+        setIsSaved(false);
+      } else {
+        const resourceData = {
+          ...resource,
+          savedAt: serverTimestamp(),
+          pinned: false,
+        };
+        await setDoc(docRef, resourceData);
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error("Error saving resource:", error);
+      alert("Failed to update saved resources.");
+    }
+  };
 
   const handleRate = async (star) => {
     if (!auth.currentUser) {
@@ -505,6 +562,8 @@ const ResourcePage = () => {
     // Smooth scroll/focus to input
     const input = document.getElementById("comment-input");
     input?.focus();
+    const input = document.getElementById("comment-input");
+    input?.focus();
   };
 
   // --- Render Comments ---
@@ -668,7 +727,21 @@ const ResourcePage = () => {
                   {resource?.description || "No description available."}
                 </p>
               </div>
-              <div className="justify-items-end">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSave}
+                  className={`p-2.5 cursor-pointer rounded-lg transition border ${
+                    isSaved
+                      ? "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+                  title={isSaved ? "Remove from Saved" : "Save Resource"}
+                >
+                  <Bookmark
+                    size={20}
+                    className={isSaved ? "fill-current" : ""}
+                  />
+                </button>
                 <button
                   className="flex items-center gap-2 bg-blue-600 text-white sm:px-5 px-5 py-2 cursor-pointer rounded-lg font-semibold hover:bg-blue-700 transition"
                   onClick={() => {
