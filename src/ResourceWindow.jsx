@@ -17,6 +17,8 @@ import {
   onSnapshot,
   limit,
   setDoc,
+  increment,
+  startAfter,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { FaStar, FaPaperPlane } from "react-icons/fa"; // Added FaPaperPlane
@@ -37,6 +39,9 @@ const ResourcePage = () => {
 
   // --- Comment & Discussion States ---
   const [comments, setComments] = useState(resource?.comments || []);
+  const [allCommentsLoaded, setAllCommentsLoaded] = useState(false);
+  const [prefetchedReplies, setPrefetchedReplies] = useState({}); // { commentId: [reply1, reply2] }
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState(null);
   const [editingCommentId, setEditingCommentId] = useState(null);
@@ -46,12 +51,15 @@ const ResourcePage = () => {
   });
   const [submittingComment, setSubmittingComment] = useState(false);
   const [editingCommentRef, setEditingCommentRef] = useState(null);
-  // ----------------------------------------
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [lastCommentDoc, setLastCommentDoc] = useState(null);
+  const COMMENTS_PAGE_SIZE = 5;
 
   const averageRating = resource?.avgRating || 0;
   const ratingCount = resource?.ratingCount || 0;
   const currentUser = auth.currentUser;
   const [ratings, setRatings] = useState(resource?.ratings || {});
+  const prefetchedRepliesRef = useRef({});
 
   const dept = resource?.courseCode?.slice(0, 3);
 
@@ -153,69 +161,151 @@ const ResourcePage = () => {
     return () => unsubAuth();
   }, []);
 
+  // --- Prefetch Replies ---
+  const prefetchReplies = async (commentId) => {
+    try {
+      const repliesRef = collection(
+        materialRef,
+        "comments",
+        commentId,
+        "replies",
+      );
+
+      const q = query(repliesRef, orderBy("createdAt", "asc"));
+      const snapshot = await getDocs(q);
+
+      const replies = snapshot.docs.map((r) => ({
+        id: r.id,
+        ref: r.ref,
+        ...r.data(),
+      }));
+
+      prefetchedRepliesRef.current[commentId] = replies; // store in ref to avoid unnecessary re-renders
+    } catch (err) {
+      console.error("Error prefetching replies:", err);
+    }
+  };
+
   // Load Comments on Page Load
   useEffect(() => {
     if (!dept || !resourceId) return;
-    loadComments();
+
+    setLoadingComments(true);
+
+    const commentsRef = collection(materialRef, "comments");
+    const q = query(
+      commentsRef,
+      orderBy("createdAt", "desc"),
+      limit(COMMENTS_PAGE_SIZE),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const commentList = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ref: docSnap.ref,
+        ...docSnap.data(),
+      }));
+      setComments((prev) => {
+        return commentList.map((newComment) => {
+          const existing = prev.find((c) => c.id === newComment.id);
+
+          // Check the cache as a secondary source of truth
+          const cached = prefetchedRepliesRef.current[newComment.id];
+
+          return {
+            ...newComment,
+            replies: existing?.replies ?? null,
+          };
+        });
+      });
+      setLastCommentDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+
+      // Prefetch replies in background
+      commentList.forEach((c) => {
+        if (c.repliesCount > 0) prefetchReplies(c.id);
+      });
+
+      setLoadingComments(false);
+    });
+
+    return () => unsubscribe();
   }, [dept, resourceId]);
+
+  // --- Load Replies On Click ---
+  const loadRepliesForComment = (commentId) => {
+    const existingComment = comments.find((c) => c.id === commentId);
+
+    // If we already have replies in the comment object, don't do anything
+    if (existingComment?.replies !== null) return;
+
+    // Check the cache
+    const cached = prefetchedRepliesRef.current[commentId];
+
+    if (cached) {
+      setComments((prev) =>
+        prev.map((c) => (c.id === commentId ? { ...c, replies: cached } : c)),
+      );
+    } else {
+      // If not in cache, trigger the fetch manually
+      prefetchReplies(commentId).then((replies) => {
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === commentId ? { ...c, replies: replies || [] } : c,
+          ),
+        );
+      });
+    }
+  };
+
+  // --- Load More Top-Level Comments ---
+  const loadMoreComments = async () => {
+    if (!lastCommentDoc) return;
+
+    setLoadingMoreComments(true);
+
+    try {
+      const commentsRef = collection(materialRef, "comments");
+      const q = query(
+        commentsRef,
+        orderBy("createdAt", "desc"),
+        startAfter(lastCommentDoc),
+        limit(COMMENTS_PAGE_SIZE),
+      );
+
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        setAllCommentsLoaded(true);
+        return;
+      }
+
+      const newComments = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ref: docSnap.ref,
+        ...docSnap.data(),
+        replies: null,
+      }));
+
+      setComments((prev) => [...prev, ...newComments]);
+      setLastCommentDoc(snapshot.docs[snapshot.docs.length - 1]);
+
+      if (snapshot.docs.length < COMMENTS_PAGE_SIZE) {
+        setAllCommentsLoaded(true);
+      }
+      // Prefetch replies for newly loaded comments
+      newComments.forEach((c) => {
+        if (c.repliesCount > 0) prefetchReplies(c.id);
+      });
+    } catch (err) {
+      console.error("Error loading more comments:", err);
+    } finally {
+      setLoadingMoreComments(false);
+    }
+  };
 
   const formatTime = (dateObj) => {
     if (!dateObj) return "Just now";
     const date = dateObj?.toDate ? dateObj.toDate() : new Date(dateObj);
     return date.toLocaleDateString([], { month: "short", day: "numeric" });
-  };
-
-  // Build Reply Tree
-  const buildReplyTree = (replies) => {
-    const map = {};
-    const roots = [];
-    replies.forEach((r) => {
-      map[r.id] = { ...r, replies: [] };
-    });
-    replies.forEach((r) => {
-      if (r.parentReplyId) {
-        map[r.parentReplyId]?.replies.push(map[r.id]);
-      } else {
-        roots.push(map[r.id]);
-      }
-    });
-    return roots;
-  };
-
-  // Load Comments
-  const loadComments = async () => {
-    try {
-      const commentsRef = collection(materialRef, "comments");
-      const snapshot = await getDocs(
-        query(commentsRef, orderBy("createdAt", "asc")),
-      );
-      const commentList = [];
-      for (const docSnap of snapshot.docs) {
-        const commentData = {
-          id: docSnap.id,
-          ref: docSnap.ref,
-          ...docSnap.data(),
-          replies: [],
-        };
-        const repliesRef = collection(docSnap.ref, "replies");
-        const replySnap = await getDocs(
-          query(repliesRef, orderBy("createdAt", "asc")),
-        );
-
-        // Just map them directly without recursion
-        commentData.replies = replySnap.docs.map((r) => ({
-          id: r.id,
-          ref: r.ref,
-          commentId: docSnap.id, // Reference to the top-level parent
-          ...r.data(),
-        }));
-
-        commentList.push(commentData);
-      }
-      setComments(commentList);
-    } catch (err) {
-      console.error("Failed loading comments", err);
-    }
   };
 
   const isProcessing = useRef(false);
@@ -229,22 +319,40 @@ const ResourcePage = () => {
     }
     isProcessing.current = true;
     setSubmittingComment(true);
+
+    // We'll create a temp comment only for top‑level comments
+    let tempComment = null;
+
+    if (!replyTo && !editingCommentRef) {
+      // Create a temporary comment object for optimistic UI
+      tempComment = {
+        id: `temp-${Date.now()}`, // temporary ID
+        userEmail: currentUserEmail,
+        userName: currentUserProfile.displayName || "User",
+        userProfile: currentUserProfile.photoURL || "",
+        text: commentText,
+        createdAt: new Date(), // local timestamp
+        pending: true, // mark as pending
+      };
+
+      // Add immediately to UI
+      setComments((prev) => [tempComment, ...prev]); // assuming you have a comments state
+    }
+
+    setCommentText("");
+    setReplyTo(null);
+
     try {
       if (editingCommentRef) {
         await updateDoc(editingCommentRef, { text: commentText });
         setEditingCommentRef(null);
         setCommentText("");
         setReplyTo(null);
-        loadComments();
         cleanupStates();
         return;
       }
       if (!replyTo) {
         const commentsRef = collection(materialRef, "comments");
-
-        // check if this is the first comment
-        const existingComments = await getDocs(query(commentsRef, limit(1)));
-        const isFirstComment = existingComments.empty;
 
         const commentDoc = await addDoc(commentsRef, {
           userEmail: currentUserEmail,
@@ -252,24 +360,42 @@ const ResourcePage = () => {
           userProfile: currentUserProfile.photoURL || "",
           text: commentText,
           createdAt: serverTimestamp(),
+          repliesCount: 0,
         });
 
-        // first comment → create discussion
-        if (isFirstComment) {
-          const discussionRef = doc(db, "discussions", materialRef.id);
+        const discussionRef = doc(db, "discussions", materialRef.id);
+        const discussionSnap = await getDoc(discussionRef);
 
+        if (!discussionSnap.exists()) {
           await setDoc(discussionRef, {
-                    materialId: materialRef.id,
-                    materialRef: materialRef,
-                    resourceTitle: resource?.resourceTitle || "Untitled",
-                    courseCode: resource?.courseCode || "N/A",
-                    deptId: dept || "Unknown",
-                    firstCommentId: commentDoc.id,
-                    firstCommentText: commentText,
-                    creatorName: currentUserProfile.displayName || "User",
-                    creatorImage: currentUserProfile.photoURL || "",
-                    createdAt: serverTimestamp(),
-                });
+            materialId: materialRef.id,
+            materialRef: materialRef,
+            resourceTitle: resource?.resourceTitle || "Untitled",
+            courseCode: resource?.courseCode || "N/A",
+            deptId: dept || "Unknown",
+            firstCommentId: commentDoc.id,
+            firstCommentText: commentText,
+            creatorName: currentUserProfile.displayName || "User",
+            creatorImage: currentUserProfile.photoURL || "",
+            createdAt: serverTimestamp(),
+          });
+        }
+
+        // Replace the temporary comment with the real one
+        if (tempComment) {
+          setComments((prev) =>
+            prev.map((c) =>
+              c.id === tempComment.id
+                ? {
+                    ...c,
+                    id: commentDoc.id,
+                    ref: commentDoc,
+                    pending: false,
+                    createdAt: serverTimestamp(), // will be overwritten by listener anyway
+                  }
+                : c,
+            ),
+          );
         }
       } else {
         const repliesRef = collection(
@@ -278,7 +404,7 @@ const ResourcePage = () => {
           replyTo.commentId,
           "replies",
         );
-        await addDoc(repliesRef, {
+        const replyDoc = await addDoc(repliesRef, {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
@@ -286,12 +412,65 @@ const ResourcePage = () => {
           createdAt: serverTimestamp(),
           parentReplyId: replyTo.parentReplyId || null,
         });
+
+        // Increment repliesCount in the parent comment
+        const commentRef = doc(materialRef, "comments", replyTo.commentId);
+        await updateDoc(commentRef, { repliesCount: increment(1) });
+
+        // create optimistic reply object
+        const newReply = {
+          id: replyDoc.id,
+          ref: replyDoc,
+          userEmail: currentUserEmail,
+          userName: currentUserProfile.displayName || "User",
+          userProfile: currentUserProfile.photoURL || "",
+          text: commentText,
+          createdAt: new Date(),
+          parentReplyId: replyTo.parentReplyId || null,
+        };
+
+        // 1. Update the Ref cache immediately
+        const currentCached =
+          prefetchedRepliesRef.current[replyTo.commentId] || [];
+        prefetchedRepliesRef.current[replyTo.commentId] = [
+          ...currentCached,
+          newReply,
+        ];
+
+        setPrefetchedReplies((prev) => ({
+          ...prev,
+          [replyTo.commentId]: [...(prev[replyTo.commentId] || []), newReply],
+        }));
+
+        // update UI immediately
+        setComments((prev) =>
+          prev.map((c) => {
+            if (c.id === replyTo.commentId) {
+              return {
+                ...c,
+                replies: [...(c.replies || []), newReply], // show replies instantly
+              };
+            }
+            return c;
+          }),
+        );
+
+        // also update prefetchedReplies cache
+        setPrefetchedReplies((prev) => ({
+          ...prev,
+          [replyTo.commentId]: [...(prev[replyTo.commentId] || []), newReply],
+        }));
       }
+
       cleanupStates();
-      loadComments();
     } catch (error) {
       console.error("Error adding comment:", error);
       alert("Failed to post comment.");
+
+      // Rollback optimistic update if it failed
+      if (tempComment) {
+        setComments((prev) => prev.filter((c) => c.id !== tempComment.id));
+      }
     } finally {
       isProcessing.current = false;
       setSubmittingComment(false);
@@ -299,17 +478,16 @@ const ResourcePage = () => {
   };
 
   // Helper to clear inputs
-const cleanupStates = () => {
+  const cleanupStates = () => {
     setCommentText("");
     setReplyTo(null);
     setEditingCommentRef(null);
-};
+  };
 
   // Delete Comment
   const deleteComment = async (ref) => {
     try {
       await deleteDoc(ref);
-      loadComments();
     } catch (err) {
       console.error("Delete failed", err);
     }
@@ -329,16 +507,15 @@ const cleanupStates = () => {
     input?.focus();
   };
 
-  // Render Comments
-  const renderComments = (commentList) => {
-    return commentList.map((c) => (
+  // --- Render Comments ---
+  const renderComments = (commentList) =>
+    commentList.map((c) => (
       <div key={c.id} className="mt-6">
-        {/* TOP LEVEL COMMENT */}
+        {/* Top-Level Comment */}
         <div className="flex gap-3 sm:ml-10">
           <img
             src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
             className="w-10 h-10 rounded-full border shadow-sm"
-            alt=""
           />
           <div className="flex-1">
             <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
@@ -349,6 +526,7 @@ const cleanupStates = () => {
                 {c.text}
               </p>
             </div>
+
             <div className="flex gap-3 text-[12px] font-bold text-gray-500 mt-1 ml-2">
               <button
                 className="hover:underline"
@@ -367,43 +545,49 @@ const cleanupStates = () => {
               )}
             </div>
 
-            {/* SECOND LEVEL REPLIES (FLAT) */}
-            {c.replies?.length > 0 && (
+            {/* Replies */}
+            {c.replies === null ? (
+              c.repliesCount > 0 && (
+                <button
+                  className="text-blue-500 hover:underline mt-2 ml-2 text-[12px]"
+                  onClick={() => loadRepliesForComment(c.id)}
+                >
+                  View {c.repliesCount} Replies
+                </button>
+              )
+            ) : c.replies?.length > 0 ? (
               <div className="mt-3 ml-10 space-y-4 border-l-2 border-gray-100 pl-4 sm:pl-10">
-                {c.replies.map((reply) => (
-                  <div key={reply.id} className="flex gap-2">
+                {c.replies.map((r) => (
+                  <div key={r.id} className="flex gap-2">
                     <img
                       src={
-                        reply.userProfile ||
-                        "https://ui-avatars.com/api/?name=User"
+                        r.userProfile || "https://ui-avatars.com/api/?name=User"
                       }
                       className="w-8 h-8 rounded-full border shadow-sm"
-                      alt=""
                     />
                     <div className="flex-1">
-                      <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50 ">
+                      <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50">
                         <h5 className="text-[12px] font-bold text-gray-900">
-                          {reply.userName}
+                          {r.userName}
                         </h5>
                         <p className="text-[13px] text-gray-800 whitespace-pre-wrap">
-                          {/* Highlights the @mention if you want, or just leave as text */}
-                          {reply.text}
+                          {r.text}
                         </p>
                       </div>
                       <div className="flex gap-3 text-[11px] font-bold text-gray-500 mt-0.5 ml-2">
                         <button
                           className="hover:underline"
-                          onClick={() => handleReplyClick(reply)}
+                          onClick={() => handleReplyClick(r)}
                         >
                           Reply
                         </button>
                         <span className="font-normal">
-                          {formatTime(reply.createdAt)}
+                          {formatTime(r.createdAt)}
                         </span>
-                        {reply.userEmail === currentUserEmail && (
+                        {r.userEmail === currentUserEmail && (
                           <button
                             className="text-red-500 hover:underline"
-                            onClick={() => deleteComment(reply.ref)}
+                            onClick={() => deleteComment(r.ref)}
                           >
                             Delete
                           </button>
@@ -413,12 +597,15 @@ const cleanupStates = () => {
                   </div>
                 ))}
               </div>
-            )}
+            ) : c.repliesCount > 0 ? (
+              <p className="mt-2 ml-2 text-[12px] text-gray-400">
+                Loading replies...
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
     ));
-  };
 
   // --- QUIZ LOGIC (UNTOUCHED) ---
   const fetchQuiz = async () => {
@@ -644,79 +831,108 @@ const cleanupStates = () => {
             )}
 
           {/* Dynamic Discussion / Comment Section (Upgraded to handle nested replies) */}
-          <div className="bg-white border border-gray-200 shadow-sm rounded-xl  p-8">
-            <h3 className="text-xl font-bold text-gray-800 mb-6">
-              Discussion ({comments.length})
-            </h3>
-
-            {/* Recursive Comments List */}
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {comments.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  <p className="text-gray-500 text-sm">
-                    No comments yet. Be the first to start the discussion!
-                  </p>
-                </div>
-              ) : (
-                renderComments(comments)
-              )}
-            </div>
-
-            {/* Main Comment Input Box */}
-            <div className="flex gap-4 mt-8 mb-8 max-h-10">
-              <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                <img
-                  src={
-                    currentUserProfile.photoURL ||
-                    `https://ui-avatars.com/api/?name=${currentUserProfile.displayName || "U"}&background=EBF4FF&color=1E3A8A`
-                  }
-                  alt="You"
-                  className="w-full h-full object-cover"
-                />
+          {loadingComments ? (
+            <div className="space-y-4 h-[500px] overflow-y-auto pr-2 custom-scrollbar blur-sm animate-pulse">
+              <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <p className="text-gray-500 text-sm">
+                  No comments yet. Be the first to start the discussion!
+                </p>
               </div>
-              <div className="flex-1 space-y-3">
-                {replyTo && (
-                  <div className="flex items-center justify-between bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 mb-2">
-                    <p className="text-sm text-blue-700">
-                      Replying to{" "}
-                      <span className="font-bold">{replyTo.author}</span>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 shadow-sm rounded-xl  p-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-6">
+                Discussion ({comments.length})
+              </h3>
+
+              {/* Recursive Comments List */}
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {comments.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <p className="text-gray-500 text-sm">
+                      No comments yet. Be the first to start the discussion!
                     </p>
+                  </div>
+                ) : (
+                  renderComments(comments)
+                )}
+              </div>
+
+              {comments.length > 5 && !allCommentsLoaded && (
+                <div className="mt-4 text-center">
+                  {!loadingMoreComments && (
                     <button
-                      onClick={() => setReplyTo(null)}
-                      className="text-xs text-blue-500 hover:text-blue-700 font-bold uppercase"
+                      onClick={loadMoreComments}
+                      className="text-blue-600 font-semibold text-sm hover:underline"
                     >
-                      Cancel
+                      View all comments
+                    </button>
+                  )}
+                </div>
+              )}
+              
+              {/* Main Comment Input Box */}
+              <div className="flex flex-col sm:flex-row gap-4 mt-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                {/* Avatar - Hidden on small mobile to save space */}
+                <div className="hidden sm:block w-10 h-10 rounded-full flex-shrink-0 border border-gray-300 overflow-hidden">
+                  <img
+                    src={
+                      currentUserProfile.photoURL ||
+                      `https://ui-avatars.com/api/?name=${currentUserProfile.displayName || "U"}`
+                    }
+                    alt="You"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                <div className="flex-1">
+                  {/* Reply Banner - Now inside the flex flow */}
+                  {replyTo && (
+                    <div className="flex items-center justify-between bg-blue-100/50 px-3 py-2 rounded-lg border border-blue-200 mb-3">
+                      <p className="text-xs sm:text-sm text-blue-800">
+                        Replying to{" "}
+                        <span className="font-bold">{replyTo.author}</span>
+                      </p>
+                      <button
+                        onClick={() => setReplyTo(null)}
+                        className="text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-wider"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Input Area */}
+                  <textarea
+                    id="comment-input"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    // REMOVED max-h-10. Added min-h and h-auto.
+                    className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-h-[80px] h-auto bg-white transition-all"
+                    placeholder={
+                      replyTo ? `Write your reply...` : "Add a comment..."
+                    }
+                  />
+
+                  {/* Button Row - Ensure this is NOT absolute positioned */}
+                  <div className="flex justify-end mt-3">
+                    <button
+                      onClick={submitComment}
+                      disabled={submittingComment || !commentText.trim()}
+                      // z-10 ensures it stays above any invisible text-area padding
+                      className="relative z-10 bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-transform active:scale-95 cursor-pointer"
+                    >
+                      {submittingComment
+                        ? "Posting..."
+                        : replyTo
+                          ? "Reply"
+                          : "Post"}
                     </button>
                   </div>
-                )}
-                <textarea
-                  id="comment-input"
-                  value={commentText}
-                  onChange={(e) => {
-                    setCommentText(e.target.value);
-                  }}
-                  className="w-full rounded-xl border border-gray-300 p-1 sm:p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-10 sm:max-h-20 resize-y bg-gray-50 hover:bg-white transition-colors"
-                  placeholder={
-                    replyTo
-                      ? `Replying to ${replyTo.author}...`
-                      : "Write a comment..."
-                  }
-                />
-                <div className="flex justify-end">
-                  <button
-                    onClick={submitComment}
-                    disabled={
-                      submittingComment ||
-                      (commentText.trim() === "" && !replyTo)
-                    }
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition shadow-sm"
-                  >
-                    {submittingComment ? "Posting..." : "Post Comment"}
-                  </button>
                 </div>
               </div>
             </div>
-          </div>
+          )}
           {/* ------------------------------------------------ */}
         </div>
 
