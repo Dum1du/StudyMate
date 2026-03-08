@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Download, Star, User } from "lucide-react";
+import { Download, Star, User, Bookmark } from "lucide-react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   addDoc,
+  setDoc,
   deleteDoc,
   serverTimestamp,
   getDocs,
@@ -32,6 +33,7 @@ const ResourcePage = () => {
   const [hover, setHover] = useState(0);
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState([]);
+  const [isSaved, setIsSaved] = useState(false);
 
   // --- Comment & Discussion States ---
   const [comments, setComments] = useState(resource?.comments || []);
@@ -66,6 +68,61 @@ const ResourcePage = () => {
           currentUser.uid,
         )
       : null;
+
+  // Check if resource is already saved
+  useEffect(() => {
+    const checkSaved = async () => {
+      const user = auth.currentUser;
+      if (user && resourceId) {
+        try {
+          const docRef = doc(
+            db,
+            "users",
+            user.uid,
+            "savedResources",
+            resourceId,
+          );
+          const docSnap = await getDoc(docRef);
+          setIsSaved(docSnap.exists());
+        } catch (err) {
+          console.error("Error checking saved status:", err);
+        }
+      }
+    };
+    checkSaved();
+  }, [resourceId, currentUserEmail]);
+
+  const handleSave = async () => {
+    if (!auth.currentUser) {
+      alert("Please login to save resources.");
+      return;
+    }
+
+    try {
+      const docRef = doc(
+        db,
+        "users",
+        auth.currentUser.uid,
+        "savedResources",
+        resourceId,
+      );
+      if (isSaved) {
+        await deleteDoc(docRef);
+        setIsSaved(false);
+      } else {
+        const resourceData = {
+          ...resource,
+          savedAt: serverTimestamp(),
+          pinned: false,
+        };
+        await setDoc(docRef, resourceData);
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error("Error saving resource:", error);
+      alert("Failed to update saved resources.");
+    }
+  };
 
   const handleRate = async (star) => {
     if (!auth.currentUser) {
@@ -201,13 +258,13 @@ const ResourcePage = () => {
         );
 
         // Just map them directly without recursion
-      commentData.replies = replySnap.docs.map((r) => ({
-        id: r.id,
-        ref: r.ref,
-        commentId: docSnap.id, // Reference to the top-level parent
-        ...r.data(),
-      }));
-        
+        commentData.replies = replySnap.docs.map((r) => ({
+          id: r.id,
+          ref: r.ref,
+          commentId: docSnap.id, // Reference to the top-level parent
+          ...r.data(),
+        }));
+
         commentList.push(commentData);
       }
       setComments(commentList);
@@ -290,69 +347,100 @@ const ResourcePage = () => {
     setCommentText(`@${comment.userName} `);
 
     // Smooth scroll/focus to input
-  const input = document.getElementById("comment-input");
-  input?.focus();
+    const input = document.getElementById("comment-input");
+    input?.focus();
   };
 
   // Render Comments
   const renderComments = (commentList) => {
-  return commentList.map((c) => (
-    <div key={c.id} className="mt-6">
-      {/* TOP LEVEL COMMENT */}
-      <div className="flex gap-3 sm:ml-10">
-        <img
-          src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
-          className="w-10 h-10 rounded-full border shadow-sm"
-          alt=""
-        />
-        <div className="flex-1">
-          <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
-            <h5 className="text-[13px] font-bold text-gray-900">{c.userName}</h5>
-            <p className="text-[14px] text-gray-800 mt-1 whitespace-pre-wrap">{c.text}</p>
-          </div>
-          <div className="flex gap-3 text-[12px] font-bold text-gray-500 mt-1 ml-2">
-            <button className="hover:underline" onClick={() => handleReplyClick(c)}>Reply</button>
-            <span className="font-normal">{formatTime(c.createdAt)}</span>
-            {c.userEmail === currentUserEmail && (
-              <button className="text-red-500 hover:underline" onClick={() => deleteComment(c.ref)}>Delete</button>
-            )}
-          </div>
+    return commentList.map((c) => (
+      <div key={c.id} className="mt-6">
+        {/* TOP LEVEL COMMENT */}
+        <div className="flex gap-3 sm:ml-10">
+          <img
+            src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
+            className="w-10 h-10 rounded-full border shadow-sm"
+            alt=""
+          />
+          <div className="flex-1">
+            <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
+              <h5 className="text-[13px] font-bold text-gray-900">
+                {c.userName}
+              </h5>
+              <p className="text-[14px] text-gray-800 mt-1 whitespace-pre-wrap">
+                {c.text}
+              </p>
+            </div>
+            <div className="flex gap-3 text-[12px] font-bold text-gray-500 mt-1 ml-2">
+              <button
+                className="hover:underline"
+                onClick={() => handleReplyClick(c)}
+              >
+                Reply
+              </button>
+              <span className="font-normal">{formatTime(c.createdAt)}</span>
+              {c.userEmail === currentUserEmail && (
+                <button
+                  className="text-red-500 hover:underline"
+                  onClick={() => deleteComment(c.ref)}
+                >
+                  Delete
+                </button>
+              )}
+            </div>
 
-          {/* SECOND LEVEL REPLIES (FLAT) */}
-          {c.replies?.length > 0 && (
-            <div className="mt-3 ml-10 space-y-4 border-l-2 border-gray-100 pl-4 sm:pl-10">
-              {c.replies.map((reply) => (
-                <div key={reply.id} className="flex gap-2">
-                  <img
-                    src={reply.userProfile || "https://ui-avatars.com/api/?name=User"}
-                    className="w-8 h-8 rounded-full border shadow-sm"
-                    alt=""
-                  />
-                  <div className="flex-1">
-                    <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50 ">
-                      <h5 className="text-[12px] font-bold text-gray-900">{reply.userName}</h5>
-                      <p className="text-[13px] text-gray-800 whitespace-pre-wrap">
-                        {/* Highlights the @mention if you want, or just leave as text */}
-                        {reply.text}
-                      </p>
-                    </div>
-                    <div className="flex gap-3 text-[11px] font-bold text-gray-500 mt-0.5 ml-2">
-                      <button className="hover:underline" onClick={() => handleReplyClick(reply)}>Reply</button>
-                      <span className="font-normal">{formatTime(reply.createdAt)}</span>
-                      {reply.userEmail === currentUserEmail && (
-                        <button className="text-red-500 hover:underline" onClick={() => deleteComment(reply.ref)}>Delete</button>
-                      )}
+            {/* SECOND LEVEL REPLIES (FLAT) */}
+            {c.replies?.length > 0 && (
+              <div className="mt-3 ml-10 space-y-4 border-l-2 border-gray-100 pl-4 sm:pl-10">
+                {c.replies.map((reply) => (
+                  <div key={reply.id} className="flex gap-2">
+                    <img
+                      src={
+                        reply.userProfile ||
+                        "https://ui-avatars.com/api/?name=User"
+                      }
+                      className="w-8 h-8 rounded-full border shadow-sm"
+                      alt=""
+                    />
+                    <div className="flex-1">
+                      <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50 ">
+                        <h5 className="text-[12px] font-bold text-gray-900">
+                          {reply.userName}
+                        </h5>
+                        <p className="text-[13px] text-gray-800 whitespace-pre-wrap">
+                          {/* Highlights the @mention if you want, or just leave as text */}
+                          {reply.text}
+                        </p>
+                      </div>
+                      <div className="flex gap-3 text-[11px] font-bold text-gray-500 mt-0.5 ml-2">
+                        <button
+                          className="hover:underline"
+                          onClick={() => handleReplyClick(reply)}
+                        >
+                          Reply
+                        </button>
+                        <span className="font-normal">
+                          {formatTime(reply.createdAt)}
+                        </span>
+                        {reply.userEmail === currentUserEmail && (
+                          <button
+                            className="text-red-500 hover:underline"
+                            onClick={() => deleteComment(reply.ref)}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  ));
-};
+    ));
+  };
 
   // --- QUIZ LOGIC (UNTOUCHED) ---
   const fetchQuiz = async () => {
@@ -415,7 +503,21 @@ const ResourcePage = () => {
                   {resource?.description || "No description available."}
                 </p>
               </div>
-              <div className="justify-items-end">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSave}
+                  className={`p-2.5 cursor-pointer rounded-lg transition border ${
+                    isSaved
+                      ? "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+                  title={isSaved ? "Remove from Saved" : "Save Resource"}
+                >
+                  <Bookmark
+                    size={20}
+                    className={isSaved ? "fill-current" : ""}
+                  />
+                </button>
                 <button
                   className="flex items-center gap-2 bg-blue-600 text-white sm:px-5 px-5 py-2 cursor-pointer rounded-lg font-semibold hover:bg-blue-700 transition"
                   onClick={() => {

@@ -23,6 +23,16 @@ import {
 } from "lucide-react";
 import Footer from "../Footer";
 import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import { auth, db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  collection,
+  doc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  updateDoc,
+} from "firebase/firestore";
 
 const MyResourcesUI = () => {
   const [resources, setResources] = useState([]);
@@ -44,20 +54,36 @@ const MyResourcesUI = () => {
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
   // -------------------------
 
-  const togglePin = (id) => {
-    setResources((prev) =>
-      prev.map((r) => {
-        if (r.id === id) {
-          const newPinned = !r.pinned;
-          if (user) {
-            const docRef = doc(db, "users", user.uid, "savedResources", id);
-            updateDoc(docRef, { pinned: newPinned });
-          }
-          return { ...r, pinned: newPinned };
-        }
-        return r;
-      }),
-    );
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setResources([]);
+      return;
+    }
+
+    const q = query(collection(db, "users", user.uid, "savedResources"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setResources(docs);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const togglePin = async (id, currentPinnedStatus) => {
+    if (user) {
+      const docRef = doc(db, "users", user.uid, "savedResources", id);
+      await updateDoc(docRef, { pinned: !currentPinnedStatus });
+    }
   };
 
   // UPGRADED TO USE CONFIRMATION MODAL
@@ -68,9 +94,11 @@ const MyResourcesUI = () => {
       message:
         "Are you sure you want to remove this resource from your saved list?",
       type: "warning",
-      onConfirm: () => {
-        setResources((prev) => prev.filter((r) => r.id !== id));
-        closeAlert();
+      onConfirm: async () => {
+        if (user) {
+          await deleteDoc(doc(db, "users", user.uid, "savedResources", id));
+          closeAlert();
+        }
       },
     });
   };
@@ -173,7 +201,9 @@ const MyResourcesUI = () => {
     .filter((r) => (showPinnedOnly ? r.pinned : true));
 
   const pinnedResources = filteredResources.filter((r) => r.pinned);
-  const otherResources = filteredResources.filter((r) => !r.pinned);
+  const otherResources = showPinnedOnly
+    ? pinnedResources
+    : filteredResources.filter((r) => !r.pinned);
 
   const isEmpty = filteredResources.length === 0;
 
@@ -255,72 +285,91 @@ const MyResourcesUI = () => {
                   </h2>
                 </div>
 
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {pinnedResources.map((res) => (
                     <div
                       key={res.id}
-                      className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-3 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                      className="relative bg-white border border-gray-300 rounded-2xl shadow-md flex flex-col h-80 justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden"
                     >
-                      {/* Top: Pin icon */}
-                      <button
-                        onClick={() => togglePin(res.id)}
-                        className="absolute top-4 right-3 text-gray-500 hover:text-yellow-600 transition"
-                        title="Unpin"
-                      >
-                        <PinOff size={20} />
-                      </button>
+                      {/* Preview Section */}
+                      <div className="h-40 bg-gray-100 relative border-b border-gray-200 flex items-center justify-center overflow-hidden">
+                        {res.fileLink ? (
+                          <>
+                            <iframe
+                              src={res.fileLink.replace(
+                                /\/view.*|\/edit.*/,
+                                "/preview",
+                              )}
+                              className="w-full h-[200%] border-0 pointer-events-none opacity-95"
+                              title="Preview"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-transparent z-10" />
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-gray-400">
+                            <div className="scale-150 mb-2">
+                              {getFileTypeIcon(res.materialType)}
+                            </div>
+                            <span className="text-xs">No Preview</span>
+                          </div>
+                        )}
 
-                      {/* File type icon - centered at top */}
-                      <div
-                        className="flex justify-start mb-2"
-                        title={res.materialType}
-                      >
-                        <div className="text-5xl">
-                          {getFileTypeIcon(res.materialType)}
-                        </div>
-                      </div>
-
-                      {/* Title and description */}
-                      <div className="mb-2">
-                        <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">
-                          {res.resourceTitle || "Untitled"}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                          {res.description}
-                        </p>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="flex justify-between items-center gap-2">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => removeResource(res.id)}
-                            className="text-red-500 hover:text-red-700 transition"
-                            title="Delete"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                          <button
-                            onClick={() => viewResource(res)}
-                            className="text-gray-600 hover:text-blue-600 transition"
-                            title="View Resource"
-                          >
-                            <Eye size={18} />
-                          </button>
-                          <button
-                            onClick={() => downloadResource(res)}
-                            className="text-gray-600 hover:text-green-600 transition"
-                            title="Download Resource"
-                          >
-                            <Download size={18} />
-                          </button>
-                        </div>
+                        {/* Pin Button */}
                         <button
-                          onClick={() => openQuizModal(res)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg flex items-center gap-1 text-xs whitespace-nowrap"
+                          onClick={() => togglePin(res.id, res.pinned)}
+                          className="absolute top-3 right-3 bg-white/90 p-2 rounded-full text-gray-500 hover:text-yellow-600 transition z-20 shadow-sm backdrop-blur-sm"
+                          title="Unpin"
                         >
-                          <Eye size={14} /> Quiz
+                          <PinOff size={18} />
                         </button>
+                      </div>
+
+                      {/* Content Section */}
+                      <div className="p-4 flex flex-col flex-1 justify-between">
+                        <div>
+                          <h3
+                            className="text-lg font-bold text-gray-800 line-clamp-1"
+                            title={res.resourceTitle || res.title}
+                          >
+                            {res.resourceTitle || "Untitled"}
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {res.description || "No description available."}
+                          </p>
+                        </div>
+
+                        <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => removeResource(res.id)}
+                              className="text-red-500 hover:text-red-700 transition p-1"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                            <button
+                              onClick={() => viewResource(res)}
+                              className="text-gray-600 hover:text-blue-600 transition p-1"
+                              title="View"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button
+                              onClick={() => downloadResource(res)}
+                              className="text-gray-600 hover:text-green-600 transition p-1"
+                              title="Download"
+                            >
+                              <Download size={18} />
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => openQuizModal(res)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-medium"
+                          >
+                            <Eye size={14} /> Quiz
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -337,72 +386,91 @@ const MyResourcesUI = () => {
                 </h2>
               </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {otherResources.map((res) => (
                   <div
                     key={res.id}
-                    className="relative bg-white border border-gray-300 rounded-2xl shadow-md p-3 flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                    className="relative bg-white border border-gray-300 rounded-2xl shadow-md flex flex-col h-80 justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden"
                   >
-                    {/* Top: Pin icon */}
-                    <button
-                      onClick={() => togglePin(res.id)}
-                      className="absolute top-4 right-3 text-gray-500 hover:text-yellow-600 transition"
-                      title="Pin"
-                    >
-                      <Pin size={20} />
-                    </button>
+                    {/* Preview Section */}
+                    <div className="h-40 bg-gray-100 relative border-b border-gray-200 flex items-center justify-center overflow-hidden">
+                      {res.fileLink ? (
+                        <>
+                          <iframe
+                            src={res.fileLink.replace(
+                              /\/view.*|\/edit.*/,
+                              "/preview",
+                            )}
+                            className="w-full h-[200%] border-0 pointer-events-none opacity-95"
+                            title="Preview"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-transparent z-10" />
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-gray-400">
+                          <div className="scale-150 mb-2">
+                            {getFileTypeIcon(res.materialType)}
+                          </div>
+                          <span className="text-xs">No Preview</span>
+                        </div>
+                      )}
 
-                    {/* File type icon - centered at top */}
-                    <div
-                      className="flex justify-left mb-2"
-                      title={res.materialType}
-                    >
-                      <div className="text-5xl">
-                        {getFileTypeIcon(res.materialType)}
-                      </div>
-                    </div>
-
-                    {/* Title and description */}
-                    <div className="mb-2">
-                      <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">
-                        {res.resourceTitle || res.title || "Untitled"}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                        {res.description}
-                      </p>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex justify-between items-center gap-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => removeResource(res.id)}
-                          className="text-red-500 hover:text-red-700 transition"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                        <button
-                          onClick={() => viewResource(res)}
-                          className="text-gray-600 hover:text-blue-600 transition"
-                          title="View Resource"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => downloadResource(res)}
-                          className="text-gray-600 hover:text-green-600 transition"
-                          title="Download Resource"
-                        >
-                          <Download size={18} />
-                        </button>
-                      </div>
+                      {/* Pin Button */}
                       <button
-                        onClick={() => openQuizModal(res)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg flex items-center gap-1 text-xs whitespace-nowrap"
+                        onClick={() => togglePin(res.id, res.pinned)}
+                        className="absolute top-3 right-3 bg-white/90 p-2 rounded-full text-gray-500 hover:text-yellow-600 transition z-20 shadow-sm backdrop-blur-sm"
+                        title={res.pinned ? "Unpin" : "Pin"}
                       >
-                        <Eye size={14} /> Quiz
+                        {res.pinned ? <PinOff size={18} /> : <Pin size={18} />}
                       </button>
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="p-4 flex flex-col flex-1 justify-between">
+                      <div>
+                        <h3
+                          className="text-lg font-bold text-gray-800 line-clamp-1"
+                          title={res.resourceTitle || res.title}
+                        >
+                          {res.resourceTitle || res.title || "Untitled"}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                          {res.description || "No description available."}
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => removeResource(res.id)}
+                            className="text-red-500 hover:text-red-700 transition p-1"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                          <button
+                            onClick={() => viewResource(res)}
+                            className="text-gray-600 hover:text-blue-600 transition p-1"
+                            title="View"
+                          >
+                            <Eye size={18} />
+                          </button>
+                          <button
+                            onClick={() => downloadResource(res)}
+                            className="text-gray-600 hover:text-green-600 transition p-1"
+                            title="Download"
+                          >
+                            <Download size={18} />
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => openQuizModal(res)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-medium"
+                        >
+                          <Eye size={14} /> Quiz
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
