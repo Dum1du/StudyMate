@@ -184,19 +184,15 @@ const ResourcePage = () => {
       setLoading(true);
       let currentResource = resourceData ? { ...resourceData } : null;
 
-      // Step A: Fetch full material from Firestore
       if (resourceId) {
         try {
           let matSnap = null;
 
           if (currentResource?.courseCode) {
-            // We know the course code, fetch normally
             const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
             const matRef = doc(db, "studyMaterials", currentDept, "Materials", resourceId);
             matSnap = await getDoc(matRef);
           } else {
-            // WE CAME FROM A NOTIFICATION: We only have resourceId!
-            // Let's find the material using the discussions collection
             const discRef = doc(db, "discussions", resourceId);
             const discSnap = await getDoc(discRef);
             
@@ -220,7 +216,6 @@ const ResourcePage = () => {
         }
       }
 
-      // Step B: Fetch Uploader Profile & Quiz (Only if we successfully fetched the resource)
       if (currentResource) {
         try {
           if (!currentResource.uploaderUid) {
@@ -259,7 +254,6 @@ const ResourcePage = () => {
     fetchEverything();
   }, [resourceId]);
 
-  // Fetch Logged-In User Profile for Commenting
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -276,7 +270,7 @@ const ResourcePage = () => {
     return () => unsubAuth();
   }, []);
 
-  // --- Prefetch Replies ---
+  // --- Prefetch Replies (BUG FIX HERE) ---
   const prefetchReplies = async (commentId) => {
     try {
       const repliesRef = collection(
@@ -290,6 +284,7 @@ const ResourcePage = () => {
       const replies = snapshot.docs.map((r) => ({
         id: r.id,
         ref: r.ref,
+        commentId: commentId, // <-- FIXED: Added this so replies know their parent!
         ...r.data(),
       }));
       prefetchedRepliesRef.current[commentId] = replies; 
@@ -298,7 +293,6 @@ const ResourcePage = () => {
     }
   };
 
-  // Load Comments on Page Load
   useEffect(() => {
     if (!dept || !resourceId || !materialRef) return;
 
@@ -338,7 +332,6 @@ const ResourcePage = () => {
     return () => unsubscribe();
   }, [dept, resourceId, materialRef?.path]);
 
-  // --- Load Replies On Click ---
   const loadRepliesForComment = (commentId) => {
     const existingComment = comments.find((c) => c.id === commentId);
 
@@ -361,7 +354,6 @@ const ResourcePage = () => {
     }
   };
 
-  // --- Load More Top-Level Comments ---
   const loadMoreComments = async () => {
     if (!lastCommentDoc) return;
 
@@ -414,7 +406,6 @@ const ResourcePage = () => {
 
   const isProcessing = useRef(false);
 
-  // --- HELPER TO SEND NOTIFICATIONS ---
   const sendNotification = async (targetUid, message, type) => {
     try {
       const batch = writeBatch(db);
@@ -443,7 +434,6 @@ const ResourcePage = () => {
     }
   };
 
-  // Submit Comment / Reply
   const submitComment = async () => {
     if (!commentText.trim() || isProcessing.current) return;
     if (!auth.currentUser) {
@@ -564,9 +554,11 @@ const ResourcePage = () => {
           );
         }
 
+        // --- BUG FIX HERE: Added commentId to the optimistic UI update! ---
         const newReply = {
           id: replyDoc.id,
           ref: replyDoc,
+          commentId: replyTo.commentId, // <-- Added so UI doesn't break instantly!
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
@@ -754,12 +746,10 @@ const ResourcePage = () => {
     };
   }, [showQuiz]);
 
-  // THIS PREVENTS THE REDIRECT BUG!
   if (!resourceData && !loading) {
     return <Navigate to="/browseresources" />;
   }
 
-  // Safely grab the file link using the hydrated resourceData
   const previewLink = resourceData?.fileLink || resourceData?.fileUrl;
 
   return (
