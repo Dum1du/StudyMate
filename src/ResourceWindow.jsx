@@ -558,10 +558,6 @@ const ResourcePage = () => {
     });
 
     setCommentText(`@${comment.userName} `);
-
-    // Smooth scroll/focus to input
-    const input = document.getElementById("comment-input");
-    input?.focus();
     const input = document.getElementById("comment-input");
     input?.focus();
   };
