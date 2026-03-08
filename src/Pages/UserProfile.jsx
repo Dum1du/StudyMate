@@ -4,20 +4,20 @@ import { IoCameraOutline } from "react-icons/io5";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { MdLogout } from "react-icons/md";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom"; 
 import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore"; 
-import { FaFileAlt, FaTrash, FaStar } from "react-icons/fa"; 
+import { FaFileAlt, FaTrash, FaEye } from "react-icons/fa"; 
 import EditProfileModal from "./EditProfileModal";
 import Footer from "../Footer";
 import axios from "axios";
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
-import { Slice } from "lucide-react";
+import AlertModal from "../AlertModal"; 
+
+const DEFAULT_AVATAR = "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg?semt=ais_hybrid&w=740&q=80";
 
 function UserProfile() {
   const [activeTab, setActiveTab] = useState("overview");
   const [user, setUser] = useState(null);
   
-  // Loading states
   const [authLoading, setAuthLoading] = useState(true); 
   const [postsLoading, setPostsLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -25,15 +25,11 @@ function UserProfile() {
 
   const navigate = useNavigate();
 
-  // Image states
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
-
-  // Data states
   const [userPosts, setUserPosts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -43,9 +39,22 @@ function UserProfile() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
 
-  // --- 1. PROFILE UPDATES ---
+  // --- NEW: Safe Navigation Handler ---
+  const handleViewResource = (post) => {
+    // If the backend missed any fields, we manually inject them here
+    // since we know this resource belongs to the currently logged-in user!
+    const fullResource = {
+      ...post,
+      uploaderUid: post.uploaderUid || user.uid,
+      displayName: post.displayName || user.displayName,
+      uploaderEmail: post.uploaderEmail || user.email,
+      fileLink: post.fileLink || post.fileUrl || "" // Fallback for file URL
+    };
+    
+    navigate(`/material/${post.id}`, { state: { resource: fullResource } });
+  };
+
   const handleProfileUpdate = async (updatedData) => {
     if (!user) return;
     try {
@@ -63,21 +72,11 @@ function UserProfile() {
       
       setUser((prevUser) => ({ ...prevUser, ...updatedData }));
       
-      setAlertConfig({
-        isOpen: true,
-        title: "Profile Updated",
-        message: "Your profile information has been updated successfully!",
-        type: "success"
-      });
+      setAlertConfig({ isOpen: true, title: "Profile Updated", message: "Your profile information has been updated successfully!", type: "success" });
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      setAlertConfig({
-        isOpen: true,
-        title: "Update Failed",
-        message: "Failed to update your profile. Please try again.",
-        type: "error"
-      });
+      setAlertConfig({ isOpen: true, title: "Update Failed", message: "Failed to update your profile. Please try again.", type: "error" });
     }
   };
 
@@ -101,27 +100,16 @@ function UserProfile() {
       await updateDoc(userRef, { profilePicture: image });
       setUser((prevUser) => ({ ...prevUser, profilePicture: image }));
       
-      setAlertConfig({
-        isOpen: true,
-        title: "Picture Updated",
-        message: "Profile picture updated successfully!",
-        type: "success"
-      });
+      setAlertConfig({ isOpen: true, title: "Picture Updated", message: "Profile picture updated successfully!", type: "success" });
       setPreview(null);
     } catch (error) {
       console.error("Error uploading profile picture:", error);
-      setAlertConfig({
-        isOpen: true,
-        title: "Upload Failed",
-        message: "Failed to upload picture! Please try again.",
-        type: "error"
-      });
+      setAlertConfig({ isOpen: true, title: "Upload Failed", message: "Failed to upload picture! Please try again.", type: "error" });
     } finally {
       setUploading(false);
     }
   };
 
-  // --- REMOVE PROFILE PICTURE ---
   const handleRemovePicture = () => {
     setAlertConfig({
       isOpen: true,
@@ -130,7 +118,7 @@ function UserProfile() {
       type: "warning",
       onConfirm: async () => {
         closeAlert();
-        setIsModalOpen(false); // Close the Edit Profile modal
+        setIsModalOpen(false); 
         setUploading(true);
         try {
           const userRef = doc(db, "users", user.uid);
@@ -144,22 +132,10 @@ function UserProfile() {
           setPreview(null);
           setImage(null);
 
-          setAlertConfig({
-            isOpen: true,
-            title: "Picture Removed",
-            message: "Your profile picture has been removed successfully.",
-            type: "success",
-            onConfirm: null
-          });
+          setAlertConfig({ isOpen: true, title: "Picture Removed", message: "Your profile picture has been removed successfully.", type: "success", onConfirm: null });
         } catch (error) {
           console.error("Error removing profile picture:", error);
-          setAlertConfig({
-            isOpen: true,
-            title: "Error",
-            message: "Failed to remove your profile picture. Please try again.",
-            type: "error",
-            onConfirm: null
-          });
+          setAlertConfig({ isOpen: true, title: "Error", message: "Failed to remove your profile picture. Please try again.", type: "error", onConfirm: null });
         } finally {
           setUploading(false);
         }
@@ -186,7 +162,6 @@ function UserProfile() {
     });
   };
 
-  // --- 2. AUTH LISTENER ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -198,18 +173,9 @@ function UserProfile() {
         const docSnap = await getDoc(userRef);
 
         if (docSnap.exists()) {
-          setUser({
-            ...currentUser,
-            ...docSnap.data(),
-            joinedMonth: docSnap.data().joinedMonth || joinMonth,
-            joinedYear: docSnap.data().joinedYear || joinYear,
-          });
+          setUser({ ...currentUser, ...docSnap.data(), joinedMonth: docSnap.data().joinedMonth || joinMonth, joinedYear: docSnap.data().joinedYear || joinYear });
         } else {
-          setUser({
-            ...currentUser,
-            joinedMonth: joinMonth,
-            joinedYear: joinYear,
-          });
+          setUser({ ...currentUser, joinedMonth: joinMonth, joinedYear: joinYear });
         }
       } else {
         setUser(null);
@@ -220,7 +186,6 @@ function UserProfile() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // --- 3. FETCH USER UPLOADS ---
   useEffect(() => {
     const fetchUserPosts = async () => {
       if (!user?.uid) return;
@@ -243,9 +208,8 @@ function UserProfile() {
     }
   }, [user]);
 
-  // --- 4. DELETE HANDLER (UPGRADED TO USE MODAL) ---
   const handleDelete = (docId, title, courseCode) => {
-    const diptId = courseCode.slice( 0, 3).toUpperCase();
+    const diptId = courseCode.slice(0, 3).toUpperCase();
 
     setAlertConfig({
       isOpen: true,
@@ -264,22 +228,10 @@ function UserProfile() {
           });
           setUserPosts((prev) => prev.filter((item) => item.id !== docId));
           
-          setAlertConfig({
-            isOpen: true,
-            title: "Resource Deleted",
-            message: "The resource was deleted successfully.",
-            type: "success",
-            onConfirm: null
-          });
+          setAlertConfig({ isOpen: true, title: "Resource Deleted", message: "The resource was deleted successfully.", type: "success", onConfirm: null });
         } catch (error) {
           console.error("Delete failed:", error);
-          setAlertConfig({
-            isOpen: true,
-            title: "Delete Failed",
-            message: "Failed to delete the resource. Please try again.",
-            type: "error",
-            onConfirm: null
-          });
+          setAlertConfig({ isOpen: true, title: "Delete Failed", message: "Failed to delete the resource. Please try again.", type: "error", onConfirm: null });
         } finally {
           setDeletingId(null);
         }
@@ -289,12 +241,9 @@ function UserProfile() {
 
   const formatDate = (isoString) => {
     if (!isoString) return "N/A";
-    return new Date(isoString).toLocaleDateString("en-US", {
-      year: "numeric", month: "short", day: "numeric",
-    });
+    return new Date(isoString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
   };
 
-  // --- 5. POST LIST COMPONENT ---
   const PostList = () => {
     if (postsLoading) return <div className="text-center text-gray-500 py-8">Loading uploads...</div>;
     if (userPosts.length === 0) return <div className="text-center text-gray-500 py-8">No uploads found.</div>;
@@ -330,19 +279,24 @@ function UserProfile() {
                   </td>
                   <td className="p-4 text-sm text-gray-600">{post.courseSubject}</td>
                   <td className="p-4 text-sm text-gray-500">{formatDate(post.createdAt)}</td>
-                  <td className="p-4 text-center">
-                    <button
-                      onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
-                      disabled={deletingId === post.id}
-                      className={`p-2 rounded-full transition ${
-                        deletingId === post.id 
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
-                        : "text-red-500 hover:bg-red-50 hover:text-red-700"
-                      }`}
-                      title="Delete File"
-                    >
-                      {deletingId === post.id ? "..." : <FaTrash size={16} />}
-                    </button>
+                  <td className="p-4">
+                    <div className="flex justify-center items-center gap-3">
+                      <button
+                        onClick={() => handleViewResource(post)}
+                        className="p-2 text-blue-500 hover:bg-blue-50 hover:text-blue-700 rounded-full transition"
+                        title="View File"
+                      >
+                        <FaEye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
+                        disabled={deletingId === post.id}
+                        className={`p-2 rounded-full transition ${ deletingId === post.id ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "text-red-500 hover:bg-red-50 hover:text-red-700" }`}
+                        title="Delete File"
+                      >
+                        {deletingId === post.id ? "..." : <FaTrash size={16} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -370,13 +324,21 @@ function UserProfile() {
               
               <div className="mt-4 flex items-center justify-between border-t pt-3">
                 <span className="text-xs text-gray-400">{formatDate(post.createdAt)}</span>
-                <button 
-                  onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
-                  disabled={deletingId === post.id}
-                  className="flex items-center space-x-1 text-red-500 text-xs font-medium hover:text-red-700"
-                >
-                   {deletingId === post.id ? <span>Deleting...</span> : <><FaTrash /> <span>Delete</span></>}
-                </button>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => handleViewResource(post)}
+                    className="flex items-center space-x-1 text-blue-500 text-xs font-medium hover:text-blue-700"
+                  >
+                    <FaEye /> <span>View</span>
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(post.id, post.resourceTitle, post.courseCode)}
+                    disabled={deletingId === post.id}
+                    className="flex items-center space-x-1 text-red-500 text-xs font-medium hover:text-red-700"
+                  >
+                     {deletingId === post.id ? <span>Deleting...</span> : <><FaTrash /> <span>Delete</span></>}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -385,38 +347,22 @@ function UserProfile() {
     );
   };
 
-  if (authLoading) {
-    return (
-      <>
-        <div className="flex items-center justify-center min-h-screen">
-          <p className="text-gray-500 text-lg">Loading Profile...</p>
-        </div>
-      </>
-    );
-  }
-
+  if (authLoading) return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-500 text-lg">Loading Profile...</p></div>;
   if (!user) return null;
 
   return (
     <>
-      {/* Desktop View Container */}
       <div className="hidden md:flex max-w-6xl w-full mx-auto mt-10 space-x-6 px-4 mb-20">
-        
-        {/* Sidebar */}
         <div className="w-64 bg-white border border-gray-200 rounded-xl shadow-sm p-6 h-fit shrink-0">
           <h3 className="text-lg font-semibold mb-4">Menu</h3>
           <div className="flex flex-col space-y-3">
-            {["overview", "posts"].map((tab) => (
+            {["overview", "uploads"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`text-left px-3 py-2 rounded-md capitalize transition-colors ${
-                  activeTab === tab
-                    ? "bg-blue-100 text-blue-600 font-medium"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
+                className={`text-left px-3 py-2 rounded-md transition-colors ${ activeTab === tab ? "bg-blue-100 text-blue-600 font-medium" : "text-gray-600 hover:bg-gray-100" }`}
               >
-                {tab}
+                {tab === "uploads" ? "My Uploads" : "Overview"}
               </button>
             ))}
           </div>
@@ -426,41 +372,24 @@ function UserProfile() {
           </div>
         </div>
 
-        {/* Main Content Area */}
         <div className="flex-1 min-w-0">
-          
-          {/* Profile Header */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex items-center space-x-6">
              <div className="relative shrink-0">
-              <img
-                src={preview || user.profilePicture || DEFAULT_AVATAR}
-                alt="User"
-                className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-sm"
-              />
+              <img src={preview || user.profilePicture || DEFAULT_AVATAR} alt="User" className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-sm" />
               <label className="absolute bottom-1 right-1 rounded-full p-2 bg-blue-600 border-2 border-white cursor-pointer hover:bg-blue-700 transition shadow-sm group">
                 <IoCameraOutline className="text-white text-lg" />
                 <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
               </label>
             </div>
-            
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
               <p className="text-gray-600 font-medium">{user.faculty || "Faculty not set"}</p>
               <div className="flex items-center mt-2 text-gray-500 text-sm">
                 <span>Joined {user?.joinedMonth} {user?.joinedYear}</span>
               </div>
-              
               <div className="flex items-center gap-3 mt-4">
-                <button onClick={() => setIsModalOpen(true)} className="px-4 py-1.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
-                  Edit Profile
-                </button>
-                
-                {/* Save New Picture Button (Only shows if a new picture is selected) */}
-                {preview && (
-                  <button onClick={handleUpload} disabled={uploading} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-                    {uploading ? "Saving..." : "Save Picture"}
-                  </button>
-                )}
+                <button onClick={() => setIsModalOpen(true)} className="px-4 py-1.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition">Edit Profile</button>
+                {preview && ( <button onClick={handleUpload} disabled={uploading} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition">{uploading ? "Saving..." : "Save Picture"}</button> )}
               </div>
             </div>
           </div>
@@ -492,8 +421,7 @@ function UserProfile() {
                 </div>
               </div>
             )}
-
-            {activeTab === "posts" && (
+            {activeTab === "uploads" && (
               <div className="w-full animate-fadeIn">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">My Uploads</h3>
@@ -505,41 +433,28 @@ function UserProfile() {
         </div>
       </div>
 
-      {/* Mobile View */}
       <div className="md:hidden px-4 mt-6 mb-20">
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col items-center text-center">
            <div className="relative mb-4">
-            <img
-              src={preview || user.profilePicture || DEFAULT_AVATAR}
-              alt="User"
-              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow"
-            />
+            <img src={preview || user.profilePicture || DEFAULT_AVATAR} alt="User" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow" />
           </div>
            <h2 className="text-xl font-bold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
            <p className="text-gray-500 text-sm mt-1">{user.faculty || "Faculty not set"}</p>
-           
            <div className="flex flex-col gap-2 mt-4">
              <button onClick={() => setIsModalOpen(true)} className="px-6 py-2 border border-gray-300 rounded-full text-sm font-medium mb-2">Edit Profile</button>
-             {/* Save New Picture Button (Mobile) */}
-             {preview && (
-               <button onClick={handleUpload} disabled={uploading} className="px-6 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700">
-                 {uploading ? "Saving..." : "Save Picture"}
-               </button>
-             )}
+             {preview && ( <button onClick={handleUpload} disabled={uploading} className="px-6 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700">{uploading ? "Saving..." : "Save Picture"}</button> )}
            </div>
         </div>
 
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-6">
           <div className="flex border-b border-gray-200 mb-6">
-            {["overview", "posts"].map((tab) => (
+            {["overview", "uploads"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 capitalize py-2 text-sm font-medium cursor-pointer transition-colors ${
-                  activeTab === tab ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
-                }`}
+                className={`flex-1 py-2 text-sm font-medium cursor-pointer transition-colors ${ activeTab === tab ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500" }`}
               >
-                {tab}
+                {tab === "uploads" ? "My Uploads" : "Overview"}
               </button>
             ))}
           </div>
@@ -558,31 +473,15 @@ function UserProfile() {
             </div>
           )}
 
-          {activeTab === "posts" && (
-             <PostList />
-          )}
+          {activeTab === "uploads" && <PostList />}
         </div>
       </div>
       
-      {/* PASSED onRemovePhoto TO MODAL HERE */}
       {isModalOpen && (
-        <EditProfileModal 
-          user={user} 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={handleProfileUpdate} 
-          onRemovePhoto={handleRemovePicture} 
-        />
+        <EditProfileModal user={user} onClose={() => setIsModalOpen(false)} onSave={handleProfileUpdate} onRemovePhoto={handleRemovePicture} />
       )}
 
-      {/* NEW ALERT MODAL INJECTION */}
-      <AlertModal 
-        isOpen={alertConfig.isOpen}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-        onClose={closeAlert}
-        onConfirm={alertConfig.onConfirm}
-      />
+      <AlertModal isOpen={alertConfig.isOpen} title={alertConfig.title} message={alertConfig.message} type={alertConfig.type} onClose={closeAlert} onConfirm={alertConfig.onConfirm} />
     </>
   );
 }

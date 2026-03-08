@@ -10,7 +10,8 @@ import {
   doc, 
   updateDoc, 
   writeBatch,
-  collectionGroup // <--- NEW IMPORT
+  collectionGroup,
+  getDoc
 } from "firebase/firestore";
 import { Bell} from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
@@ -19,18 +20,37 @@ function NotificationWrapper() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [user, setUser] = useState(null);
+  
+  const [isNotifEnabled, setIsNotifEnabled] = useState(true);
+
   const wrapperRef = useRef(null);
   const navigate = useNavigate();
 
+  // 1. Listen for User Auth & Fetch their Notification Settings
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      if (currentUser) {
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              setIsNotifEnabled(data.notificationsEnabled ?? true); 
+            }
+          });
+        } catch (error) {
+          console.error("Error fetching user settings:", error);
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
 
+  // 2. Fetch Notifications (Only if enabled!)
   useEffect(() => {
-    if (!user) {
+    if (!user || !isNotifEnabled) {
       setNotifications([]);
       return;
     }
@@ -60,8 +80,9 @@ function NotificationWrapper() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isNotifEnabled]);
 
+  // 3. Handle clicking outside the dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
@@ -79,14 +100,15 @@ function NotificationWrapper() {
 
       const clickedNotif = notifications.find(n => n.id === path);
 
-      console.log("1. Notification Clicked!");
-      console.log("2. Notification Data:", clickedNotif);
-      console.log("3. Is it a notice?", clickedNotif?.type === "notice");
-
       if (clickedNotif) {
+        // Handle Routing Based on Notification Type
         if (clickedNotif.type === "notice") {
           setIsOpen(false);
-          navigate("/noticeboard")
+          navigate("/noticeboard");
+        } else if (clickedNotif.type === "comment" || clickedNotif.type === "reply") {
+          setIsOpen(false);
+          // Route directly to the resource page using the targetId (which is the resourceId)
+          navigate(`/material/${clickedNotif.targetId}`);
         }
       }
     } catch (error) {
@@ -99,7 +121,7 @@ function NotificationWrapper() {
     try {
       const batch = writeBatch(db);
       notifications.forEach((notif) => {
-        const notifRef = doc(db, notif.id); // notif.id is the full path
+        const notifRef = doc(db, notif.id);
         batch.delete(notifRef);
       });
       await batch.commit();
@@ -117,8 +139,9 @@ function NotificationWrapper() {
         onClick={() => setIsOpen(!isOpen)} 
         className="relative text-white hover:text-gray-200 transition-colors focus:outline-none"
       >
-        <Bell size={20} />
-        {unreadCount > 0 && (
+        <Bell size={20} className={isNotifEnabled ? "" : "opacity-50"} />
+        
+        {isNotifEnabled && unreadCount > 0 && (
           <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-blue-600">
             {unreadCount}
           </span>
@@ -128,9 +151,10 @@ function NotificationWrapper() {
       {isOpen && (
         <div className="absolute top-8 right-0 z-50">
           <NotificationDropdown
-            notifications={notifications}
+            notifications={isNotifEnabled ? notifications : []}
             onClear={handleClear}
             onClickNotification={handleNotificationClick}
+            isNotifEnabled={isNotifEnabled}
           />
         </div>
       )}
