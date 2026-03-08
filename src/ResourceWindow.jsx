@@ -19,14 +19,16 @@ import {
   setDoc,
   increment,
   startAfter,
+  writeBatch // <-- IMPORTED writeBatch
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { FaStar, FaPaperPlane } from "react-icons/fa"; // Added FaPaperPlane
+import { FaStar, FaPaperPlane } from "react-icons/fa";
 
 const ResourcePage = () => {
   const { resourceId } = useParams();
   const location = useLocation();
-  const resource = location.state?.resource;
+  
+  const [resourceData, setResourceData] = useState(location.state?.resource || null);
 
   const [userDoc, setUserDoc] = useState(null);
   const [userName, setUserName] = useState("Unknown User");
@@ -39,9 +41,9 @@ const ResourcePage = () => {
   const [isSaved, setIsSaved] = useState(false);
 
   // --- Comment & Discussion States ---
-  const [comments, setComments] = useState(resource?.comments || []);
+  const [comments, setComments] = useState(resourceData?.comments || []);
   const [allCommentsLoaded, setAllCommentsLoaded] = useState(false);
-  const [prefetchedReplies, setPrefetchedReplies] = useState({}); // { commentId: [reply1, reply2] }
+  const [prefetchedReplies, setPrefetchedReplies] = useState({}); 
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState(null);
@@ -56,15 +58,15 @@ const ResourcePage = () => {
   const [lastCommentDoc, setLastCommentDoc] = useState(null);
   const COMMENTS_PAGE_SIZE = 5;
 
-  const averageRating = resource?.avgRating || 0;
-  const ratingCount = resource?.ratingCount || 0;
+  const averageRating = resourceData?.avgRating || 0;
+  const ratingCount = resourceData?.ratingCount || 0;
   const currentUser = auth.currentUser;
-  const [ratings, setRatings] = useState(resource?.ratings || {});
+  const [ratings, setRatings] = useState(resourceData?.ratings || {});
   const prefetchedRepliesRef = useRef({});
 
-  const dept = resource?.courseCode?.slice(0, 3);
+  const dept = resourceData?.courseCode?.slice(0, 3).toUpperCase();
 
-  const materialRef = doc(db, "studyMaterials", dept, "Materials", resourceId);
+  const materialRef = dept && resourceId ? doc(db, "studyMaterials", dept, "Materials", resourceId) : null;
   const ratingRef =
     dept && resourceId && currentUser
       ? doc(
@@ -119,12 +121,12 @@ const ResourcePage = () => {
         await deleteDoc(docRef);
         setIsSaved(false);
       } else {
-        const resourceData = {
-          ...resource,
+        const resourceDataToSave = {
+          ...resourceData,
           savedAt: serverTimestamp(),
           pinned: false,
         };
-        await setDoc(docRef, resourceData);
+        await setDoc(docRef, resourceDataToSave);
         setIsSaved(true);
       }
     } catch (error) {
@@ -171,36 +173,72 @@ const ResourcePage = () => {
     }
   };
 
+  // --- HYDRATION EFFECT ---
   useEffect(() => {
-    if (!resource) {
+    if (!resourceData && !resourceId) {
       alert("No resource data found. Redirecting to browse page.");
-      return <Navigate to="/browseresources" />;
+      return;
     }
 
-    const fetchUser = async () => {
+    const fetchEverything = async () => {
       setLoading(true);
-      try {
-        const userDocRef = doc(db, "users", resource.uploaderUid);
-        const userDocSnap = await getDoc(userDocRef);
+      let currentResource = { ...resourceData };
 
-        if (userDocSnap.exists()) {
-          setUserDoc(userDocSnap.data());
-          setUserName(userDocSnap.data().displayName || "Unknown User");
-          fetchQuiz();
-          setLoading(false);
+      // Fetch full material from Firestore to guarantee fileLink and fileId
+      if (currentResource.courseCode && resourceId) {
+        try {
+          const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
+          const matRef = doc(db, "studyMaterials", currentDept, "Materials", resourceId);
+          const matSnap = await getDoc(matRef);
+          
+          if (matSnap.exists()) {
+            currentResource = { id: matSnap.id, ...matSnap.data() };
+            setResourceData(currentResource); 
+          }
+        } catch (error) {
+          console.error("Error fetching full material data:", error);
+        }
+      }
+
+      // Fetch Uploader Profile
+      try {
+        if (!currentResource.uploaderUid) {
+          setUserName(currentResource.displayName || "Unknown User");
         } else {
-          setLoading(false);
+          const userDocRef = doc(db, "users", currentResource.uploaderUid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            setUserDoc(userDocSnap.data());
+            setUserName(userDocSnap.data().displayName || "Unknown User");
+          } else {
+            setUserName(currentResource.displayName || "Unknown User");
+          }
         }
       } catch (error) {
         console.error("Error fetching user:", error);
-        setLoading(false);
+        setUserName(currentResource.displayName || "Unknown User");
       }
+
+      // Fetch Quizzes
+      if (currentResource.courseCode && resourceId) {
+        try {
+          const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
+          const quizRef = collection(db, "studyMaterials", currentDept, "Materials", resourceId, "Quizes");
+          const q = query(quizRef, orderBy("createdAt"));
+          const quizSnap = await getDocs(q);
+          setQuizQuestions(quizSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+        } catch (error) {
+          console.error("Error fetching quiz:", error);
+        }
+      }
+
+      setLoading(false);
     };
 
-    fetchUser();
-  }, [resource, Navigate]);
+    fetchEverything();
+  }, [resourceId]);
 
-  // Fetch Logged-In User Profile for Commenting
+  // Fetch Logged-In User Profile
   useEffect(() => {
     const unsubAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -226,17 +264,14 @@ const ResourcePage = () => {
         commentId,
         "replies",
       );
-
       const q = query(repliesRef, orderBy("createdAt", "asc"));
       const snapshot = await getDocs(q);
-
       const replies = snapshot.docs.map((r) => ({
         id: r.id,
         ref: r.ref,
         ...r.data(),
       }));
-
-      prefetchedRepliesRef.current[commentId] = replies; // store in ref to avoid unnecessary re-renders
+      prefetchedRepliesRef.current[commentId] = replies; 
     } catch (err) {
       console.error("Error prefetching replies:", err);
     }
@@ -244,7 +279,7 @@ const ResourcePage = () => {
 
   // Load Comments on Page Load
   useEffect(() => {
-    if (!dept || !resourceId) return;
+    if (!dept || !resourceId || !materialRef) return;
 
     setLoadingComments(true);
 
@@ -264,8 +299,6 @@ const ResourcePage = () => {
       setComments((prev) => {
         return commentList.map((newComment) => {
           const existing = prev.find((c) => c.id === newComment.id);
-
-          // Check the cache as a secondary source of truth
           const cached = prefetchedRepliesRef.current[newComment.id];
 
           return {
@@ -276,7 +309,6 @@ const ResourcePage = () => {
       });
       setLastCommentDoc(snapshot.docs[snapshot.docs.length - 1] || null);
 
-      // Prefetch replies in background
       commentList.forEach((c) => {
         if (c.repliesCount > 0) prefetchReplies(c.id);
       });
@@ -285,16 +317,14 @@ const ResourcePage = () => {
     });
 
     return () => unsubscribe();
-  }, [dept, resourceId]);
+  }, [dept, resourceId, materialRef?.path]);
 
   // --- Load Replies On Click ---
   const loadRepliesForComment = (commentId) => {
     const existingComment = comments.find((c) => c.id === commentId);
 
-    // If we already have replies in the comment object, don't do anything
     if (existingComment?.replies !== null) return;
 
-    // Check the cache
     const cached = prefetchedRepliesRef.current[commentId];
 
     if (cached) {
@@ -302,7 +332,6 @@ const ResourcePage = () => {
         prev.map((c) => (c.id === commentId ? { ...c, replies: cached } : c)),
       );
     } else {
-      // If not in cache, trigger the fetch manually
       prefetchReplies(commentId).then((replies) => {
         setComments((prev) =>
           prev.map((c) =>
@@ -347,7 +376,7 @@ const ResourcePage = () => {
       if (snapshot.docs.length < COMMENTS_PAGE_SIZE) {
         setAllCommentsLoaded(true);
       }
-      // Prefetch replies for newly loaded comments
+      
       newComments.forEach((c) => {
         if (c.repliesCount > 0) prefetchReplies(c.id);
       });
@@ -366,6 +395,38 @@ const ResourcePage = () => {
 
   const isProcessing = useRef(false);
 
+  // --- NEW: HELPER TO SEND NOTIFICATIONS ---
+  const sendNotification = async (targetUid, message, type) => {
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. Create main notification doc
+      const mainNotifRef = doc(collection(db, "notifications"));
+      batch.set(mainNotifRef, {
+        title: type === "comment" ? "New Comment" : "New Reply",
+        message: message,
+        createdAt: serverTimestamp(),
+        type: type,
+        targetId: resourceId // To route directly to this resource page
+      });
+
+      // 2. Deliver it to the target user's subcollection
+      const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", targetUid);
+      batch.set(userNotifRef, {
+        userId: targetUid,
+        message: message,
+        read: false,
+        createdAt: serverTimestamp(),
+        type: type,
+        targetId: resourceId
+      });
+
+      await batch.commit();
+    } catch (err) {
+      console.error("Failed to send notification:", err);
+    }
+  };
+
   // Submit Comment / Reply
   const submitComment = async () => {
     if (!commentText.trim() || isProcessing.current) return;
@@ -376,23 +437,21 @@ const ResourcePage = () => {
     isProcessing.current = true;
     setSubmittingComment(true);
 
-    // We'll create a temp comment only for top‑level comments
     let tempComment = null;
 
     if (!replyTo && !editingCommentRef) {
-      // Create a temporary comment object for optimistic UI
       tempComment = {
-        id: `temp-${Date.now()}`, // temporary ID
+        id: `temp-${Date.now()}`,
         userEmail: currentUserEmail,
         userName: currentUserProfile.displayName || "User",
         userProfile: currentUserProfile.photoURL || "",
+        userId: auth.currentUser.uid, // Add UID locally
         text: commentText,
-        createdAt: new Date(), // local timestamp
-        pending: true, // mark as pending
+        createdAt: new Date(), 
+        pending: true, 
       };
 
-      // Add immediately to UI
-      setComments((prev) => [tempComment, ...prev]); // assuming you have a comments state
+      setComments((prev) => [tempComment, ...prev]); 
     }
 
     setCommentText("");
@@ -407,13 +466,16 @@ const ResourcePage = () => {
         cleanupStates();
         return;
       }
+      
       if (!replyTo) {
+        // --- ADDING A TOP LEVEL COMMENT ---
         const commentsRef = collection(materialRef, "comments");
 
         const commentDoc = await addDoc(commentsRef, {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
+          userId: auth.currentUser.uid, // SAVED TO DB
           text: commentText,
           createdAt: serverTimestamp(),
           repliesCount: 0,
@@ -426,8 +488,8 @@ const ResourcePage = () => {
           await setDoc(discussionRef, {
             materialId: materialRef.id,
             materialRef: materialRef,
-            resourceTitle: resource?.resourceTitle || "Untitled",
-            courseCode: resource?.courseCode || "N/A",
+            resourceTitle: resourceData?.resourceTitle || "Untitled",
+            courseCode: resourceData?.courseCode || "N/A",
             deptId: dept || "Unknown",
             firstCommentId: commentDoc.id,
             firstCommentText: commentText,
@@ -437,7 +499,15 @@ const ResourcePage = () => {
           });
         }
 
-        // Replace the temporary comment with the real one
+        // Notify the Uploader (if the uploader isn't the one commenting)
+        if (resourceData?.uploaderUid && resourceData.uploaderUid !== auth.currentUser.uid) {
+          await sendNotification(
+            resourceData.uploaderUid,
+            `${currentUserProfile.displayName || "Someone"} commented on your resource: ${resourceData.resourceTitle}`,
+            "comment"
+          );
+        }
+
         if (tempComment) {
           setComments((prev) =>
             prev.map((c) =>
@@ -447,13 +517,14 @@ const ResourcePage = () => {
                     id: commentDoc.id,
                     ref: commentDoc,
                     pending: false,
-                    createdAt: serverTimestamp(), // will be overwritten by listener anyway
+                    createdAt: serverTimestamp(),
                   }
                 : c,
             ),
           );
         }
       } else {
+        // --- ADDING A REPLY ---
         const repliesRef = collection(
           materialRef,
           "comments",
@@ -464,58 +535,52 @@ const ResourcePage = () => {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
+          userId: auth.currentUser.uid, // SAVED TO DB
           text: commentText,
           createdAt: serverTimestamp(),
           parentReplyId: replyTo.parentReplyId || null,
         });
 
-        // Increment repliesCount in the parent comment
         const commentRef = doc(materialRef, "comments", replyTo.commentId);
         await updateDoc(commentRef, { repliesCount: increment(1) });
 
-        // create optimistic reply object
+        // Notify the person being replied to
+        if (replyTo.replyToUid && replyTo.replyToUid !== auth.currentUser.uid) {
+          await sendNotification(
+            replyTo.replyToUid,
+            `${currentUserProfile.displayName || "Someone"} replied to your comment on: ${resourceData?.resourceTitle}`,
+            "reply"
+          );
+        }
+
         const newReply = {
           id: replyDoc.id,
           ref: replyDoc,
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
+          userId: auth.currentUser.uid,
           text: commentText,
           createdAt: new Date(),
           parentReplyId: replyTo.parentReplyId || null,
         };
 
-        // 1. Update the Ref cache immediately
-        const currentCached =
-          prefetchedRepliesRef.current[replyTo.commentId] || [];
-        prefetchedRepliesRef.current[replyTo.commentId] = [
-          ...currentCached,
-          newReply,
-        ];
+        const currentCached = prefetchedRepliesRef.current[replyTo.commentId] || [];
+        prefetchedRepliesRef.current[replyTo.commentId] = [...currentCached, newReply];
 
         setPrefetchedReplies((prev) => ({
           ...prev,
           [replyTo.commentId]: [...(prev[replyTo.commentId] || []), newReply],
         }));
 
-        // update UI immediately
         setComments((prev) =>
           prev.map((c) => {
             if (c.id === replyTo.commentId) {
-              return {
-                ...c,
-                replies: [...(c.replies || []), newReply], // show replies instantly
-              };
+              return { ...c, replies: [...(c.replies || []), newReply] };
             }
             return c;
           }),
         );
-
-        // also update prefetchedReplies cache
-        setPrefetchedReplies((prev) => ({
-          ...prev,
-          [replyTo.commentId]: [...(prev[replyTo.commentId] || []), newReply],
-        }));
       }
 
       cleanupStates();
@@ -523,7 +588,6 @@ const ResourcePage = () => {
       console.error("Error adding comment:", error);
       alert("Failed to post comment.");
 
-      // Rollback optimistic update if it failed
       if (tempComment) {
         setComments((prev) => prev.filter((c) => c.id !== tempComment.id));
       }
@@ -533,14 +597,12 @@ const ResourcePage = () => {
     }
   };
 
-  // Helper to clear inputs
   const cleanupStates = () => {
     setCommentText("");
     setReplyTo(null);
     setEditingCommentRef(null);
   };
 
-  // Delete Comment
   const deleteComment = async (ref) => {
     try {
       await deleteDoc(ref);
@@ -549,11 +611,13 @@ const ResourcePage = () => {
     }
   };
 
+  // Grab the UID of the person we are replying to so we can notify them later!
   const handleReplyClick = (comment) => {
     setReplyTo({
       commentId: comment.commentId || comment.id,
       parentReplyId: comment.commentId ? comment.id : null,
       author: comment.userName,
+      replyToUid: comment.userId // Track who to notify
     });
 
     setCommentText(`@${comment.userName} `);
@@ -561,11 +625,9 @@ const ResourcePage = () => {
     input?.focus();
   };
 
-  // --- Render Comments ---
   const renderComments = (commentList) =>
     commentList.map((c) => (
       <div key={c.id} className="mt-6">
-        {/* Top-Level Comment */}
         <div className="flex gap-3 sm:ml-10">
           <img
             src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
@@ -599,7 +661,6 @@ const ResourcePage = () => {
               )}
             </div>
 
-            {/* Replies */}
             {c.replies === null ? (
               c.repliesCount > 0 && (
                 <button
@@ -661,26 +722,6 @@ const ResourcePage = () => {
       </div>
     ));
 
-  // --- QUIZ LOGIC (UNTOUCHED) ---
-  const fetchQuiz = async () => {
-    const quizRef = collection(
-      db,
-      "studyMaterials",
-      dept,
-      "Materials",
-      resourceId,
-      "Quizes",
-    );
-    const q = query(quizRef, orderBy("createdAt"));
-    const quizSnap = await getDocs(q);
-
-    const quizData = quizSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setQuizQuestions(quizData);
-  };
-
   useEffect(() => {
     if (quizQuestions.length > 0) {
       setAnswers(
@@ -703,6 +744,13 @@ const ResourcePage = () => {
     };
   }, [showQuiz]);
 
+  if (!resourceData && !loading) {
+    return <Navigate to="/browseresources" />;
+  }
+
+  // Safely grab the file link using the hydrated resourceData
+  const previewLink = resourceData?.fileLink || resourceData?.fileUrl;
+
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -711,15 +759,15 @@ const ResourcePage = () => {
           {/* Main Header Card */}
           <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
             <p className="text-lg font-semibold text-blue-600">
-              {resource.courseCode}
+              {resourceData?.courseCode}
             </p>
             <div className="sm:flex justify-between items-start mb-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-800">
-                  {resource?.resourceTitle || "Resource Title"}
+                  {resourceData?.resourceTitle || "Resource Title"}
                 </h1>
                 <p className="text-gray-500 mt-2">
-                  {resource?.description || "No description available."}
+                  {resourceData?.description || "No description available."}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -740,13 +788,13 @@ const ResourcePage = () => {
                 <button
                   className="flex items-center gap-2 bg-blue-600 text-white sm:px-5 px-5 py-2 cursor-pointer rounded-lg font-semibold hover:bg-blue-700 transition"
                   onClick={() => {
-                    if (resource.fileId) {
-                      const downloadUrl = `https://drive.google.com/uc?export=download&id=${resource.fileId}`;
+                    if (resourceData?.fileId) {
+                      const downloadUrl = `https://drive.google.com/uc?export=download&id=${resourceData.fileId}`;
                       const link = document.createElement("a");
                       link.href = downloadUrl;
                       link.download =
-                        resource.resourceTitle +
-                        (resource.materialType || ".pdf");
+                        resourceData.resourceTitle +
+                        (resourceData.materialType || ".pdf");
                       document.body.appendChild(link);
                       link.click();
                       document.body.removeChild(link);
@@ -763,9 +811,9 @@ const ResourcePage = () => {
 
             {/* Document Preview Placeholder */}
             <div className="mt-8 w-full h-96 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
-              {resource.fileLink ? (
+              {previewLink ? (
                 <iframe
-                  src={resource.fileLink.replace(
+                  src={previewLink.replace(
                     /\/view.*|\/edit.*/,
                     "/preview",
                   )}
@@ -773,12 +821,12 @@ const ResourcePage = () => {
                   title="Preview"
                 />
               ) : (
-                <p>No Preview</p>
+                <p>Loading Preview...</p>
               )}
             </div>
           </div>
 
-          {/* Quiz Section (UNTOUCHED) */}
+          {/* Quiz Section */}
           {loading ? (
             <div className="bg-yellow-50 rounded-xl shadow-sm p-6 border border-yellow-100 blur-sm animate-pulse">
               <h3 className="text-lg font-bold text-gray-800 mb-4">
@@ -814,7 +862,7 @@ const ResourcePage = () => {
             )
           )}
 
-          {/* QUize Model (UNTOUCHED) */}
+          {/* Quiz Model */}
           {showQuiz &&
             createPortal(
               <>
@@ -831,7 +879,7 @@ const ResourcePage = () => {
                       ✕
                     </button>
                     <h2 className="text-2xl font-bold mb-2">
-                      Quiz: {resource?.resourceTitle}
+                      Quiz: {resourceData?.resourceTitle}
                     </h2>
                     <p className="text-gray-500 mb-6">
                       Test your understanding of this material.
@@ -898,12 +946,12 @@ const ResourcePage = () => {
               document.body,
             )}
 
-          {/* Dynamic Discussion / Comment Section (Upgraded to handle nested replies) */}
+          {/* Dynamic Discussion / Comment Section */}
           {loadingComments ? (
             <div className="space-y-4 h-[500px] overflow-y-auto pr-2 custom-scrollbar blur-sm animate-pulse">
               <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                 <p className="text-gray-500 text-sm">
-                  No comments yet. Be the first to start the discussion!
+                  Loading comments...
                 </p>
               </div>
             </div>
@@ -941,7 +989,6 @@ const ResourcePage = () => {
               
               {/* Main Comment Input Box */}
               <div className="flex flex-col sm:flex-row gap-4 mt-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                {/* Avatar - Hidden on small mobile to save space */}
                 <div className="hidden sm:block w-10 h-10 rounded-full flex-shrink-0 border border-gray-300 overflow-hidden">
                   <img
                     src={
@@ -954,7 +1001,6 @@ const ResourcePage = () => {
                 </div>
 
                 <div className="flex-1">
-                  {/* Reply Banner - Now inside the flex flow */}
                   {replyTo && (
                     <div className="flex items-center justify-between bg-blue-100/50 px-3 py-2 rounded-lg border border-blue-200 mb-3">
                       <p className="text-xs sm:text-sm text-blue-800">
@@ -970,24 +1016,20 @@ const ResourcePage = () => {
                     </div>
                   )}
 
-                  {/* Input Area */}
                   <textarea
                     id="comment-input"
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    // REMOVED max-h-10. Added min-h and h-auto.
                     className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-h-[80px] h-auto bg-white transition-all"
                     placeholder={
                       replyTo ? `Write your reply...` : "Add a comment..."
                     }
                   />
 
-                  {/* Button Row - Ensure this is NOT absolute positioned */}
                   <div className="flex justify-end mt-3">
                     <button
                       onClick={submitComment}
                       disabled={submittingComment || !commentText.trim()}
-                      // z-10 ensures it stays above any invisible text-area padding
                       className="relative z-10 bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-transform active:scale-95 cursor-pointer"
                     >
                       {submittingComment
@@ -1001,7 +1043,6 @@ const ResourcePage = () => {
               </div>
             </div>
           )}
-          {/* ------------------------------------------------ */}
         </div>
 
         {/* Right Column (Sidebar) */}
@@ -1021,6 +1062,7 @@ const ResourcePage = () => {
                         <User className="text-gray-400" />
                       )
                     }
+                    alt="avatar"
                   />
                 </div>
                 <div>
@@ -1038,19 +1080,22 @@ const ResourcePage = () => {
               </h3>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white rounded-full flex items-center shadow-sm overflow-hidden">
-                  <img
-                    className="w-full h-full"
-                    src={
-                      userDoc?.profilePicture || (
-                        <User className="text-gray-400" />
-                      )
-                    }
-                  />
+                  {userDoc?.profilePicture ? (
+                    <img
+                      className="w-full h-full object-cover"
+                      src={userDoc.profilePicture}
+                      alt={userName}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                      <User className="text-gray-500" />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <p className="font-bold text-gray-800">{userName}</p>
                   <p className="text-xs text-gray-600 uppercase">
-                    {userDoc?.program || userDoc?.email}
+                    {userDoc?.program || userDoc?.email || resourceData?.uploaderEmail}
                   </p>
                 </div>
               </div>

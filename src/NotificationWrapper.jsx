@@ -31,7 +31,6 @@ function NotificationWrapper() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       
-      // If user logs in, fetch their settings
       if (currentUser) {
         try {
           const userDocRef = doc(db, "users", currentUser.uid);
@@ -52,7 +51,6 @@ function NotificationWrapper() {
   // 2. Fetch Notifications (Only if enabled!)
   useEffect(() => {
     if (!user || !isNotifEnabled) {
-      // If no user or notifications are turned off, clear the list
       setNotifications([]);
       return;
     }
@@ -103,9 +101,14 @@ function NotificationWrapper() {
       const clickedNotif = notifications.find(n => n.id === path);
 
       if (clickedNotif) {
+        // Handle Routing Based on Notification Type
         if (clickedNotif.type === "notice") {
           setIsOpen(false);
-          navigate("/noticeboard")
+          navigate("/noticeboard");
+        } else if (clickedNotif.type === "comment" || clickedNotif.type === "reply") {
+          setIsOpen(false);
+          // Route directly to the resource page using the targetId (which is the resourceId)
+          navigate(`/material/${clickedNotif.targetId}`);
         }
       }
     } catch (error) {
