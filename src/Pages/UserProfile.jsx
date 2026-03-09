@@ -40,16 +40,14 @@ function UserProfile() {
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
 
-  // --- NEW: Safe Navigation Handler ---
+  // --- Safe Navigation Handler ---
   const handleViewResource = (post) => {
-    // If the backend missed any fields, we manually inject them here
-    // since we know this resource belongs to the currently logged-in user!
     const fullResource = {
       ...post,
       uploaderUid: post.uploaderUid || user.uid,
       displayName: post.displayName || user.displayName,
       uploaderEmail: post.uploaderEmail || user.email,
-      fileLink: post.fileLink || post.fileUrl || "" // Fallback for file URL
+      fileLink: post.fileLink || post.fileUrl || "" 
     };
     
     navigate(`/material/${post.id}`, { state: { resource: fullResource } });
@@ -437,6 +435,13 @@ function UserProfile() {
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col items-center text-center">
            <div className="relative mb-4">
             <img src={preview || user.profilePicture || DEFAULT_AVATAR} alt="User" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow" />
+            
+            {/* FIXED: Added camera button for mobile view */}
+            <label className="absolute bottom-0 right-0 rounded-full p-1.5 bg-blue-600 border-2 border-white cursor-pointer hover:bg-blue-700 transition shadow-sm">
+              <IoCameraOutline className="text-white text-base" />
+              <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+            </label>
+
           </div>
            <h2 className="text-xl font-bold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
            <p className="text-gray-500 text-sm mt-1">{user.faculty || "Faculty not set"}</p>
@@ -477,6 +482,7 @@ function UserProfile() {
         </div>
       </div>
       
+      {/* PASSED onRemovePhoto TO MODAL HERE */}
       {isModalOpen && (
         <EditProfileModal user={user} onClose={() => setIsModalOpen(false)} onSave={handleProfileUpdate} onRemovePhoto={handleRemovePicture} />
       )}

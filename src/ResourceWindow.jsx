@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Download, Star, User, Bookmark } from "lucide-react";
-import { Navigate, useLocation, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
   collection,
@@ -23,10 +23,12 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { FaStar, FaPaperPlane } from "react-icons/fa";
+import AlertModal from "./AlertModal"; 
 
 const ResourcePage = () => {
   const { resourceId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate(); 
   
   const [resourceData, setResourceData] = useState(location.state?.resource || null);
 
@@ -64,6 +66,16 @@ const ResourcePage = () => {
   const [ratings, setRatings] = useState(resourceData?.ratings || {});
   const prefetchedRepliesRef = useRef({});
 
+  const [alertConfig, setAlertConfig] = useState({ 
+    isOpen: false, 
+    title: "", 
+    message: "", 
+    type: "info",
+    onConfirm: null 
+  });
+
+  const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+
   const dept = resourceData?.courseCode?.slice(0, 3).toUpperCase();
 
   const materialRef = dept && resourceId ? doc(db, "studyMaterials", dept, "Materials", resourceId) : null;
@@ -80,7 +92,6 @@ const ResourcePage = () => {
         )
       : null;
 
-  // Check if resource is already saved
   useEffect(() => {
     const checkSaved = async () => {
       const user = auth.currentUser;
@@ -105,7 +116,7 @@ const ResourcePage = () => {
 
   const handleSave = async () => {
     if (!auth.currentUser) {
-      alert("Please login to save resources.");
+      setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to save resources.", type: "warning" });
       return;
     }
 
@@ -131,13 +142,13 @@ const ResourcePage = () => {
       }
     } catch (error) {
       console.error("Error saving resource:", error);
-      alert("Failed to update saved resources.");
+      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to update saved resources.", type: "error" });
     }
   };
 
   const handleRate = async (star) => {
     if (!auth.currentUser) {
-      alert("Please login to rate");
+      setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to rate this resource.", type: "warning" });
       return;
     }
 
@@ -173,10 +184,15 @@ const ResourcePage = () => {
     }
   };
 
-  // --- HYDRATION EFFECT ---
   useEffect(() => {
     if (!resourceData && !resourceId) {
-      alert("No resource data found. Redirecting to browse page.");
+      setAlertConfig({
+        isOpen: true,
+        title: "Not Found",
+        message: "No resource data found. Redirecting to browse page.",
+        type: "warning",
+        onConfirm: () => navigate("/browseresources")
+      });
       return;
     }
 
@@ -270,7 +286,6 @@ const ResourcePage = () => {
     return () => unsubAuth();
   }, []);
 
-  // --- Prefetch Replies (BUG FIX HERE) ---
   const prefetchReplies = async (commentId) => {
     try {
       const repliesRef = collection(
@@ -284,7 +299,7 @@ const ResourcePage = () => {
       const replies = snapshot.docs.map((r) => ({
         id: r.id,
         ref: r.ref,
-        commentId: commentId, // <-- FIXED: Added this so replies know their parent!
+        commentId: commentId,
         ...r.data(),
       }));
       prefetchedRepliesRef.current[commentId] = replies; 
@@ -437,7 +452,7 @@ const ResourcePage = () => {
   const submitComment = async () => {
     if (!commentText.trim() || isProcessing.current) return;
     if (!auth.currentUser) {
-      alert("Please login to comment.");
+      setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to comment.", type: "warning" });
       return;
     }
     isProcessing.current = true;
@@ -554,11 +569,10 @@ const ResourcePage = () => {
           );
         }
 
-        // --- BUG FIX HERE: Added commentId to the optimistic UI update! ---
         const newReply = {
           id: replyDoc.id,
           ref: replyDoc,
-          commentId: replyTo.commentId, // <-- Added so UI doesn't break instantly!
+          commentId: replyTo.commentId, 
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
@@ -589,7 +603,7 @@ const ResourcePage = () => {
       cleanupStates();
     } catch (error) {
       console.error("Error adding comment:", error);
-      alert("Failed to post comment.");
+      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to post comment. Please try again.", type: "error" });
 
       if (tempComment) {
         setComments((prev) => prev.filter((c) => c.id !== tempComment.id));
@@ -606,12 +620,49 @@ const ResourcePage = () => {
     setEditingCommentRef(null);
   };
 
-  const deleteComment = async (ref) => {
-    try {
-      await deleteDoc(ref);
-    } catch (err) {
-      console.error("Delete failed", err);
-    }
+  // --- FIXED: PROPERLY DELETE REPLIES AND DECREMENT COUNTER ---
+  const confirmDeleteComment = (item, isReply = false, parentCommentId = null) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Comment",
+      message: "Are you sure you want to permanently delete this comment?",
+      type: "warning",
+      onConfirm: async () => {
+        closeAlert();
+        try {
+          await deleteDoc(item.ref);
+
+          if (isReply && parentCommentId) {
+            // Decrement the reply count on the parent comment in Firestore
+            const parentRef = doc(materialRef, "comments", parentCommentId);
+            await updateDoc(parentRef, { repliesCount: increment(-1) });
+
+            // Update local state instantly so UI doesn't hang
+            setComments((prev) =>
+              prev.map((c) => {
+                if (c.id === parentCommentId) {
+                  const newReplies = c.replies ? c.replies.filter((r) => r.id !== item.id) : [];
+                  return {
+                    ...c,
+                    replies: newReplies,
+                    repliesCount: Math.max(0, (c.repliesCount || 1) - 1),
+                  };
+                }
+                return c;
+              })
+            );
+
+            // Clean up the cache
+            if (prefetchedRepliesRef.current[parentCommentId]) {
+              prefetchedRepliesRef.current[parentCommentId] = prefetchedRepliesRef.current[parentCommentId].filter((r) => r.id !== item.id);
+            }
+          }
+        } catch (err) {
+          console.error("Delete failed", err);
+          setAlertConfig({ isOpen: true, title: "Error", message: "Failed to delete comment.", type: "error" });
+        }
+      }
+    });
   };
 
   const handleReplyClick = (comment) => {
@@ -656,7 +707,7 @@ const ResourcePage = () => {
               {c.userEmail === currentUserEmail && (
                 <button
                   className="text-red-500 hover:underline"
-                  onClick={() => deleteComment(c.ref)}
+                  onClick={() => confirmDeleteComment(c)} // <-- Top-Level delete
                 >
                   Delete
                 </button>
@@ -704,7 +755,7 @@ const ResourcePage = () => {
                         {r.userEmail === currentUserEmail && (
                           <button
                             className="text-red-500 hover:underline"
-                            onClick={() => deleteComment(r.ref)}
+                            onClick={() => confirmDeleteComment(r, true, c.id)} // <-- Reply delete
                           >
                             Delete
                           </button>
@@ -800,7 +851,7 @@ const ResourcePage = () => {
                       link.click();
                       document.body.removeChild(link);
                     } else {
-                      alert("No download link available for this resource.");
+                      setAlertConfig({ isOpen: true, title: "Not Found", message: "No download link available for this resource.", type: "warning" });
                     }
                   }}
                 >
@@ -811,14 +862,14 @@ const ResourcePage = () => {
             </div>
 
             {/* Document Preview Placeholder */}
-            <div className="mt-8 w-full h-96 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
+            <div className="mt-8 w-full h-96 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 overflow-hidden">
               {previewLink ? (
                 <iframe
                   src={previewLink.replace(
                     /\/view.*|\/edit.*/,
                     "/preview",
                   )}
-                  className="w-full h-full left-0 top-0"
+                  className="w-full h-[150%] transform origin-top border-0"
                   title="Preview"
                 />
               ) : (
@@ -1146,6 +1197,16 @@ const ResourcePage = () => {
           </div>
         </div>
       </div>
+
+      {/* RENDER THE ALERT MODAL HERE */}
+      <AlertModal 
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={closeAlert}
+        onConfirm={alertConfig.onConfirm}
+      />
     </div>
   );
 };
