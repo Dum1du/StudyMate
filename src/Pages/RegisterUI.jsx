@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router-dom"; // Updated to react-router-dom
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
@@ -11,7 +11,7 @@ import { FaUser } from "react-icons/fa";
 import { AiOutlineMail } from "react-icons/ai";
 import { SlLock } from "react-icons/sl";
 import { auth, db } from "../firebase";
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import AlertModal from "../AlertModal"; 
 
 function RegisterUI() {
   const [email, setEmail] = useState("");
@@ -24,7 +24,7 @@ function RegisterUI() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfiPass, setConfirPass] = useState(false);
 
-  // --- ADDED ALERT STATE ---
+  // --- ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -34,7 +34,6 @@ function RegisterUI() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -51,11 +50,15 @@ function RegisterUI() {
       return;
     }
 
-    if (!email.startsWith("s") || !email.endsWith("@ousl.lk")) {
+    // --- NEW: Check for Student OR Teacher Email ---
+    const isStudent = email.startsWith("s") && email.endsWith("@ousl.lk");
+    const isTeacher = email.endsWith("@ou.ac.lk") || email === "wijerathneasitha@gmail.com";
+
+    if (!isStudent && !isTeacher && email !== "wijerathneasitha@gmail.com") {
       setAlertConfig({
         isOpen: true,
         title: "Invalid Email",
-        message: "Please use a valid OUSL student email (e.g., sXXXXX@ousl.lk).",
+        message: "Please use a valid OUSL student (@ousl.lk) or teacher (@ou.ac.lk) email.",
         type: "warning"
       });
       setLoading(false);
@@ -96,8 +99,12 @@ function RegisterUI() {
       });
 
       const user = userCredintials.user;
+      
+      // Determine the role based on the email domain
+      const role = isTeacher ? "teacher" : "student";
 
-      await addUserToFirestore(user);
+      // Pass the role to Firestore
+      await addUserToFirestore(user, role);
 
       await sendEmailVerification(user);
       console.log("Email verification sent");
@@ -141,7 +148,8 @@ function RegisterUI() {
     }
   };
 
-  const addUserToFirestore = async (user) => {
+  // --- NEW: Added 'role' parameter to save to database ---
+  const addUserToFirestore = async (user, role) => {
     const joinDate = new Date(user.metadata.creationTime);
     const joinMonth = joinDate.toLocaleString("default", { month: "long" });
     const joinYear = joinDate.getFullYear();
@@ -150,6 +158,7 @@ function RegisterUI() {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName || "",
+      role: role, // Saves "teacher" or "student"
       joinedMonth: joinMonth,
       joinedYear: joinYear,
       createdAt: serverTimestamp(),
@@ -174,7 +183,7 @@ function RegisterUI() {
           {/* email */}
           <div className="w-full max-w-md">
             <label className="font-medium flex justify-start mt-10 mb-1 mx-1">
-              OUSL Student Email
+              OUSL Email
             </label>
             <div className="relative">
               <input
@@ -182,11 +191,10 @@ function RegisterUI() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
                 type="text"
-                placeholder="Enter your student email"
+                placeholder="Enter your OUSL email"
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 required
               />
-              {/* Icon inside */}
               <AiOutlineMail className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
           </div>
@@ -206,7 +214,6 @@ function RegisterUI() {
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 required
               />
-              {/* Icon inside */}
               <FaUser className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
           </div>
@@ -226,7 +233,6 @@ function RegisterUI() {
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 required
               />
-              {/* Icon inside */}
               <SlLock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
               {password && (
@@ -256,7 +262,6 @@ function RegisterUI() {
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
                 required
               />
-              {/* Icon inside */}
               <SlLock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
               {confirmPassword && (
@@ -272,7 +277,6 @@ function RegisterUI() {
           </div>
 
           <div className="flex justify-center flex-col items-center">
-            {/* button */}
             <button
               className="bg-blue-600 text-amber-50 mt-8 py-3 w-full rounded-lg hover:bg-blue-700 transition"
               type="submit"
@@ -289,7 +293,6 @@ function RegisterUI() {
           <div className="flex-grow border-t border-gray-400"></div>
         </div>
         <div className="flex justify-center flex-col items-center">
-          {/* button */}
           <Link
             className="text-gray-800 py-3 w-full border-1 border-gray-800 rounded-lg hover:bg-gray-100 transition"
             to={"/logins"}
@@ -299,7 +302,6 @@ function RegisterUI() {
         </div>
       </div>
 
-      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}
