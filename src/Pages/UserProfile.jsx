@@ -3,7 +3,7 @@ import Navbar from "../NavigationBar";
 import { IoCameraOutline } from "react-icons/io5";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { MdLogout, MdVerified } from "react-icons/md"; // <-- IMPORTED MdVerified
+import { MdLogout, MdVerified } from "react-icons/md"; 
 import { useNavigate } from "react-router-dom"; 
 import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore"; 
 import { FaFileAlt, FaTrash, FaEye } from "react-icons/fa"; 
@@ -183,16 +183,47 @@ function UserProfile() {
     return () => unsubscribe();
   }, [navigate]);
 
+
+  // --- FIXED: Uses backend to fetch files safely, then enriches with Firebase ratings ---
   useEffect(() => {
     const fetchUserPosts = async () => {
       if (!user?.uid) return;
       try {
         setPostsLoading(true);
         const token = await auth.currentUser.getIdToken();
+        
+        // 1. Fetch files from your working backend
         const res = await axios.get("http://localhost:4000/user-uploads", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setUserPosts(res.data);
+
+        const backendPosts = res.data;
+
+        // 2. Loop through those files and fetch their live ratings from Firebase
+        const enrichedPosts = await Promise.all(
+          backendPosts.map(async (post) => {
+            try {
+              const dept = post.courseCode?.slice(0, 3).toUpperCase();
+              if (dept && post.id) {
+                const matRef = doc(db, "studyMaterials", dept, "Materials", post.id);
+                const matSnap = await getDoc(matRef);
+                if (matSnap.exists()) {
+                  const data = matSnap.data();
+                  return {
+                    ...post,
+                    avgRating: data.avgRating || 0,
+                    ratingCount: data.ratingCount || 0,
+                  };
+                }
+              }
+            } catch (err) {
+              console.error("Error fetching live rating for post", post.id, err);
+            }
+            return post; 
+          })
+        );
+
+        setUserPosts(enrichedPosts);
       } catch (error) {
         console.error("Error fetching user posts:", error);
       } finally {
@@ -236,10 +267,16 @@ function UserProfile() {
     });
   };
 
-  const formatDate = (isoString) => {
-    if (!isoString) return "N/A";
-    return new Date(isoString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "N/A";
+    const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
   };
+
+  // --- DYNAMIC RATING CALCULATION ---
+  const totalRatingSum = userPosts.reduce((sum, post) => sum + ((post.avgRating || 0) * (post.ratingCount || 0)), 0);
+  const totalRatingCount = userPosts.reduce((sum, post) => sum + (post.ratingCount || 0), 0);
+  const averageUserRating = totalRatingCount > 0 ? (totalRatingSum / totalRatingCount).toFixed(1) : "0.0";
 
   const PostList = () => {
     if (postsLoading) return <div className="text-center text-gray-500 py-8">Loading uploads...</div>;
@@ -380,7 +417,6 @@ function UserProfile() {
             </div>
             <div className="flex-1">
               
-              {/* --- ADDED VERIFIED BADGE (Desktop) --- */}
               <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 {user.displayName || user.email || "Not set"}
                 {user?.role === "teacher" && (
@@ -418,9 +454,10 @@ function UserProfile() {
                       <p className="text-3xl font-bold text-blue-600">{userPosts.length}</p>
                       <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mt-1">Uploads</p>
                     </div>
+                    {/* --- DYNAMIC RATING INJECTED HERE --- */}
                     <div className="bg-green-50 rounded-xl p-4 text-center">
-                      <p className="text-3xl font-bold text-green-600">42</p>
-                      <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mt-1">Ratings Received</p>
+                      <p className="text-3xl font-bold text-green-600">{averageUserRating}</p>
+                      <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mt-1">Avg Rating</p>
                     </div>
                   </div>
                 </div>
@@ -448,7 +485,6 @@ function UserProfile() {
             </label>
           </div>
 
-           {/* --- ADDED VERIFIED BADGE (Mobile) --- */}
            <h2 className="text-xl font-bold text-gray-900 flex items-center justify-center gap-2">
              {user.displayName || user.email || "Not set"}
              {user?.role === "teacher" && (
@@ -482,7 +518,8 @@ function UserProfile() {
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Program</span><span className="text-gray-800">{user.program || "Not set"}</span></div>
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Email</span><span className="text-gray-800 truncate ml-4">{user.email}</span></div>
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Uploads</span><span className="text-gray-800 font-bold">{userPosts.length}</span></div>
-                   <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Ratings Received</span><span className="text-green-600 font-bold">42</span></div>
+                   {/* --- DYNAMIC RATING INJECTED HERE --- */}
+                   <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Avg Rating</span><span className="text-green-600 font-bold">{averageUserRating}</span></div>
                 </div>
                 <div onClick={handleLogout} className="flex items-center justify-center space-x-2 text-red-500 font-medium py-2 cursor-pointer">
                   <MdLogout /> <span>Log Out</span>
