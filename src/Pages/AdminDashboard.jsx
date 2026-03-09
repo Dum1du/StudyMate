@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu } from "lucide-react"; // Added Menu icon
+import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu, Flag } from "lucide-react"; // Added Flag icon
 import { useNavigate } from "react-router-dom";
 import { 
   collection, 
@@ -13,7 +13,8 @@ import {
   serverTimestamp,
   query,
   limit,
-  startAfter
+  startAfter,
+  orderBy
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -64,7 +65,7 @@ const PaginationControls = ({ totalPages, totalCount, currentPage, handlePrevPag
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // --- NEW: Mobile Menu State ---
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   const navigate = useNavigate();
 
   const [alertConfig, setAlertConfig] = useState({ 
@@ -86,51 +87,45 @@ export default function AdminDashboard() {
     }
   }
 
-  // STATE: Dashboard Stats
-  const [stats, setStats] = useState({ users: 0, materials: 0, kuppis: 0 });
+  const [stats, setStats] = useState({ users: 0, materials: 0, kuppis: 0, reports: 0 });
   const [loadingStats, setLoadingStats] = useState(false);
-
-  // STATE: Pagination & Data tracking
   const itemsPerPage = 8;
   
-  // --- SEARCH STATES ---
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
 
-  // --- USERS STATE ---
   const [usersList, setUsersList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [usersPage, setUsersPage] = useState(1);
   const [usersCursors, setUsersCursors] = useState([null]); 
   const [usersHasNext, setUsersHasNext] = useState(false);
 
-  // --- MATERIALS STATE ---
   const [materialsList, setMaterialsList] = useState([]);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [materialsPage, setMaterialsPage] = useState(1);
   const [materialsCursors, setMaterialsCursors] = useState([null]);
   const [materialsHasNext, setMaterialsHasNext] = useState(false);
 
-  // --- KUPPIS STATE ---
   const [kuppiList, setKuppiList] = useState([]);
   const [loadingKuppis, setLoadingKuppis] = useState(false);
   const [kuppisPage, setKuppisPage] = useState(1);
   const [kuppisCursors, setKuppisCursors] = useState([null]);
   const [kuppisHasNext, setKuppisHasNext] = useState(false);
 
-  // --- NOTICES STATE ---
   const [noticesList, setNoticesList] = useState([]);
   const [loadingNotices, setLoadingNotices] = useState(false);
   const [viewNotice, setViewNotice] = useState(null);
 
-  // Reset search when switching tabs
+  // --- REPORTS STATE ---
+  const [reportsList, setReportsList] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+
   useEffect(() => {
     setSearchTerm("");
     setSearchResults([]);
   }, [activeTab]);
 
-  // --- 1. FETCH OVERVIEW STATS ---
   useEffect(() => {
     const fetchStats = async () => {
       if (activeTab !== "dashboard") return;
@@ -139,10 +134,12 @@ export default function AdminDashboard() {
         const userCount = await getCountFromServer(collection(db, "users"));
         const materialCount = await getCountFromServer(collectionGroup(db, "Materials"));
         const kuppiCount = await getCountFromServer(collection(db, "sessions")); 
+        const reportCount = await getCountFromServer(collection(db, "reportedMaterials"));
         setStats({
           users: userCount.data().count,
           materials: materialCount.data().count,
           kuppis: kuppiCount.data().count,
+          reports: reportCount.data().count
         });
       } catch (error) { console.error("Error fetching stats:", error); } 
       finally { setLoadingStats(false); }
@@ -150,7 +147,6 @@ export default function AdminDashboard() {
     fetchStats();
   }, [activeTab]);
 
-  // --- 2. GLOBAL SEARCH ENGINE (Runs only when typing) ---
   useEffect(() => {
     const handler = setTimeout(async () => {
       if (!searchTerm.trim()) {
@@ -195,13 +191,11 @@ export default function AdminDashboard() {
       } finally {
         setIsSearching(false);
       }
-    }, 500); // 500ms debounce
+    }, 500); 
 
     return () => clearTimeout(handler);
   }, [searchTerm, activeTab]);
 
-
-  // --- 3. PAGINATED FETCH FUNCTIONS ---
   const loadUsersPage = async (pageIndex) => {
     setLoadingUsers(true);
     try {
@@ -277,14 +271,12 @@ export default function AdminDashboard() {
     finally { setLoadingKuppis(false); }
   };
 
-  // Automatically load the first page when switching tabs
   useEffect(() => {
     if (activeTab === "users" && usersList.length === 0) loadUsersPage(1);
     if (activeTab === "materials" && materialsList.length === 0) loadMaterialsPage(1);
     if (activeTab === "kuppi" && kuppiList.length === 0) loadKuppisPage(1);
   }, [activeTab]);
 
-  // --- 4. FETCH NOTICES (Not paginated) ---
   useEffect(() => {
     const fetchNotices = async () => {
       if (activeTab !== "notices") return;
@@ -298,8 +290,22 @@ export default function AdminDashboard() {
     fetchNotices();
   }, [activeTab]);
 
+  // --- FETCH REPORTS ---
+  useEffect(() => {
+    const fetchReports = async () => {
+      if (activeTab !== "reports") return;
+      setLoadingReports(true);
+      try {
+        const q = query(collection(db, "reportedMaterials"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        setReportsList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      } catch (error) { console.error("Error fetching reports:", error); } 
+      finally { setLoadingReports(false); }
+    };
+    fetchReports();
+  }, [activeTab]);
 
-  // --- 5. DELETE HANDLERS ---
+
   const handleDeleteUser = (userId, userName) => {
     setAlertConfig({
       isOpen: true,
@@ -310,7 +316,7 @@ export default function AdminDashboard() {
         try {
           await deleteDoc(doc(db, "users", userId));
           setUsersList(usersList.filter(user => user.id !== userId));
-          setSearchResults(prev => prev.filter(user => user.id !== userId)); // Remove from search array too
+          setSearchResults(prev => prev.filter(user => user.id !== userId)); 
           closeAlert(); 
         } catch (error) { console.error("Error:", error); }
       }
@@ -327,7 +333,7 @@ export default function AdminDashboard() {
         try {
           await deleteDoc(material.ref);
           setMaterialsList(materialsList.filter(m => m.id !== material.id));
-          setSearchResults(prev => prev.filter(m => m.id !== material.id)); // Remove from search array too
+          setSearchResults(prev => prev.filter(m => m.id !== material.id)); 
           closeAlert();
         } catch (error) { console.error("Error:", error); }
       }
@@ -344,7 +350,7 @@ export default function AdminDashboard() {
         try {
           await deleteDoc(doc(db, "sessions", sessionId));
           setKuppiList(kuppiList.filter(session => session.id !== sessionId));
-          setSearchResults(prev => prev.filter(session => session.id !== sessionId)); // Remove from search array too
+          setSearchResults(prev => prev.filter(session => session.id !== sessionId)); 
           closeAlert();
         } catch (error) { console.error("Error:", error); }
       }
@@ -363,6 +369,45 @@ export default function AdminDashboard() {
           setNoticesList(noticesList.filter(n => n.id !== noticeId));
           closeAlert();
         } catch (error) { console.error("Error deleting notice:", error); }
+      }
+    });
+  };
+
+  // --- REPORTS ACTIONS ---
+  const handleDismissReport = (reportId) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Dismiss Report",
+      message: "Are you sure you want to dismiss this report? The material will not be deleted.",
+      type: "info",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "reportedMaterials", reportId));
+          setReportsList(reportsList.filter(r => r.id !== reportId));
+          closeAlert();
+        } catch (error) { console.error("Error dismissing report:", error); }
+      }
+    });
+  };
+
+  const handleDeleteReportedMaterial = (report) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Reported Material",
+      message: `Are you sure you want to delete the material "${report.resourceTitle}"? This will also close the report.`,
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          // Delete actual material from the exact path
+          const matRef = doc(db, "studyMaterials", report.deptId, "Materials", report.materialId);
+          await deleteDoc(matRef);
+          
+          // Delete report document
+          await deleteDoc(doc(db, "reportedMaterials", report.id));
+          
+          setReportsList(reportsList.filter(r => r.id !== report.id));
+          closeAlert();
+        } catch (error) { console.error("Error deleting reported material:", error); }
       }
     });
   };
@@ -446,7 +491,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- Display Data Calculation ---
   const displayUsers = searchTerm ? searchResults : usersList;
   const displayMaterials = searchTerm ? searchResults : materialsList;
   const displayKuppis = searchTerm ? searchResults : kuppiList;
@@ -466,18 +510,17 @@ export default function AdminDashboard() {
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
           <h1 className="text-xl sm:text-2xl font-bold text-blue-400">StudyMate Admin</h1>
-          {/* Close button for mobile inside sidebar */}
           <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsMobileMenuOpen(false)}>
             <X size={24} />
           </button>
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {["dashboard", "users", "materials", "kuppi", "notices"].map((tab) => (
+          {["dashboard", "users", "materials", "kuppi", "notices", "reports"].map((tab) => (
             <button 
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
-                setIsMobileMenuOpen(false); // Close menu on mobile after selection
+                setIsMobileMenuOpen(false); 
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg capitalize transition-colors ${activeTab === tab ? "bg-blue-600" : "hover:bg-gray-800"}`}
             >
@@ -486,6 +529,7 @@ export default function AdminDashboard() {
               {tab === "materials" && <FileText size={20} />}
               {tab === "kuppi" && <Video size={20} />}
               {tab === "notices" && <Bell size={20} />}
+              {tab === "reports" && <Flag size={20} />}
               {tab === "dashboard" ? "Overview" : tab === "kuppi" ? "Kuppi Sessions" : `Manage ${tab}`}
             </button>
           ))}
@@ -502,10 +546,8 @@ export default function AdminDashboard() {
 
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* HEADER */}
         <header className="bg-white shadow-sm p-4 md:p-6 flex justify-between items-center z-10 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Hamburger Menu for Mobile */}
             <button 
               className="md:hidden text-gray-600 hover:text-gray-900 transition focus:outline-none" 
               onClick={() => setIsMobileMenuOpen(true)}
@@ -516,12 +558,11 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* SCROLLABLE CONTENT */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           
           {/* ----- DASHBOARD TAB ----- */}
           {activeTab === "dashboard" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100">
                   <h3 className="text-gray-500 text-sm font-medium">Total Users</h3>
                   <p className="text-2xl md:text-3xl font-bold text-gray-800 mt-2">{loadingStats ? "..." : stats.users}</p>
@@ -533,6 +574,10 @@ export default function AdminDashboard() {
                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100">
                   <h3 className="text-gray-500 text-sm font-medium">Active Kuppis</h3>
                   <p className="text-2xl md:text-3xl font-bold text-gray-800 mt-2">{loadingStats ? "..." : stats.kuppis}</p>
+               </div>
+               <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-red-100">
+                  <h3 className="text-red-500 text-sm font-medium">Active Reports</h3>
+                  <p className="text-2xl md:text-3xl font-bold text-red-600 mt-2">{loadingStats ? "..." : stats.reports}</p>
                </div>
             </div>
           )}
@@ -581,8 +626,8 @@ export default function AdminDashboard() {
                                   <p className="text-xs md:text-sm text-gray-800 truncate max-w-[120px] sm:max-w-none">{user.email}</p>
                                 </td>
                                 <td className="p-3 md:p-4">
-                                  <span className={`px-2 md:px-3 py-1 text-[10px] md:text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                                    {user.role || 'user'}
+                                  <span className={`px-2 md:px-3 py-1 text-[10px] md:text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : user.role === 'teacher' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                    {user.role || 'student'}
                                   </span>
                                 </td>
                                 <td className="p-3 md:p-4 flex justify-center gap-2">
@@ -826,6 +871,80 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* ----- REPORTS TAB ----- */}
+          {activeTab === "reports" && (
+            <div className="flex flex-col h-full">
+              <div className="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden flex flex-col">
+                {loadingReports ? (
+                  <div className="p-8 text-center text-gray-500 text-sm md:text-base">Loading reports...</div>
+                ) : (
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="bg-red-50 text-red-700 text-xs md:text-sm uppercase tracking-wider border-b border-red-100">
+                          <th className="p-3 md:p-4 font-medium">Material Details</th>
+                          <th className="p-3 md:p-4 font-medium">Reason</th>
+                          <th className="p-3 md:p-4 font-medium">Reported By</th>
+                          <th className="p-3 md:p-4 font-medium text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {reportsList.length === 0 ? (
+                          <tr><td colSpan="4" className="p-8 text-center text-gray-500 text-sm md:text-base">No pending reports! 🎉</td></tr>
+                        ) : (
+                          reportsList.map((report) => (
+                            <tr key={report.id} className="hover:bg-red-50/50 transition-colors">
+                              <td className="p-3 md:p-4 max-w-[200px]">
+                                <p className="font-semibold text-gray-800 text-sm md:text-base truncate">{report.resourceTitle}</p>
+                                <p className="text-[10px] md:text-xs text-gray-500 truncate">{report.courseCode}</p>
+                              </td>
+                              <td className="p-3 md:p-4">
+                                <p className="text-xs md:text-sm text-red-600 font-medium line-clamp-2 max-w-xs">{report.reason}</p>
+                              </td>
+                              <td className="p-3 md:p-4">
+                                <p className="text-xs md:text-sm text-gray-800 truncate max-w-[120px]">{report.reportedByName}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{report.reportedByEmail}</p>
+                              </td>
+                              <td className="p-3 md:p-4 flex justify-center gap-1 md:gap-2 items-center">
+                                {/* Navigate to the Material Page directly! */}
+                                <button 
+                                  onClick={() => navigate(`/material/${report.materialId}`)} 
+                                  className="p-1.5 md:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                                  title="View Material"
+                                >
+                                  <Eye size={16} className="md:w-[18px] md:h-[18px]" />
+                                </button>
+                                
+                                {/* Delete Both Material and Report */}
+                                <button 
+                                  onClick={() => handleDeleteReportedMaterial(report)} 
+                                  className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                  title="Delete Material & Close Report"
+                                >
+                                  <Trash2 size={16} className="md:w-[18px] md:h-[18px]" />
+                                </button>
+
+                                {/* Dismiss Report Only */}
+                                <button 
+                                  onClick={() => handleDismissReport(report.id)} 
+                                  className="p-1.5 md:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" 
+                                  title="Dismiss Report"
+                                >
+                                  <CheckCircle size={16} className="md:w-[18px] md:h-[18px]" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
 

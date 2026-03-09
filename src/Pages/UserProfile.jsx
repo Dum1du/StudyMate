@@ -3,7 +3,7 @@ import Navbar from "../NavigationBar";
 import { IoCameraOutline } from "react-icons/io5";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { MdLogout } from "react-icons/md";
+import { MdLogout, MdVerified } from "react-icons/md"; // <-- IMPORTED MdVerified
 import { useNavigate } from "react-router-dom"; 
 import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore"; 
 import { FaFileAlt, FaTrash, FaEye } from "react-icons/fa"; 
@@ -40,7 +40,6 @@ function UserProfile() {
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
 
-  // --- Safe Navigation Handler ---
   const handleViewResource = (post) => {
     const fullResource = {
       ...post,
@@ -380,7 +379,15 @@ function UserProfile() {
               </label>
             </div>
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
+              
+              {/* --- ADDED VERIFIED BADGE (Desktop) --- */}
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                {user.displayName || user.email || "Not set"}
+                {user?.role === "teacher" && (
+                  <MdVerified className="text-blue-500 mt-1" title="Verified Teacher" size={24} />
+                )}
+              </h2>
+
               <p className="text-gray-600 font-medium">{user.faculty || "Faculty not set"}</p>
               <div className="flex items-center mt-2 text-gray-500 text-sm">
                 <span>Joined {user?.joinedMonth} {user?.joinedYear}</span>
@@ -435,15 +442,20 @@ function UserProfile() {
         <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col items-center text-center">
            <div className="relative mb-4">
             <img src={preview || user.profilePicture || DEFAULT_AVATAR} alt="User" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow" />
-            
-            {/* FIXED: Added camera button for mobile view */}
             <label className="absolute bottom-0 right-0 rounded-full p-1.5 bg-blue-600 border-2 border-white cursor-pointer hover:bg-blue-700 transition shadow-sm">
               <IoCameraOutline className="text-white text-base" />
               <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
             </label>
-
           </div>
-           <h2 className="text-xl font-bold text-gray-900">{user.displayName || user.email || "Not set"}</h2>
+
+           {/* --- ADDED VERIFIED BADGE (Mobile) --- */}
+           <h2 className="text-xl font-bold text-gray-900 flex items-center justify-center gap-2">
+             {user.displayName || user.email || "Not set"}
+             {user?.role === "teacher" && (
+                <MdVerified className="text-blue-500" title="Verified Teacher" size={20} />
+             )}
+           </h2>
+
            <p className="text-gray-500 text-sm mt-1">{user.faculty || "Faculty not set"}</p>
            <div className="flex flex-col gap-2 mt-4">
              <button onClick={() => setIsModalOpen(true)} className="px-6 py-2 border border-gray-300 rounded-full text-sm font-medium mb-2">Edit Profile</button>
@@ -482,7 +494,6 @@ function UserProfile() {
         </div>
       </div>
       
-      {/* PASSED onRemovePhoto TO MODAL HERE */}
       {isModalOpen && (
         <EditProfileModal user={user} onClose={() => setIsModalOpen(false)} onSave={handleProfileUpdate} onRemovePhoto={handleRemovePicture} />
       )}

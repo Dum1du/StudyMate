@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router-dom"; 
 import StartBg from "../Bg images/StartBg.png";
 import { FaUser } from "react-icons/fa";
 import { SlLock } from "react-icons/sl";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import AlertModal from "../AlertModal"; 
 
 function StudentLogin() {
   const [email, setEmail] = useState("");
@@ -14,7 +14,6 @@ function StudentLogin() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
 
-  // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -40,11 +39,15 @@ function StudentLogin() {
       return;
     }
 
-    if (!email.startsWith("s") || !email.endsWith("@ousl.lk")) {
+    // --- FIXED: Separated the .endsWith() check from the === check ---
+    const isStudent = email.startsWith("s") && email.endsWith("@ousl.lk");
+    const isTeacher = email.endsWith("@ou.ac.lk") || email === "wijerathneasitha@gmail.com";
+
+    if (!isStudent && !isTeacher) {
       setAlertConfig({
         isOpen: true,
         title: "Invalid Email",
-        message: "Are you sure this is your OUSL email address? It should end with @ousl.lk",
+        message: "Please enter a valid OUSL student (@ousl.lk) or teacher (@ou.ac.lk) email.",
         type: "warning"
       });
       setLoading(false);
@@ -71,7 +74,6 @@ function StudentLogin() {
       console.log("Logged in:", userCredential.user);
       const user = userCredential.user;
 
-      // Refresh user data to get the latest verification status
       await user.reload();
 
       if (user.emailVerified) {
@@ -79,19 +81,17 @@ function StudentLogin() {
         navigate("/home");
       } else {
         console.log("Email not verified");
-        // REPLACED NATIVE ALERT
         setAlertConfig({
           isOpen: true,
           title: "Email Not Verified",
           message: "Please verify your email before logging in. Check your inbox or spam folder.",
           type: "warning"
         });
-        await auth.signOut(); // SIGN OUT UNVERIFIED EMAILS
+        await auth.signOut(); 
       }
     } catch (err) {
       console.error("Login error:", err);
 
-      // DETECT FIREBASE ERROR AND SHOW IN MODAL
       let errorMsg = "Something went wrong. Please try again later.";
       switch (err.code) {
         case "auth/user-not-found":
@@ -135,18 +135,17 @@ function StudentLogin() {
           {/* Email */}
           <div className="w-full max-w-md">
             <label className="font-medium flex justify-start mt-15 mb-1 mx-1">
-              OUSL Student Email
+              OUSL Email
             </label>
             <div className="relative">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
-                placeholder="Enter your student email"
+                placeholder="Enter your OUSL email"
                 required
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
               />
-              {/* Icon inside */}
               <FaUser className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
           </div>
@@ -165,7 +164,6 @@ function StudentLogin() {
                 placeholder="Enter your Password"
                 className="w-full border border-gray-400 rounded-lg pl-4 pr-10 py-2 focus:outline-none"
               />
-              {/* Icon inside */}
               <SlLock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               {password && (
                 <button
@@ -182,7 +180,6 @@ function StudentLogin() {
             <h1>Forgot your password?</h1>
           </Link>
           <div className="flex justify-center flex-col items-center">
-            {/* button */}
             <button
               type="submit"
               className="bg-blue-600 text-amber-50 mt-8 py-3 w-full rounded-lg hover:bg-blue-700 transition"
@@ -199,7 +196,6 @@ function StudentLogin() {
           <div className="flex-grow border-t border-gray-400"></div>
         </div>
         <div className="flex justify-center flex-col items-center">
-          {/* button */}
           <Link
             className="text-gray-800 py-3 w-full border-1 border-gray-800 rounded-lg hover:bg-gray-100 transition"
             to={"/register"}
@@ -209,7 +205,6 @@ function StudentLogin() {
         </div>
       </div>
 
-      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}

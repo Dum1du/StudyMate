@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Star, User, Bookmark } from "lucide-react";
+import { Download, Star, User, Bookmark, ShieldCheck, Flag, X } from "lucide-react"; // Added ShieldCheck, Flag, X
 import { Navigate, useLocation, useParams, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { FaStar, FaPaperPlane } from "react-icons/fa";
+import { MdVerified } from "react-icons/md";
 import AlertModal from "./AlertModal"; 
 
 const ResourcePage = () => {
@@ -42,6 +43,11 @@ const ResourcePage = () => {
   const [answers, setAnswers] = useState([]);
   const [isSaved, setIsSaved] = useState(false);
 
+  // --- Report Modal States ---
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reporting, setReporting] = useState(false);
+
   // --- Comment & Discussion States ---
   const [comments, setComments] = useState(resourceData?.comments || []);
   const [allCommentsLoaded, setAllCommentsLoaded] = useState(false);
@@ -53,6 +59,7 @@ const ResourcePage = () => {
   const [currentUserProfile, setCurrentUserProfile] = useState({
     displayName: "",
     photoURL: "",
+    role: "student" 
   });
   const [submittingComment, setSubmittingComment] = useState(false);
   const [editingCommentRef, setEditingCommentRef] = useState(null);
@@ -184,6 +191,86 @@ const ResourcePage = () => {
     }
   };
 
+  // --- NEW: Handle Approve Material ---
+  const handleApprove = async () => {
+    if (currentUserProfile.role !== "teacher" || !materialRef) return;
+    try {
+      await updateDoc(materialRef, { isApproved: true });
+      setResourceData((prev) => ({ ...prev, isApproved: true }));
+      setAlertConfig({
+        isOpen: true,
+        title: "Material Approved",
+        message: "You have successfully approved this material.",
+        type: "success"
+      });
+    } catch (error) {
+      console.error("Error approving material:", error);
+      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to approve material.", type: "error" });
+    }
+  };
+
+  // --- NEW: Handle Report Material ---
+  const handleReportAction = () => {
+    if (!auth.currentUser) {
+      setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to report resources.", type: "warning" });
+      return;
+    }
+
+    if (currentUserProfile.role === "teacher") {
+      // Teacher Report = Instant Delete
+      setAlertConfig({
+        isOpen: true,
+        title: "Delete Material",
+        message: "As a teacher, reporting this material will permanently delete it from the system immediately. Are you sure?",
+        type: "warning",
+        onConfirm: async () => {
+          closeAlert();
+          try {
+            await deleteDoc(materialRef);
+            navigate("/browseresources");
+          } catch (error) {
+            console.error("Error deleting material:", error);
+            setAlertConfig({ isOpen: true, title: "Error", message: "Failed to delete material.", type: "error" });
+          }
+        }
+      });
+    } else {
+      // Student Report = Send to Admin
+      setIsReportModalOpen(true);
+    }
+  };
+
+  const submitStudentReport = async () => {
+    if (!reportReason.trim()) return;
+    setReporting(true);
+    try {
+      await addDoc(collection(db, "reportedMaterials"), {
+        materialId: resourceId,
+        deptId: dept,
+        resourceTitle: resourceData?.resourceTitle || "Untitled",
+        courseCode: resourceData?.courseCode || "N/A",
+        reportedByUid: auth.currentUser.uid,
+        reportedByEmail: currentUserEmail,
+        reportedByName: currentUserProfile.displayName || "Unknown",
+        reason: reportReason,
+        createdAt: serverTimestamp(),
+      });
+      setIsReportModalOpen(false);
+      setReportReason("");
+      setAlertConfig({
+        isOpen: true,
+        title: "Report Sent",
+        message: "This material has been reported to the admins for review.",
+        type: "success"
+      });
+    } catch (error) {
+      console.error("Error reporting material:", error);
+      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to send report. Please try again.", type: "error" });
+    } finally {
+      setReporting(false);
+    }
+  };
+
   useEffect(() => {
     if (!resourceData && !resourceId) {
       setAlertConfig({
@@ -279,6 +366,7 @@ const ResourcePage = () => {
           setCurrentUserProfile({
             displayName: loggedInUserDoc.data().displayName,
             photoURL: loggedInUserDoc.data().profilePicture,
+            role: loggedInUserDoc.data().role || "student" 
           });
         }
       }
@@ -466,6 +554,7 @@ const ResourcePage = () => {
         userEmail: currentUserEmail,
         userName: currentUserProfile.displayName || "User",
         userProfile: currentUserProfile.photoURL || "",
+        userRole: currentUserProfile.role, 
         userId: auth.currentUser.uid, 
         text: commentText,
         createdAt: new Date(), 
@@ -494,6 +583,7 @@ const ResourcePage = () => {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
+          userRole: currentUserProfile.role, 
           userId: auth.currentUser.uid, 
           text: commentText,
           createdAt: serverTimestamp(),
@@ -552,6 +642,7 @@ const ResourcePage = () => {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
+          userRole: currentUserProfile.role, 
           userId: auth.currentUser.uid, 
           text: commentText,
           createdAt: serverTimestamp(),
@@ -576,6 +667,7 @@ const ResourcePage = () => {
           userEmail: currentUserEmail,
           userName: currentUserProfile.displayName || "User",
           userProfile: currentUserProfile.photoURL || "",
+          userRole: currentUserProfile.role, 
           userId: auth.currentUser.uid,
           text: commentText,
           createdAt: new Date(),
@@ -620,7 +712,6 @@ const ResourcePage = () => {
     setEditingCommentRef(null);
   };
 
-  // --- FIXED: PROPERLY DELETE REPLIES AND DECREMENT COUNTER ---
   const confirmDeleteComment = (item, isReply = false, parentCommentId = null) => {
     setAlertConfig({
       isOpen: true,
@@ -633,11 +724,9 @@ const ResourcePage = () => {
           await deleteDoc(item.ref);
 
           if (isReply && parentCommentId) {
-            // Decrement the reply count on the parent comment in Firestore
             const parentRef = doc(materialRef, "comments", parentCommentId);
             await updateDoc(parentRef, { repliesCount: increment(-1) });
 
-            // Update local state instantly so UI doesn't hang
             setComments((prev) =>
               prev.map((c) => {
                 if (c.id === parentCommentId) {
@@ -652,7 +741,6 @@ const ResourcePage = () => {
               })
             );
 
-            // Clean up the cache
             if (prefetchedRepliesRef.current[parentCommentId]) {
               prefetchedRepliesRef.current[parentCommentId] = prefetchedRepliesRef.current[parentCommentId].filter((r) => r.id !== item.id);
             }
@@ -688,8 +776,9 @@ const ResourcePage = () => {
           />
           <div className="flex-1">
             <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
-              <h5 className="text-[13px] font-bold text-gray-900">
+              <h5 className="text-[13px] font-bold text-gray-900 flex items-center gap-1">
                 {c.userName}
+                {c.userRole === "teacher" && <MdVerified className="text-blue-500 size-3.5" title="Verified Teacher" />}
               </h5>
               <p className="text-[14px] text-gray-800 mt-1 whitespace-pre-wrap">
                 {c.text}
@@ -707,7 +796,7 @@ const ResourcePage = () => {
               {c.userEmail === currentUserEmail && (
                 <button
                   className="text-red-500 hover:underline"
-                  onClick={() => confirmDeleteComment(c)} // <-- Top-Level delete
+                  onClick={() => confirmDeleteComment(c)}
                 >
                   Delete
                 </button>
@@ -735,8 +824,9 @@ const ResourcePage = () => {
                     />
                     <div className="flex-1">
                       <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50">
-                        <h5 className="text-[12px] font-bold text-gray-900">
+                        <h5 className="text-[12px] font-bold text-gray-900 flex items-center gap-1">
                           {r.userName}
+                          {r.userRole === "teacher" && <MdVerified className="text-blue-500 size-3" title="Verified Teacher" />}
                         </h5>
                         <p className="text-[13px] text-gray-800 whitespace-pre-wrap">
                           {r.text}
@@ -755,7 +845,7 @@ const ResourcePage = () => {
                         {r.userEmail === currentUserEmail && (
                           <button
                             className="text-red-500 hover:underline"
-                            onClick={() => confirmDeleteComment(r, true, c.id)} // <-- Reply delete
+                            onClick={() => confirmDeleteComment(r, true, c.id)}
                           >
                             Delete
                           </button>
@@ -806,23 +896,47 @@ const ResourcePage = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (Main Content) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Main Header Card */}
-          <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100 relative overflow-hidden">
             <p className="text-lg font-semibold text-blue-600">
               {resourceData?.courseCode}
             </p>
             <div className="sm:flex justify-between items-start mb-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-800">
+                <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2 flex-wrap">
                   {resourceData?.resourceTitle || "Resource Title"}
+                  {/* --- TEACHER APPROVED BADGE --- */}
+                  {resourceData?.isApproved && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-bold border border-green-200">
+                      <ShieldCheck size={14} /> Teacher Approved
+                    </span>
+                  )}
                 </h1>
                 <p className="text-gray-500 mt-2">
                   {resourceData?.description || "No description available."}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mt-4 sm:mt-0">
+                {/* --- TEACHER APPROVE BUTTON --- */}
+                {currentUserProfile.role === "teacher" && !resourceData?.isApproved && (
+                  <button
+                    onClick={handleApprove}
+                    className="p-2.5 bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 rounded-lg transition"
+                    title="Approve Material"
+                  >
+                    <ShieldCheck size={20} />
+                  </button>
+                )}
+
+                {/* --- REPORT BUTTON --- */}
+                <button
+                  onClick={handleReportAction}
+                  className="p-2.5 bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 rounded-lg transition"
+                  title="Report Material"
+                >
+                  <Flag size={20} />
+                </button>
+
                 <button
                   onClick={handleSave}
                   className={`p-2.5 cursor-pointer rounded-lg transition border ${
@@ -861,7 +975,6 @@ const ResourcePage = () => {
               </div>
             </div>
 
-            {/* Document Preview Placeholder */}
             <div className="mt-8 w-full h-96 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 overflow-hidden">
               {previewLink ? (
                 <iframe
@@ -878,7 +991,6 @@ const ResourcePage = () => {
             </div>
           </div>
 
-          {/* Quiz Section */}
           {loading ? (
             <div className="bg-yellow-50 rounded-xl shadow-sm p-6 border border-yellow-100 blur-sm animate-pulse">
               <h3 className="text-lg font-bold text-gray-800 mb-4">
@@ -914,7 +1026,6 @@ const ResourcePage = () => {
             )
           )}
 
-          {/* Quiz Model */}
           {showQuiz &&
             createPortal(
               <>
@@ -998,7 +1109,6 @@ const ResourcePage = () => {
               document.body,
             )}
 
-          {/* Dynamic Discussion / Comment Section */}
           {loadingComments ? (
             <div className="space-y-4 h-[500px] overflow-y-auto pr-2 custom-scrollbar blur-sm animate-pulse">
               <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
@@ -1013,7 +1123,6 @@ const ResourcePage = () => {
                 Discussion ({comments.length})
               </h3>
 
-              {/* Recursive Comments List */}
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                 {comments.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
@@ -1039,7 +1148,6 @@ const ResourcePage = () => {
                 </div>
               )}
               
-              {/* Main Comment Input Box */}
               <div className="flex flex-col sm:flex-row gap-4 mt-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <div className="hidden sm:block w-10 h-10 rounded-full flex-shrink-0 border border-gray-300 overflow-hidden">
                   <img
@@ -1097,9 +1205,7 @@ const ResourcePage = () => {
           )}
         </div>
 
-        {/* Right Column (Sidebar) */}
         <div className="space-y-6">
-          {/* Uploaded By Card */}
           {loading ? (
             <div className="bg-cyan-100 rounded-xl p-6 blur-sm animate-pulse">
               <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">
@@ -1145,7 +1251,11 @@ const ResourcePage = () => {
                   )}
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800">{userName}</p>
+                  <p className="font-bold text-gray-800 flex items-center gap-1">
+                    {userName}
+                    {userDoc?.role === "teacher" && <MdVerified className="text-blue-500 size-4" title="Verified Teacher" />}
+                  </p>
+
                   <p className="text-xs text-gray-600 uppercase">
                     {userDoc?.program || userDoc?.email || resourceData?.uploaderEmail}
                   </p>
@@ -1154,7 +1264,6 @@ const ResourcePage = () => {
             </div>
           )}
 
-          {/* Rating Card */}
           <div className="bg-purple-100 rounded-xl p-6">
             <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">
               Rating
@@ -1198,7 +1307,52 @@ const ResourcePage = () => {
         </div>
       </div>
 
-      {/* RENDER THE ALERT MODAL HERE */}
+      {/* --- REPORT MODAL FOR STUDENTS --- */}
+      {isReportModalOpen && createPortal(
+        <>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl relative animate-in fade-in zoom-in duration-200">
+              <button 
+                onClick={() => setIsReportModalOpen(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:bg-gray-100 p-1 rounded-full transition"
+              >
+                <X size={20} />
+              </button>
+              <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <Flag className="text-red-500" size={24} /> Report Material
+              </h2>
+              <p className="text-gray-600 text-sm mb-4">
+                Please provide a reason for reporting this material. Admins will review it shortly.
+              </p>
+              
+              <textarea
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                placeholder="E.g., Inappropriate content, misleading, incorrect course code..."
+                className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-red-500 outline-none h-24 resize-none mb-4"
+              />
+              
+              <div className="flex justify-end gap-2">
+                <button 
+                  onClick={() => setIsReportModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={submitStudentReport}
+                  disabled={reporting || !reportReason.trim()}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 text-sm font-semibold"
+                >
+                  {reporting ? "Submitting..." : "Submit Report"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}
