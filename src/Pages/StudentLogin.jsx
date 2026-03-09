@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import StartBg from "../Bg images/StartBg.png";
 import { FaUser } from "react-icons/fa";
 import { SlLock } from "react-icons/sl";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"; // <-- IMPORTED sendPasswordResetEmail
 import { auth } from "../firebase";
 import AlertModal from "../AlertModal"; 
 
@@ -24,6 +24,57 @@ function StudentLogin() {
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
 
+  // --- NEW: Handle Forgot Password ---
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setAlertConfig({
+        isOpen: true,
+        title: "Email Required",
+        message: "Please enter your email address in the field above first, then click 'Forgot your password?' again.",
+        type: "warning"
+      });
+      return;
+    }
+
+    const isStudent = email.startsWith("s") && email.endsWith("@ousl.lk");
+    const isTeacher = email.endsWith("@ou.ac.lk") || email === "wijerathneasitha@gmail.com";
+
+    if (!isStudent && !isTeacher) {
+      setAlertConfig({
+        isOpen: true,
+        title: "Invalid Email",
+        message: "Please enter a valid OUSL student or teacher email.",
+        type: "warning"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setAlertConfig({
+        isOpen: true,
+        title: "Email Sent!",
+        message: "A password reset link has been sent to your email. Please check your inbox and spam folder.",
+        type: "success"
+      });
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      let errorMsg = "Something went wrong. Please try again.";
+      if (err.code === "auth/user-not-found") {
+        errorMsg = "No account found with this email address.";
+      }
+      setAlertConfig({
+        isOpen: true,
+        title: "Reset Failed",
+        message: errorMsg,
+        type: "error"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const userlogingHelper = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -39,7 +90,6 @@ function StudentLogin() {
       return;
     }
 
-    // --- FIXED: Separated the .endsWith() check from the === check ---
     const isStudent = email.startsWith("s") && email.endsWith("@ousl.lk");
     const isTeacher = email.endsWith("@ou.ac.lk") || email === "wijerathneasitha@gmail.com";
 
@@ -176,16 +226,25 @@ function StudentLogin() {
               )}
             </div>
           </div>
-          <Link className="text-blue-600 py-3 w-full flex justify-end">
-            <h1>Forgot your password?</h1>
-          </Link>
+          
+          {/* --- FIXED: FORGOT PASSWORD BUTTON --- */}
+          <div className="w-full flex justify-end">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-blue-600 py-3 hover:underline text-sm font-medium"
+            >
+              Forgot your password?
+            </button>
+          </div>
+
           <div className="flex justify-center flex-col items-center">
             <button
               type="submit"
-              className="bg-blue-600 text-amber-50 mt-8 py-3 w-full rounded-lg hover:bg-blue-700 transition"
+              className="bg-blue-600 text-amber-50 mt-4 py-3 w-full rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400"
               disabled={loading}
             >
-              <h1>{loading ? "Logging in..." : "Log in"}</h1>
+              <h1>{loading ? "Processing..." : "Log in"}</h1>
             </button>
           </div>
         </form>

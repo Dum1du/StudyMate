@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Star, User, Bookmark, ShieldCheck, Flag, X } from "lucide-react"; // Added ShieldCheck, Flag, X
+import { Download, Star, User, Bookmark, ShieldCheck, Flag, X } from "lucide-react"; 
 import { Navigate, useLocation, useParams, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
@@ -70,7 +70,7 @@ const ResourcePage = () => {
   const averageRating = resourceData?.avgRating || 0;
   const ratingCount = resourceData?.ratingCount || 0;
   const currentUser = auth.currentUser;
-  const [ratings, setRatings] = useState(resourceData?.ratings || {});
+  const [ratings, setRatings] = useState({}); // We will populate this on load
   const prefetchedRepliesRef = useRef({});
 
   const [alertConfig, setAlertConfig] = useState({ 
@@ -153,6 +153,7 @@ const ResourcePage = () => {
     }
   };
 
+  // --- REAL-TIME RATING UPDATE LOGIC ---
   const handleRate = async (star) => {
     if (!auth.currentUser) {
       setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to rate this resource.", type: "warning" });
@@ -162,6 +163,9 @@ const ResourcePage = () => {
     if (!ratingRef) return;
 
     try {
+      let updatedAvg = 0;
+      let updatedCount = 0;
+
       await runTransaction(db, async (transaction) => {
         const materialDoc = await transaction.get(materialRef);
         const ratingDoc = await transaction.get(ratingRef);
@@ -173,25 +177,37 @@ const ResourcePage = () => {
 
         if (ratingDoc.exists()) {
           const oldRating = ratingDoc.data().rating;
-          const newAvg =
-            (avgRating * ratingCount - oldRating + star) / ratingCount;
-          transaction.update(materialRef, { avgRating: newAvg });
+          updatedAvg = (avgRating * ratingCount - oldRating + star) / ratingCount;
+          updatedCount = ratingCount;
+          transaction.update(materialRef, { avgRating: updatedAvg });
         } else {
-          const newAvg = (avgRating * ratingCount + star) / (ratingCount + 1);
+          updatedCount = ratingCount + 1;
+          updatedAvg = (avgRating * ratingCount + star) / updatedCount;
           transaction.update(materialRef, {
-            avgRating: newAvg,
-            ratingCount: ratingCount + 1,
+            avgRating: updatedAvg,
+            ratingCount: updatedCount,
           });
         }
         transaction.set(ratingRef, { rating: star });
       });
-      console.log("Rating saved");
+
+      // Update UI state instantly to show changes without refreshing
+      setResourceData((prev) => ({
+        ...prev,
+        avgRating: updatedAvg,
+        ratingCount: updatedCount,
+      }));
+
+      setRatings((prev) => ({
+        ...prev,
+        [currentUserEmail]: star,
+      }));
+
     } catch (error) {
       console.error("Rating error:", error);
     }
   };
 
-  // --- NEW: Handle Approve Material ---
   const handleApprove = async () => {
     if (currentUserProfile.role !== "teacher" || !materialRef) return;
     try {
@@ -209,7 +225,6 @@ const ResourcePage = () => {
     }
   };
 
-  // --- NEW: Handle Report Material ---
   const handleReportAction = () => {
     if (!auth.currentUser) {
       setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to report resources.", type: "warning" });
@@ -217,7 +232,6 @@ const ResourcePage = () => {
     }
 
     if (currentUserProfile.role === "teacher") {
-      // Teacher Report = Instant Delete
       setAlertConfig({
         isOpen: true,
         title: "Delete Material",
@@ -235,7 +249,6 @@ const ResourcePage = () => {
         }
       });
     } else {
-      // Student Report = Send to Admin
       setIsReportModalOpen(true);
     }
   };
@@ -286,14 +299,15 @@ const ResourcePage = () => {
     const fetchEverything = async () => {
       setLoading(true);
       let currentResource = resourceData ? { ...resourceData } : null;
+      let targetDept = dept; // Remember the valid department prefix
 
       if (resourceId) {
         try {
           let matSnap = null;
 
           if (currentResource?.courseCode) {
-            const currentDept = currentResource.courseCode.slice(0, 3).toUpperCase();
-            const matRef = doc(db, "studyMaterials", currentDept, "Materials", resourceId);
+            targetDept = currentResource.courseCode.slice(0, 3).toUpperCase();
+            const matRef = doc(db, "studyMaterials", targetDept, "Materials", resourceId);
             matSnap = await getDoc(matRef);
           } else {
             const discRef = doc(db, "discussions", resourceId);
@@ -304,7 +318,8 @@ const ResourcePage = () => {
               if (discData.materialRef) {
                 matSnap = await getDoc(discData.materialRef);
               } else if (discData.deptId) {
-                const matRef = doc(db, "studyMaterials", discData.deptId, "Materials", resourceId);
+                targetDept = discData.deptId;
+                const matRef = doc(db, "studyMaterials", targetDept, "Materials", resourceId);
                 matSnap = await getDoc(matRef);
               }
             }
@@ -313,6 +328,19 @@ const ResourcePage = () => {
           if (matSnap && matSnap.exists()) {
             currentResource = { id: matSnap.id, ...matSnap.data() };
             setResourceData(currentResource); 
+
+            // --- FETCH THE USER'S EXISTING RATING ON LOAD ---
+            if (auth.currentUser && targetDept) {
+              try {
+                const userRatingRef = doc(db, "studyMaterials", targetDept, "Materials", resourceId, "ratings", auth.currentUser.uid);
+                const userRatingSnap = await getDoc(userRatingRef);
+                if (userRatingSnap.exists()) {
+                  setRatings((prev) => ({ ...prev, [auth.currentUser.email]: userRatingSnap.data().rating }));
+                }
+              } catch (err) {
+                console.error("Error fetching previous user rating", err);
+              }
+            }
           }
         } catch (error) {
           console.error("Error fetching full material data:", error);
@@ -905,7 +933,6 @@ const ResourcePage = () => {
               <div>
                 <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2 flex-wrap">
                   {resourceData?.resourceTitle || "Resource Title"}
-                  {/* --- TEACHER APPROVED BADGE --- */}
                   {resourceData?.isApproved && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-bold border border-green-200">
                       <ShieldCheck size={14} /> Teacher Approved
@@ -917,7 +944,6 @@ const ResourcePage = () => {
                 </p>
               </div>
               <div className="flex items-center gap-3 mt-4 sm:mt-0">
-                {/* --- TEACHER APPROVE BUTTON --- */}
                 {currentUserProfile.role === "teacher" && !resourceData?.isApproved && (
                   <button
                     onClick={handleApprove}
@@ -928,7 +954,6 @@ const ResourcePage = () => {
                   </button>
                 )}
 
-                {/* --- REPORT BUTTON --- */}
                 <button
                   onClick={handleReportAction}
                   className="p-2.5 bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 rounded-lg transition"
@@ -1307,7 +1332,6 @@ const ResourcePage = () => {
         </div>
       </div>
 
-      {/* --- REPORT MODAL FOR STUDENTS --- */}
       {isReportModalOpen && createPortal(
         <>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
