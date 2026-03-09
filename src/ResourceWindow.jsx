@@ -237,8 +237,10 @@ const ResourcePage = () => {
       }));
 
       prefetchedRepliesRef.current[commentId] = replies; // store in ref to avoid unnecessary re-renders
+      return replies;
     } catch (err) {
       console.error("Error prefetching replies:", err);
+      return[];
     }
   };
 
@@ -270,7 +272,7 @@ const ResourcePage = () => {
 
           return {
             ...newComment,
-            replies: existing?.replies ?? null,
+            replies: existing?.replies ||cached || null,
           };
         });
       });
@@ -303,10 +305,10 @@ const ResourcePage = () => {
       );
     } else {
       // If not in cache, trigger the fetch manually
-      prefetchReplies(commentId).then((replies) => {
+      prefetchReplies(commentId).then((fetchedReplies) => {
         setComments((prev) =>
           prev.map((c) =>
-            c.id === commentId ? { ...c, replies: replies || [] } : c,
+            c.id === commentId ? { ...c, replies: fetchedReplies || [] } : c,
           ),
         );
       });
@@ -541,9 +543,41 @@ const ResourcePage = () => {
   };
 
   // Delete Comment
-  const deleteComment = async (ref) => {
+  const deleteComment = async (item, isReply = false, parentId = null) => {
     try {
-      await deleteDoc(ref);
+      await deleteDoc(item.ref);
+
+      if (isReply && parentId) {
+        const commentRef = doc(materialRef, "comments", parentId);
+        await updateDoc(commentRef, { repliesCount: increment(-1) });
+      }
+
+      setComments((prev) => {
+      if (!isReply) {
+        // Remove top-level comment
+        return prev.filter((c) => c.id !== item.id);
+      } else {
+        // Remove reply from within a comment
+        return prev.map((c) => {
+          if (c.id === parentId) {
+            return {
+              ...c,
+              repliesCount: Math.max(0, (c.repliesCount || 1) - 1),
+              replies: c.replies ? c.replies.filter((r) => r.id !== item.id) : null,
+            };
+          }
+          return c;
+        });
+      }
+    });
+
+    // 4. Update the Cache Ref
+    if (isReply && parentId && prefetchedRepliesRef.current[parentId]) {
+      prefetchedRepliesRef.current[parentId] = prefetchedRepliesRef.current[parentId].filter(
+        (r) => r.id !== item.id
+      );
+    }
+
     } catch (err) {
       console.error("Delete failed", err);
     }
@@ -592,7 +626,7 @@ const ResourcePage = () => {
               {c.userEmail === currentUserEmail && (
                 <button
                   className="text-red-500 hover:underline"
-                  onClick={() => deleteComment(c.ref)}
+                  onClick={() => deleteComment(c, false)}
                 >
                   Delete
                 </button>
@@ -641,7 +675,7 @@ const ResourcePage = () => {
                         {r.userEmail === currentUserEmail && (
                           <button
                             className="text-red-500 hover:underline"
-                            onClick={() => deleteComment(r.ref)}
+                            onClick={() => deleteComment(r, true, c.id)}
                           >
                             Delete
                           </button>

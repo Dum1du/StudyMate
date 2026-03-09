@@ -9,6 +9,7 @@ import {
   limit,
   getDocs,
   collection,
+  startAfter,
 } from "firebase/firestore";
 import { db, auth } from "../firebase.js";
 import Discuss from "../Discuss.jsx";
