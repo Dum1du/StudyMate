@@ -13,7 +13,6 @@ export default function Navbar() {
   const [profilePic, setProfilePic] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   
-  
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
@@ -112,38 +111,38 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* RIGHT: Bell + Profile */}
-        <div className="hidden md:flex items-center space-x-4">
+        {/* RIGHT ACTIONS: Bell + Profile + Menu */}
+        <div className="flex items-center space-x-4">
+          
+          {/* Notification Bell (Visible on both Desktop and Mobile) */}
           <NotificationWrapper />
           
-          {/* Conditional rendering: Only show profile if not loading and user exists */}
+          {/* Desktop Profile (Hidden on Mobile) */}
           {!loading && (
-            <Link to="/userProfile">
-              <div className="flex items-center space-x-2">
-                <img
-                  src={
-                    profilePic ||
-                    "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
-                  }
-                  alt="User"
-                  className="w-8 h-8 rounded-full object-cover border-0"
-                />
-                <div className="text-sm leading-tight">
-                  <p className="font-medium">{username || "User"}</p>
-                  <p className="text-xs text-gray-200">{email}</p>
-                </div>
+            <Link to="/userProfile" className="hidden md:flex items-center space-x-2">
+              <img
+                src={
+                  profilePic ||
+                  "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
+                }
+                alt="User"
+                className="w-8 h-8 rounded-full object-cover border-0"
+              />
+              <div className="text-sm leading-tight">
+                <p className="font-medium">{username || "User"}</p>
+                <p className="text-xs text-gray-200">{email}</p>
               </div>
             </Link>
           )}
-        </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden p-2 rounded hover:bg-blue-700"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+          {/* Mobile Menu Button (Hidden on Desktop) */}
+          <button
+            className="md:hidden p-2 rounded hover:bg-blue-700 transition-colors"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            {isOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* BACKDROP (faded background) */}

@@ -13,7 +13,7 @@ import {
   collectionGroup,
   getDoc
 } from "firebase/firestore";
-import { Bell} from "lucide-react"; 
+import { Bell } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
 
 function NotificationWrapper() {
@@ -31,6 +31,7 @@ function NotificationWrapper() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       
+      // If user logs in, fetch their settings
       if (currentUser) {
         try {
           const userDocRef = doc(db, "users", currentUser.uid);
@@ -101,13 +102,11 @@ function NotificationWrapper() {
       const clickedNotif = notifications.find(n => n.id === path);
 
       if (clickedNotif) {
-        // Handle Routing Based on Notification Type
         if (clickedNotif.type === "notice") {
           setIsOpen(false);
-          navigate("/noticeboard");
+          navigate("/noticeboard")
         } else if (clickedNotif.type === "comment" || clickedNotif.type === "reply") {
           setIsOpen(false);
-          // Route directly to the resource page using the targetId (which is the resourceId)
           navigate(`/material/${clickedNotif.targetId}`);
         }
       }
@@ -148,8 +147,9 @@ function NotificationWrapper() {
         )}
       </button>
 
+      {/* FIXED POSITIONING: Adjusted for mobile to not overflow the left edge! */}
       {isOpen && (
-        <div className="absolute top-8 right-0 z-50">
+        <div className="absolute top-10 -right-12 md:-right-2 z-50 origin-top-right">
           <NotificationDropdown
             notifications={isNotifEnabled ? notifications : []}
             onClear={handleClear}
