@@ -81,13 +81,15 @@ export default function BrowseResources() {
   const fuse = useMemo(() => {
     return new Fuse(recentResources, {
       keys: [
-        "resourceTitle",
-        "description",
-        "tags",
-        "courseSubject",
-        "courseCode",
-      ],
-      threshold: 0.4,
+      { name: "resourceTitle", weight: 0.4 },
+      { name: "courseCode", weight: 0.25 },
+      { name: "tags", weight: 0.2 },
+      { name: "courseSubject", weight: 0.1 },
+      { name: "description", weight: 0.05 },
+    ],
+    threshold: 0.4,
+    includeScore: true,
+    ignoreLocation: true,
       getFn: (item, path) => {
         const value = item[path];
         if (Array.isArray(value)) return value.map((v) => v.trim());
@@ -98,60 +100,87 @@ export default function BrowseResources() {
 
   // Debounce search input
   useEffect(() => {
-    const handler = setTimeout(async () => {
-      if (!search.trim()) {
-        setFiltered(recentResources);
-      } else {
-        setLoading(true);
+  const handler = setTimeout(async () => {
+    const term = search.trim();
 
-        let results = fuse.search(search).map((r) => r.item);
+    if (!term) {
+      setFiltered(recentResources);
+      return;
+    }
 
-        if (results.length === 0) {
-          try {
-            const q = query(
-              collectionGroup(db, "Materials"),
-              orderBy("createdAt", "desc"),
-            );
+    setLoading(true);
 
-            const snapshot = await getDocs(q);
-            const allDocs = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
+    try {
+      // 1️⃣ Always search locally first
+      const localResults = fuse
+  .search(term)
+  .sort((a, b) => a.score - b.score)
+  .map((r) => r.item);
 
-            //fused search on all docs
-            const fullFuse = new Fuse(allDocs, {
-              keys: [
-                "resourceTitle",
-                "description",
-                "tags",
-                "courseSubject",
-                "courseCode",
-              ],
-              threshold: 0.4,
-            });
-
-            results = fullFuse.search(search).map((r) => r.item);
-          } catch (err) {
-            console.error("Error searching all resources:", err);
-            // REPLACED SILENT CONSOLE ERROR WITH VISUAL ALERT
-            setAlertConfig({
-              isOpen: true,
-              title: "Search Error",
-              message:
-                "Failed to search the database. Please check your connection and try again.",
-              type: "error",
-            });
-          }
-        }
-        setFiltered(results);
-        setCurrentPage(1);
+      // If search term is too short → skip Firestore
+      if (term.length < 3) {
+        setFiltered(localResults);
         setLoading(false);
+        return;
       }
-    }, 400);
 
-    return () => clearTimeout(handler);
-  }, [search, fuse, recentResources]);
+      // 2️⃣ Fetch from Firestore only if >= 3 characters
+      const q = query(
+        collectionGroup(db, "Materials"),
+        orderBy("createdAt", "desc")
+      );
+
+      const snapshot = await getDocs(q);
+
+      const allDocs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // 3️⃣ Fuse search on full dataset
+      const fullFuse = new Fuse(allDocs, {
+        keys: [
+      { name: "resourceTitle", weight: 0.4 },
+      { name: "courseCode", weight: 0.25 },
+      { name: "tags", weight: 0.2 },
+      { name: "courseSubject", weight: 0.1 },
+      { name: "description", weight: 0.05 },
+    ],
+    threshold: 0.4,
+    includeScore: true,
+    ignoreLocation: true,
+      });
+
+      const firestoreResults = fullFuse
+  .search(term)
+  .sort((a, b) => a.score - b.score)
+  .map((r) => r.item);
+
+      // 4️⃣ Merge + remove duplicates
+      const combined = [...localResults, ...firestoreResults];
+      const unique = Array.from(
+        new Map(combined.map((item) => [item.id, item])).values()
+      );
+
+      setFiltered(unique);
+      setCurrentPage(1);
+    } catch (err) {
+      console.error("Error searching resources:", err);
+
+      setAlertConfig({
+        isOpen: true,
+        title: "Search Error",
+        message:
+          "Failed to search the database. Please check your connection and try again.",
+        type: "error",
+      });
+    }
+
+    setLoading(false);
+  }, 400);
+
+  return () => clearTimeout(handler);
+}, [search, fuse, recentResources]);
 
   // ADD PAGINATION STATE
   useEffect(() => {

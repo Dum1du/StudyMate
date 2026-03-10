@@ -9,12 +9,17 @@ import {
   limit,
   getDocs,
   collection,
+  startAfter,
+  setDoc,
+  addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../firebase.js";
 import Discuss from "../Discuss.jsx";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import AlertModal from "../AlertModal"; // <-- Imported AlertModal
 import { useNavigate } from "react-router";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 function Discussion() {
   const [materials, setMaterials] = useState([]);
@@ -25,6 +30,11 @@ function Discussion() {
     photoURL: "",
   });
   const [userProfiles, setUserProfiles] = useState({}); // Stores { uid: { displayName, profilePicture } }
+
+  const [discussionText, setDiscussionText] = useState("");
+const [selectedDoc, setSelectedDoc] = useState(null);
+const [myDocuments, setMyDocuments] = useState([]);
+const [loadingDocs, setLoadingDocs] = useState(true);
 
   const PAGE_SIZE = 8;
 
@@ -57,6 +67,135 @@ function Discussion() {
       alert("Could not load the resource details.");
     }
   };
+
+  useEffect(() => {
+  const auth = getAuth();
+
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) {
+      setCurrentUser(user);
+    }
+
+    const fetchUserProfile = async (user) => {
+    const userDocRef = doc(db, "users", user?.uid);
+    const userSnap = await getDoc(userDocRef);
+
+    if(userSnap.exists()) {
+      const data = userSnap.data();
+
+      setCurrentUserProfile({
+        displayName: data.displayName || "Unknown User",
+        photoURL: data.profilePicture || `https://ui-avatars.com/api/?name=${data.displayName || "User"}`,
+      });
+    }
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
+
+  useEffect(() => {
+    console.log("Current user in Discussions:", auth.currentUser);
+  const fetchSavedDocuments = async () => {
+    setLoadingDocs(true);
+    try {
+      const savedRef = collection(
+        db,
+        "users",
+        currentUser.uid,
+        "savedResources"
+      );
+
+      const snapshot = await getDocs(savedRef);
+
+      const docs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setMyDocuments(docs);
+    } catch (err) {
+      console.error("Error loading saved documents:", err);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
+
+  if (currentUser?.uid) fetchSavedDocuments();
+}, [currentUser]);
+
+const showAlert = (message, title = "Notice", type = "info") => {
+  setAlertConfig({
+    isOpen: true,
+    title,
+    message,
+    type,
+    onConfirm: null,
+  });
+};
+
+
+const createDiscussion = async () => {
+  if (!discussionText || !selectedDoc) {
+    showAlert("Please add message and select document");
+    return;
+  }
+
+  console.log("Creating discussion for doc:", selectedDoc.resourceTitle);
+  const deptId = selectedDoc.courseCode? selectedDoc.courseCode.slice(0, 3).toUpperCase() : "DEFAULT"; // Assuming doc ID format is "deptId_docId"
+  const materialId = selectedDoc.id;
+try {
+  const discussionRef = doc(db, "discussions", materialId);
+const discussionSnap = await getDoc(discussionRef);
+
+if (discussionSnap.exists()) {
+  showAlert("Discussion already exists for this document");
+  return;
+}
+
+  
+    const materialRef = doc(db, "studyMaterials", deptId, "Materials", materialId); //3PaO2p8yO2GURaAeNaQG"
+
+    const materialSnap = await getDoc(materialRef);
+
+    if (!materialSnap.exists()) {
+      showAlert("Document not found", "Error", "error");
+      return;
+    }
+
+    const materialData = materialSnap.data();
+
+    // add first comment
+    const commentsRef = collection(materialRef, "comments");
+const firstCommentDoc = await addDoc(commentsRef, {
+      text: discussionText,
+      userName: currentUserProfile.displayName || "Unknown User",
+      userEmail: currentUser.email,
+      userProfile: currentUserProfile.photoURL||`https://ui-avatars.com/api/?name=${currentUserProfile.displayName || "User"}`,
+      createdAt: serverTimestamp(),
+    });
+
+    // Create discussion document in discussions collection
+    await setDoc(discussionRef, {
+      courseCode: materialData.courseCode,
+      createdAt: serverTimestamp(),
+      creatorName: currentUserProfile.displayName || "Unknown User",
+      creatorImage: currentUserProfile.photoURL||`https://ui-avatars.com/api/?name=${currentUserProfile.displayName || "User"}`,
+      deptId: deptId,
+      firstCommentId: firstCommentDoc.id,
+      firstCommentText: discussionText,
+      materialId: materialId,
+      materialRef: materialRef,
+      resourceTitle: materialData.resourceTitle,
+    });
+
+    showAlert("Discussion created successfully", "Success", "success");
+
+  } catch (err) {
+    console.error(err);
+    showAlert("Something went wrong while creating the discussion.", "Error", "error");
+  }
+};
 
   // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({
@@ -182,6 +321,44 @@ function Discussion() {
         <h2 className="text-3xl font-bold text-blue-900 mb-6">
           Study Discussion Wall
         </h2>
+
+        <div className="bg-white p-5 rounded-xl shadow mb-6">
+  <h3 className="text-xl font-semibold text-blue-900 mb-3">
+    Start a Discussion
+  </h3>
+
+  <textarea
+    placeholder="What do you want to discuss about this document?"
+    value={discussionText}
+    onChange={(e) => setDiscussionText(e.target.value)}
+    className="w-full border rounded-lg p-3 mb-3"
+  />
+
+  {/* document selector */}
+  <select
+    className="w-full border rounded-lg p-3 mb-3"
+    onChange={(e) => {
+      const docId = e.target.value;
+      const selected = myDocuments.find((doc) => doc.id === docId);
+      setSelectedDoc(selected);
+    }}
+  >
+    <option value="">Select a document</option>
+    {loadingDocs && <option className="animate-pulse">Loading documents...</option>}
+    {myDocuments.map((doc) => (
+      <option key={doc.id} value={doc.id}>
+        {doc.resourceTitle}
+      </option>
+    ))}
+  </select>
+
+  <button
+    onClick={createDiscussion}
+    className="bg-blue-900 text-white px-4 py-2 rounded-lg"
+  >
+    Create Discussion
+  </button>
+</div>
 
         {loading && (
           <div className="blur-sm animate-pulse">
