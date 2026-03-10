@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu, Flag } from "lucide-react"; // Added Flag icon
+import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu, Flag } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
 import { 
   collection, 
@@ -14,13 +14,14 @@ import {
   query,
   limit,
   startAfter,
-  orderBy
+  onSnapshot,
+  orderBy // <-- IMPORTED orderBy
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import AlertModal from "../AlertModal";
+import axios from "axios";
 
-// SearchBar
 const SearchBar = ({ placeholder, searchTerm, setSearchTerm }) => (
   <div className="mb-4 relative flex-shrink-0">
     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -34,7 +35,6 @@ const SearchBar = ({ placeholder, searchTerm, setSearchTerm }) => (
   </div>
 );
 
-// PaginationControls
 const PaginationControls = ({ totalPages, totalCount, currentPage, handlePrevPage, handleNextPage, hasNextPage }) => {
   if (totalCount === 0) return null;
   return (
@@ -117,7 +117,6 @@ export default function AdminDashboard() {
   const [loadingNotices, setLoadingNotices] = useState(false);
   const [viewNotice, setViewNotice] = useState(null);
 
-  // --- REPORTS STATE ---
   const [reportsList, setReportsList] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
 
@@ -221,12 +220,13 @@ export default function AdminDashboard() {
     finally { setLoadingUsers(false); }
   };
 
+  // --- FIXED: ADDED orderBy("createdAt", "desc") ---
   const loadMaterialsPage = async (pageIndex) => {
     setLoadingMaterials(true);
     try {
-      let q = query(collectionGroup(db, "Materials"), limit(itemsPerPage));
+      let q = query(collectionGroup(db, "Materials"), orderBy("createdAt", "desc"), limit(itemsPerPage));
       if (materialsCursors[pageIndex - 1]) {
-        q = query(collectionGroup(db, "Materials"), startAfter(materialsCursors[pageIndex - 1]), limit(itemsPerPage));
+        q = query(collectionGroup(db, "Materials"), orderBy("createdAt", "desc"), startAfter(materialsCursors[pageIndex - 1]), limit(itemsPerPage));
       }
       
       const snap = await getDocs(q);
@@ -278,31 +278,37 @@ export default function AdminDashboard() {
   }, [activeTab]);
 
   useEffect(() => {
-    const fetchNotices = async () => {
-      if (activeTab !== "notices") return;
-      setLoadingNotices(true);
-      try {
-        const querySnapshot = await getDocs(collection(db, "notices"));
-        setNoticesList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      } catch (error) { console.error("Error fetching notices:", error); } 
-      finally { setLoadingNotices(false); }
-    };
-    fetchNotices();
+    if (activeTab !== "notices") return;
+    setLoadingNotices(true);
+    
+    const unsubscribe = onSnapshot(collection(db, "notices"), (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      fetched.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      setNoticesList(fetched);
+      setLoadingNotices(false);
+    }, (error) => {
+      console.error("Error fetching notices:", error);
+      setLoadingNotices(false);
+    });
+
+    return () => unsubscribe();
   }, [activeTab]);
 
-  // --- FETCH REPORTS ---
   useEffect(() => {
-    const fetchReports = async () => {
-      if (activeTab !== "reports") return;
-      setLoadingReports(true);
-      try {
-        const q = query(collection(db, "reportedMaterials"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        setReportsList(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      } catch (error) { console.error("Error fetching reports:", error); } 
-      finally { setLoadingReports(false); }
-    };
-    fetchReports();
+    if (activeTab !== "reports") return;
+    setLoadingReports(true);
+    
+    const unsubscribe = onSnapshot(collection(db, "reportedMaterials"), (snapshot) => {
+      const fetched = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      fetched.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      setReportsList(fetched);
+      setLoadingReports(false);
+    }, (error) => {
+      console.error("Error fetching reports:", error);
+      setLoadingReports(false);
+    });
+
+    return () => unsubscribe();
   }, [activeTab]);
 
 
@@ -313,29 +319,44 @@ export default function AdminDashboard() {
       message: `Are you sure you want to remove ${userName || "this user"}?`,
       type: "warning",
       onConfirm: async () => {
+        closeAlert(); 
         try {
           await deleteDoc(doc(db, "users", userId));
           setUsersList(usersList.filter(user => user.id !== userId));
           setSearchResults(prev => prev.filter(user => user.id !== userId)); 
-          closeAlert(); 
         } catch (error) { console.error("Error:", error); }
       }
     });
   };
 
   const handleDeleteMaterial = (material) => {
+    const diptId = material.courseCode ? material.courseCode.slice(0, 3).toUpperCase() : "";
+
     setAlertConfig({
       isOpen: true,
       title: "Delete Material",
-      message: `Are you sure you want to delete "${material.resourceTitle}"?`,
+      message: `Are you sure you want to delete "${material.resourceTitle}"? This will permanently delete the file from Google Drive as well.`,
       type: "warning",
       onConfirm: async () => {
+        closeAlert();
         try {
-          await deleteDoc(material.ref);
+          const token = await auth.currentUser.getIdToken();
+          await axios.delete(`http://localhost:4000/delete-upload/${material.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { diptId }
+          });
+
+          // --- FIXED: Delete discussion associated with this material ---
+          await deleteDoc(doc(db, "discussions", material.id));
+
           setMaterialsList(materialsList.filter(m => m.id !== material.id));
           setSearchResults(prev => prev.filter(m => m.id !== material.id)); 
-          closeAlert();
-        } catch (error) { console.error("Error:", error); }
+          
+          setAlertConfig({ isOpen: true, title: "Success", message: "Material deleted successfully.", type: "success" });
+        } catch (error) { 
+          console.error("Error deleting material:", error); 
+          setAlertConfig({ isOpen: true, title: "Error", message: "Failed to delete the material.", type: "error" });
+        }
       }
     });
   };
@@ -347,33 +368,59 @@ export default function AdminDashboard() {
       message: `Are you sure you want to delete the session "${sessionTitle}"?`,
       type: "warning",
       onConfirm: async () => {
+        closeAlert();
         try {
           await deleteDoc(doc(db, "sessions", sessionId));
           setKuppiList(kuppiList.filter(session => session.id !== sessionId));
           setSearchResults(prev => prev.filter(session => session.id !== sessionId)); 
-          closeAlert();
         } catch (error) { console.error("Error:", error); }
       }
     });
   };
 
-  const handleDeleteNotice = (noticeId) => {
+  const handleDeleteNotice = (notice) => {
     setAlertConfig({
       isOpen: true,
       title: "Delete Notice",
-      message: "Are you sure you want to delete this notice permanently?",
+      message: "Are you sure you want to delete this notice permanently? The author will be notified.",
       type: "warning",
       onConfirm: async () => {
+        closeAlert();
         try {
-          await deleteDoc(doc(db, "notices", noticeId));
-          setNoticesList(noticesList.filter(n => n.id !== noticeId));
-          closeAlert();
+          await deleteDoc(doc(db, "notices", notice.id));
+
+          if (notice.authorId && notice.authorId !== "Anonymous") {
+            const timestamp = serverTimestamp();
+            const batch = writeBatch(db);
+            const mainNotifRef = doc(collection(db, "notifications"));
+
+            batch.set(mainNotifRef, {
+              title: "Notice Deleted",
+              message: `Your notice "${notice.title}" was deleted by an administrator.`,
+              createdAt: timestamp,
+              type: "notice", 
+              targetId: null
+            });
+
+            const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", notice.authorId);
+            
+            batch.set(userNotifRef, {
+              userId: notice.authorId,
+              message: `Your notice "${notice.title}" was deleted by an administrator.`,
+              read: false,
+              createdAt: timestamp,
+              type: "notice",
+              targetId: null
+            });
+
+            await batch.commit();
+          }
+
         } catch (error) { console.error("Error deleting notice:", error); }
       }
     });
   };
 
-  // --- REPORTS ACTIONS ---
   const handleDismissReport = (reportId) => {
     setAlertConfig({
       isOpen: true,
@@ -381,10 +428,9 @@ export default function AdminDashboard() {
       message: "Are you sure you want to dismiss this report? The material will not be deleted.",
       type: "info",
       onConfirm: async () => {
+        closeAlert();
         try {
           await deleteDoc(doc(db, "reportedMaterials", reportId));
-          setReportsList(reportsList.filter(r => r.id !== reportId));
-          closeAlert();
         } catch (error) { console.error("Error dismissing report:", error); }
       }
     });
@@ -394,20 +440,40 @@ export default function AdminDashboard() {
     setAlertConfig({
       isOpen: true,
       title: "Delete Reported Material",
-      message: `Are you sure you want to delete the material "${report.resourceTitle}"? This will also close the report.`,
+      message: `Are you sure you want to delete the material "${report.resourceTitle}"? This will permanently delete the file from Google Drive and close the report.`,
       type: "warning",
       onConfirm: async () => {
+        closeAlert();
         try {
-          // Delete actual material from the exact path
-          const matRef = doc(db, "studyMaterials", report.deptId, "Materials", report.materialId);
-          await deleteDoc(matRef);
+          const token = await auth.currentUser.getIdToken();
           
-          // Delete report document
+          // 1. Delete material from Database & Drive via Backend
+          await axios.delete(`http://localhost:4000/delete-upload/${report.materialId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { diptId: report.deptId }
+          });
+          
+          // --- FIXED: Delete associated discussion ---
+          await deleteDoc(doc(db, "discussions", report.materialId));
+
+          // 2. Delete the report itself from the system
           await deleteDoc(doc(db, "reportedMaterials", report.id));
           
           setReportsList(reportsList.filter(r => r.id !== report.id));
-          closeAlert();
-        } catch (error) { console.error("Error deleting reported material:", error); }
+          setAlertConfig({ isOpen: true, title: "Success", message: "Reported material successfully removed.", type: "success" });
+
+        } catch (error) { 
+          console.error("Error deleting reported material:", error); 
+          if(error.response?.status === 404) {
+             // File already gone, but we should still clean up discussion and report
+             await deleteDoc(doc(db, "discussions", report.materialId));
+             await deleteDoc(doc(db, "reportedMaterials", report.id));
+             setReportsList(reportsList.filter(r => r.id !== report.id));
+             setAlertConfig({ isOpen: true, title: "Cleaned Up", message: "File was already missing. Report has been closed.", type: "info" });
+          } else {
+             setAlertConfig({ isOpen: true, title: "Error", message: "Failed to delete the reported material.", type: "error" });
+          }
+        }
       }
     });
   };
@@ -466,8 +532,6 @@ export default function AdminDashboard() {
       
       const approvedNotice = noticesList.find(n => n.id === noticeId);
       const noticeTitle = approvedNotice ? approvedNotice.title : "Check the Notice Board";
-
-      setNoticesList(noticesList.map(n => n.id === noticeId ? { ...n, status: "approved" } : n));
       
       setAlertConfig({
         isOpen: true,
@@ -498,7 +562,6 @@ export default function AdminDashboard() {
   return (
     <div className="flex h-screen bg-gray-100 font-sans overflow-hidden">
       
-      {/* --- MOBILE OVERLAY --- */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 md:hidden" 
@@ -506,7 +569,6 @@ export default function AdminDashboard() {
         />
       )}
 
-      {/* --- SIDEBAR (Responsive) --- */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
           <h1 className="text-xl sm:text-2xl font-bold text-blue-400">StudyMate Admin</h1>
@@ -544,7 +606,6 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="bg-white shadow-sm p-4 md:p-6 flex justify-between items-center z-10 shrink-0">
           <div className="flex items-center gap-3">
@@ -560,7 +621,6 @@ export default function AdminDashboard() {
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           
-          {/* ----- DASHBOARD TAB ----- */}
           {activeTab === "dashboard" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-gray-100">
@@ -582,7 +642,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ----- USERS TAB ----- */}
           {activeTab === "users" && (
             <div className="flex flex-col h-full">
               <SearchBar 
@@ -657,7 +716,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ----- MATERIALS TAB ----- */}
           {activeTab === "materials" && (
             <div className="flex flex-col h-full">
               <SearchBar 
@@ -731,7 +789,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ----- KUPPI SESSIONS TAB ----- */}
           {activeTab === "kuppi" && (
             <div className="flex flex-col h-full">
               <SearchBar 
@@ -801,7 +858,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ----- NOTICES TAB ----- */}
           {activeTab === "notices" && (
             <div className="flex flex-col h-full">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
@@ -832,7 +888,10 @@ export default function AdminDashboard() {
                                 <p className="text-xs md:text-sm text-gray-800 truncate max-w-[120px]">{notice.authorName}</p>
                               </td>
                               <td className="p-3 md:p-4">
-                                <span className={`px-2 md:px-3 py-1 text-[10px] md:text-xs font-semibold rounded-full ${notice.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                <span className={`px-2 md:px-3 py-1 text-[10px] md:text-xs font-semibold rounded-full ${
+                                  notice.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                  'bg-yellow-100 text-yellow-700'
+                                }`}>
                                   {notice.status || 'pending'}
                                 </span>
                               </td>
@@ -853,10 +912,11 @@ export default function AdminDashboard() {
                                     <CheckCircle size={16} className="md:w-[18px] md:h-[18px]" />
                                   </button>
                                 )}
+                                
                                 <button 
-                                  onClick={() => handleDeleteNotice(notice.id)} 
+                                  onClick={() => handleDeleteNotice(notice)} 
                                   className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
-                                  title="Delete Notice"
+                                  title="Delete Notice Permanently"
                                 >
                                   <Trash2 size={16} className="md:w-[18px] md:h-[18px]" />
                                 </button>
@@ -872,7 +932,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ----- REPORTS TAB ----- */}
           {activeTab === "reports" && (
             <div className="flex flex-col h-full">
               <div className="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden flex flex-col">
@@ -907,7 +966,6 @@ export default function AdminDashboard() {
                                 <p className="text-[10px] text-gray-500 truncate">{report.reportedByEmail}</p>
                               </td>
                               <td className="p-3 md:p-4 flex justify-center gap-1 md:gap-2 items-center">
-                                {/* Navigate to the Material Page directly! */}
                                 <button 
                                   onClick={() => navigate(`/material/${report.materialId}`)} 
                                   className="p-1.5 md:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
@@ -916,7 +974,6 @@ export default function AdminDashboard() {
                                   <Eye size={16} className="md:w-[18px] md:h-[18px]" />
                                 </button>
                                 
-                                {/* Delete Both Material and Report */}
                                 <button 
                                   onClick={() => handleDeleteReportedMaterial(report)} 
                                   className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
@@ -925,7 +982,6 @@ export default function AdminDashboard() {
                                   <Trash2 size={16} className="md:w-[18px] md:h-[18px]" />
                                 </button>
 
-                                {/* Dismiss Report Only */}
                                 <button 
                                   onClick={() => handleDismissReport(report.id)} 
                                   className="p-1.5 md:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" 
@@ -948,7 +1004,6 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* ----- VIEW NOTICE MODAL ----- */}
       {viewNotice && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl p-5 md:p-6 max-w-lg w-full shadow-xl relative transform transition-all animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
@@ -962,7 +1017,10 @@ export default function AdminDashboard() {
               {viewNotice.title}
             </h2>
             <div className="flex items-center gap-2 mb-4 shrink-0">
-              <span className={`px-2 py-0.5 text-[10px] md:text-xs font-semibold rounded-full ${viewNotice.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+              <span className={`px-2 py-0.5 text-[10px] md:text-xs font-semibold rounded-full ${
+                viewNotice.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                'bg-yellow-100 text-yellow-700'
+              }`}>
                 {viewNotice.status || 'pending'}
               </span>
               <span className="text-[10px] md:text-xs text-gray-500 font-medium">
@@ -997,7 +1055,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}

@@ -25,6 +25,7 @@ import { auth, db } from "./firebase";
 import { FaStar, FaPaperPlane } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
 import AlertModal from "./AlertModal"; 
+import axios from "axios"; // <-- IMPORTED AXIOS
 
 const ResourcePage = () => {
   const { resourceId } = useParams();
@@ -70,7 +71,7 @@ const ResourcePage = () => {
   const averageRating = resourceData?.avgRating || 0;
   const ratingCount = resourceData?.ratingCount || 0;
   const currentUser = auth.currentUser;
-  const [ratings, setRatings] = useState({}); // We will populate this on load
+  const [ratings, setRatings] = useState({}); 
   const prefetchedRepliesRef = useRef({});
 
   const [alertConfig, setAlertConfig] = useState({ 
@@ -153,7 +154,6 @@ const ResourcePage = () => {
     }
   };
 
-  // --- REAL-TIME RATING UPDATE LOGIC ---
   const handleRate = async (star) => {
     if (!auth.currentUser) {
       setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to rate this resource.", type: "warning" });
@@ -191,7 +191,6 @@ const ResourcePage = () => {
         transaction.set(ratingRef, { rating: star });
       });
 
-      // Update UI state instantly to show changes without refreshing
       setResourceData((prev) => ({
         ...prev,
         avgRating: updatedAvg,
@@ -225,6 +224,7 @@ const ResourcePage = () => {
     }
   };
 
+  // --- FIXED: TEACHER DELETE VIA BACKEND & DELETE DISCUSSION ---
   const handleReportAction = () => {
     if (!auth.currentUser) {
       setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to report resources.", type: "warning" });
@@ -235,12 +235,24 @@ const ResourcePage = () => {
       setAlertConfig({
         isOpen: true,
         title: "Delete Material",
-        message: "As a teacher, reporting this material will permanently delete it from the system immediately. Are you sure?",
+        message: "As a teacher, reporting this material will permanently delete it from Google Drive, remove it from the system, and delete its discussion. Are you sure?",
         type: "warning",
         onConfirm: async () => {
           closeAlert();
           try {
-            await deleteDoc(materialRef);
+            const token = await auth.currentUser.getIdToken();
+            
+            // 1. Call Backend to delete from Drive and delete Material Doc
+            await axios.delete(`http://localhost:4000/delete-upload/${resourceId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+              params: { diptId: dept }
+            });
+
+            // 2. Delete the associated Discussion document
+            const discussionRef = doc(db, "discussions", resourceId);
+            await deleteDoc(discussionRef);
+
+            // 3. Go back to browse page
             navigate("/browseresources");
           } catch (error) {
             console.error("Error deleting material:", error);
@@ -299,7 +311,7 @@ const ResourcePage = () => {
     const fetchEverything = async () => {
       setLoading(true);
       let currentResource = resourceData ? { ...resourceData } : null;
-      let targetDept = dept; // Remember the valid department prefix
+      let targetDept = dept; 
 
       if (resourceId) {
         try {
@@ -329,7 +341,6 @@ const ResourcePage = () => {
             currentResource = { id: matSnap.id, ...matSnap.data() };
             setResourceData(currentResource); 
 
-            // --- FETCH THE USER'S EXISTING RATING ON LOAD ---
             if (auth.currentUser && targetDept) {
               try {
                 const userRatingRef = doc(db, "studyMaterials", targetDept, "Materials", resourceId, "ratings", auth.currentUser.uid);
