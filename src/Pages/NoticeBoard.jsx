@@ -11,8 +11,8 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
-  getDocs,       // <-- IMPORTED getDocs
-  writeBatch     // <-- IMPORTED writeBatch
+  getDocs,       
+  writeBatch     
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { db, auth } from "../firebase";
@@ -43,7 +43,6 @@ function NoticeBoard() {
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
 
-  // --- FETCH USER ROLE ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -61,7 +60,6 @@ function NoticeBoard() {
     return () => unsubscribe();
   }, []);
 
-  // --- FETCH APPROVED NOTICES ---
   useEffect(() => {
     const q = query(
       collection(db, "notices"),
@@ -89,7 +87,6 @@ function NoticeBoard() {
     return () => unsubscribe();
   }, []);
 
-  // --- FETCH PENDING NOTICES (TEACHERS ONLY) ---
   useEffect(() => {
     if (userRole !== "teacher") return;
 
@@ -112,7 +109,6 @@ function NoticeBoard() {
     return () => unsubscribe();
   }, [userRole]);
 
-  // --- NOTIFY ALL USERS HELPER ---
   const notifyAllUsers = async (noticeTitle, noticeId) => {
     try {
       const message = `New Notice: ${noticeTitle}`;
@@ -121,7 +117,6 @@ function NoticeBoard() {
       let batch = writeBatch(db);
       let count = 0;
 
-      // 1. Create the main notification document
       const mainNotifRef = doc(collection(db, "notifications"));
       batch.set(mainNotifRef, {
         title: "Notice Published",
@@ -132,10 +127,8 @@ function NoticeBoard() {
       });
       count++;
 
-      // 2. Fetch all registered users
       const usersSnap = await getDocs(collection(db, "users"));
 
-      // 3. Attach the notification to each user's inbox
       usersSnap.forEach((userDoc) => {
         const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", userDoc.id);
         
@@ -149,7 +142,6 @@ function NoticeBoard() {
         });
 
         count++;
-        // Firestore batches max out at 500 operations, so we commit and start a new batch if we hit 490
         if (count >= 490) {
           batch.commit();
           batch = writeBatch(db);
@@ -165,7 +157,6 @@ function NoticeBoard() {
     }
   };
 
-  // --- SUBMIT NOTICE ---
   const addNotice = async (e) => {
     e.preventDefault();
     if (!newNotice.trim() || !newDescription.trim()) return;
@@ -174,7 +165,6 @@ function NoticeBoard() {
     try {
       const finalStatus = userRole === "teacher" ? "approved" : "pending";
 
-      // Capture the newly created document reference
       const docRef = await addDoc(collection(db, "notices"), {
         title: newNotice,
         description: newDescription,
@@ -185,7 +175,6 @@ function NoticeBoard() {
         createdAt: serverTimestamp(),
       });
 
-      // If it was instantly published by a teacher, notify everyone!
       if (finalStatus === "approved") {
         notifyAllUsers(newNotice, docRef.id);
       }
@@ -215,32 +204,57 @@ function NoticeBoard() {
     }
   };
 
-  // --- TEACHER REVIEW ACTIONS ---
   const handleApprovePending = async (noticeId, noticeTitle) => {
     try {
       await updateDoc(doc(db, "notices", noticeId), { status: "approved" });
       setAlertConfig({ isOpen: true, title: "Approved", message: "Notice has been published to the board.", type: "success" });
-      
-      // Notify everyone now that it's approved!
       notifyAllUsers(noticeTitle, noticeId);
-
     } catch (error) {
       console.error("Error approving notice:", error);
     }
   };
 
-  const handleRejectPending = (noticeId) => {
+  // --- FIXED: Delete the document AND notify the author! ---
+  const handleRejectPending = (notice) => {
     setAlertConfig({
       isOpen: true,
       title: "Reject Notice",
-      message: "Are you sure you want to delete this pending notice?",
+      message: "Are you sure you want to reject this pending notice? It will be deleted and the student will be notified.",
       type: "warning",
       onConfirm: async () => {
         closeAlert();
         try {
-          await deleteDoc(doc(db, "notices", noticeId));
+          await deleteDoc(doc(db, "notices", notice.id));
+
+          if (notice.authorId && notice.authorId !== "Anonymous") {
+            const timestamp = serverTimestamp();
+            const batch = writeBatch(db);
+            const mainNotifRef = doc(collection(db, "notifications"));
+
+            batch.set(mainNotifRef, {
+              title: "Notice Rejected",
+              message: `Your notice "${notice.title}" was rejected by a teacher.`,
+              createdAt: timestamp,
+              type: "notice", // So it routes back to noticeboard if clicked
+              targetId: null
+            });
+
+            const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", notice.authorId);
+            
+            batch.set(userNotifRef, {
+              userId: notice.authorId,
+              message: `Your notice "${notice.title}" was rejected by a teacher and has been removed.`,
+              read: false,
+              createdAt: timestamp,
+              type: "notice",
+              targetId: null
+            });
+
+            await batch.commit();
+          }
+
         } catch (error) {
-          console.error("Error deleting notice:", error);
+          console.error("Error rejecting notice:", error);
         }
       }
     });
@@ -300,7 +314,6 @@ function NoticeBoard() {
         </div>
       </div>
 
-      {/* --- ADD NOTICE MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl relative animate-in fade-in zoom-in duration-200">
@@ -371,7 +384,6 @@ function NoticeBoard() {
         </div>
       )}
 
-      {/* --- REVIEW PENDING NOTICES MODAL (TEACHERS ONLY) --- */}
       {isReviewModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-xl relative animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
@@ -401,7 +413,6 @@ function NoticeBoard() {
                       <div className="flex justify-between items-start mb-2 gap-4">
                         <h3 className="font-bold text-gray-800 text-lg leading-tight">{notice.title}</h3>
                         <div className="flex gap-2 shrink-0">
-                          {/* PASSED notice.title AS ARGUMENT! */}
                           <button 
                             onClick={() => handleApprovePending(notice.id, notice.title)}
                             className="bg-green-100 text-green-700 hover:bg-green-200 p-2 rounded-lg transition"
@@ -409,8 +420,10 @@ function NoticeBoard() {
                           >
                             <CheckCircle size={18} />
                           </button>
+                          
+                          {/* WE NOW PASS THE ENTIRE NOTICE OBJECT TO REJECT */}
                           <button 
-                            onClick={() => handleRejectPending(notice.id)}
+                            onClick={() => handleRejectPending(notice)}
                             className="bg-red-100 text-red-600 hover:bg-red-200 p-2 rounded-lg transition"
                             title="Reject/Delete"
                           >
@@ -442,7 +455,6 @@ function NoticeBoard() {
         </div>
       )}
 
-      {/* --- VIEW FULL NOTICE MODAL --- */}
       {viewingNotice && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl relative animate-in fade-in zoom-in duration-200">

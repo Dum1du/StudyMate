@@ -18,7 +18,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth"; 
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import AlertModal from "../AlertModal"; 
 
 function KuppiSessions() {
   const [user, setUser] = useState(null);
@@ -31,7 +31,6 @@ function KuppiSessions() {
   const [q2, setQ2] = useState("");
   const [showSurvey, setShowSurvey] = useState(false);
 
-  // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -41,7 +40,14 @@ function KuppiSessions() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
+
+  // Get Local YYYY-MM-DD for the date picker minimum limit
+  const getLocalTodayDate = () => {
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    return today.toISOString().split("T")[0];
+  };
+  const minDate = getLocalTodayDate();
 
   // 1. LISTEN FOR USER AUTH CHANGES
   useEffect(() => {
@@ -61,7 +67,8 @@ function KuppiSessions() {
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach(async (document) => {
           const data = document.data();
-          if (data.time) {
+          // FIXED CRASH: Check if time is safely a string before parsing
+          if (data.time && typeof data.time === "string") {
             const sessionTime = new Date(data.time);
             if (sessionTime < cutoffTime) {
               await deleteDoc(doc(db, "sessions", document.id));
@@ -88,7 +95,6 @@ function KuppiSessions() {
     return () => unsubscribe();
   }, []);
 
-  // DELETE FUNCTION (UPGRADED WITH CUSTOM CONFIRMATION MODAL)
   const handleDelete = (id) => {
     setAlertConfig({
       isOpen: true,
@@ -98,7 +104,7 @@ function KuppiSessions() {
       onConfirm: async () => {
         try {
           await deleteDoc(doc(db, "sessions", id));
-          closeAlert(); // Close the modal on success
+          closeAlert(); 
         } catch (error) {
           console.error("Error deleting:", error);
           setAlertConfig({
@@ -113,9 +119,9 @@ function KuppiSessions() {
     });
   };
 
-  // PREPARE EDIT
   const handleEditClick = (session) => {
-    if (!session.time) return;
+    // FIXED CRASH: Prevent editing if the time is malformed or missing
+    if (!session.time || typeof session.time !== "string") return;
 
     setIsEditing(true);
     setEditId(session.id);
@@ -139,7 +145,6 @@ function KuppiSessions() {
     setFormData({ title: "", date: "", time: "" });
   };
 
-  // FORM SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { title, date, time } = formData;
@@ -155,13 +160,27 @@ function KuppiSessions() {
       return;
     }
 
+    // --- NEW: VALIDATE TO PREVENT PAST SESSIONS ---
+    const selectedDateTime = new Date(`${date}T${time}`);
+    const now = new Date();
+
+    if (selectedDateTime < now) {
+      setAlertConfig({
+        isOpen: true,
+        title: "Invalid Time",
+        message: "You cannot schedule a session in the past. Please pick a future time.",
+        type: "warning",
+        onConfirm: null
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const dateTimeString = `${date}T${time}:00`;
 
       if (isEditing) {
-        // UPDATE
         const sessionRef = doc(db, "sessions", editId);
         await updateDoc(sessionRef, {
           title: title,
@@ -179,7 +198,6 @@ function KuppiSessions() {
         setIsEditing(false);
         setEditId(null);
       } else {
-        // CREATE
         const uniqueId = uuidv4().slice(0, 8);
         const sanitizedTitle = title.replace(/\s+/g, "-");
         const jitsiLink = `https://meet.jit.si/StudyMate-OUSL-${sanitizedTitle}-${uniqueId}`;
@@ -220,19 +238,6 @@ function KuppiSessions() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSurveySubmit = (e) => {
-    e.preventDefault();
-    setAlertConfig({
-      isOpen: true,
-      title: "Survey Submitted",
-      message: "Feedback submitted successfully! Thank you.",
-      type: "success",
-      onConfirm: null
-    });
-    setQ1("");
-    setQ2("");
-  };
-
   return (
     <>
       <div className="p-6 max-w-6xl mx-auto md:text-left min-h-screen">
@@ -243,7 +248,6 @@ function KuppiSessions() {
           Join a session or schedule your own peer learning group.
         </p>
 
-        {/* MAIN CONTENT AREA */}
         <div className="flex flex-col-reverse md:flex-row gap-8 items-start justify-center">
           {/* LEFT SIDE: SESSIONS LIST */}
           <div className="flex-1 w-full md:min-w-[500px]">
@@ -256,7 +260,8 @@ function KuppiSessions() {
                   key={session.id}
                   title={session.title}
                   host={session.host}
-                  time={session.time ? session.time.replace("T", " ") : "N/A"}
+                  // FIXED CRASH: Safe string replacement check for UI render
+                  time={typeof session.time === "string" ? session.time.replace("T", " ") : "N/A"}
                   link={session.link}
                   onDelete={() => handleDelete(session.id)}
                   onEdit={() => handleEditClick(session)}
@@ -322,6 +327,7 @@ function KuppiSessions() {
                   name="date"
                   value={formData.date}
                   onChange={handleInputChange}
+                  min={minDate} // <-- PREVENTS CHOOSING PAST DATES IN CALENDAR
                   className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
                   required
                 />
@@ -356,13 +362,11 @@ function KuppiSessions() {
                   "Processing..."
                 ) : isEditing ? (
                   <>
-                    {" "}
-                    <FaSave /> Update Session{" "}
+                    <FaSave /> Update Session
                   </>
                 ) : (
                   <>
-                    {" "}
-                    <FaPlus /> Create Session{" "}
+                    <FaPlus /> Create Session
                   </>
                 )}
               </button>
@@ -371,7 +375,6 @@ function KuppiSessions() {
         </div>
 
         <div className="mt-16 mb-12 flex flex-col items-center justify-center w-full">
-          {/* 1. BUTTON MODE (Visible when showSurvey is false) */}
           {!showSurvey && (
             <div className="bg-blue-50 p-8 rounded-2xl border border-blue-100 shadow-sm text-center max-w-lg w-full">
               <h2 className="text-2xl font-bold text-gray-800 mb-3">
@@ -390,10 +393,8 @@ function KuppiSessions() {
             </div>
           )}
 
-          {/* 2. FORM MODE (Visible when showSurvey is true) */}
           {showSurvey && (
             <div className="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl border border-gray-200 relative animate-fade-in">
-              {/* Header with Close Button */}
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <h3 className="text-lg font-bold text-gray-700">
                   Quick Survey
@@ -407,7 +408,6 @@ function KuppiSessions() {
                 </button>
               </div>
 
-              {/* The Google Form */}
               <div className="flex justify-center bg-gray-50 rounded-lg overflow-hidden">
                 <iframe
                   src="https://docs.google.com/forms/d/e/1FAIpQLSdTvyfhZa4XOfNNusd91xtnXwkDWLizyPpgy-Zmsse-xQshDg/viewform?embedded=true&hl=en"
@@ -422,7 +422,6 @@ function KuppiSessions() {
                 </iframe>
               </div>
 
-              {/* "I'm Done" Button (Bottom) */}
               <div className="mt-4 flex justify-center">
                 <button
                   onClick={() => setShowSurvey(false)}
@@ -436,7 +435,6 @@ function KuppiSessions() {
         </div>
       </div>
 
-      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}
