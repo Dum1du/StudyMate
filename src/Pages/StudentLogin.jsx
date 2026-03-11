@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import StartBg from "../Bg images/StartBg.png";
 import { FaUser } from "react-icons/fa";
 import { SlLock } from "react-icons/sl";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"; // <-- IMPORTED sendPasswordResetEmail
-import { auth } from "../firebase";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { auth, db } from "../firebase"; // Ensure db is imported
+import { doc, getDoc } from "firebase/firestore"; // <-- IMPORTED getDoc
 import AlertModal from "../AlertModal"; 
 
 function StudentLogin() {
@@ -24,7 +25,6 @@ function StudentLogin() {
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
 
-  // --- NEW: Handle Forgot Password ---
   const handleForgotPassword = async () => {
     if (!email) {
       setAlertConfig({
@@ -116,14 +116,40 @@ function StudentLogin() {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      console.log("Logged in:", userCredential.user);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // --- NEW: CHECK IF USER IS BANNED BEFORE ALLOWING ENTRY ---
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        if (userData.bannedUntil) {
+          const banDate = userData.bannedUntil.toDate ? userData.bannedUntil.toDate() : new Date(userData.bannedUntil);
+          
+          if (new Date() < banDate) {
+            await auth.signOut(); // Kick them back out
+            
+            // Format the message for permanent vs temporary
+            let banMessage = `Your account has been suspended until ${banDate.toLocaleString()}.`;
+            if (banDate.getFullYear() > 2090) {
+              banMessage = "Your account has been permanently banned for violating terms of service.";
+            }
+
+            setAlertConfig({
+              isOpen: true,
+              title: "Account Banned",
+              message: banMessage,
+              type: "error"
+            });
+            setLoading(false);
+            return; // Stop login execution completely
+          }
+        }
+      }
+
+      console.log("Logged in:", user);
       await user.reload();
 
       if (user.emailVerified) {
@@ -227,7 +253,6 @@ function StudentLogin() {
             </div>
           </div>
           
-          {/* --- FIXED: FORGOT PASSWORD BUTTON --- */}
           <div className="w-full flex justify-end">
             <button
               type="button"

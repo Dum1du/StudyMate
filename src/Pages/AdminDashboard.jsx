@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu, Flag } from "lucide-react"; 
+import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu, Flag, Ban, Unlock } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
 import { 
   collection, 
@@ -15,7 +15,7 @@ import {
   limit,
   startAfter,
   onSnapshot,
-  orderBy // <-- IMPORTED orderBy
+  orderBy 
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -77,6 +77,9 @@ export default function AdminDashboard() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
+
+  // --- NEW: BAN USER MODAL STATE ---
+  const [banModal, setBanModal] = useState({ isOpen: false, user: null, timeValue: 1, timeUnit: "days" });
 
   const handleLogout = async () => {
     try {
@@ -220,7 +223,6 @@ export default function AdminDashboard() {
     finally { setLoadingUsers(false); }
   };
 
-  // --- FIXED: ADDED orderBy("createdAt", "desc") ---
   const loadMaterialsPage = async (pageIndex) => {
     setLoadingMaterials(true);
     try {
@@ -312,11 +314,56 @@ export default function AdminDashboard() {
   }, [activeTab]);
 
 
+  // --- USER BANNING LOGIC ---
+  const confirmBanUser = async () => {
+    try {
+      let bannedUntil = new Date();
+      if (banModal.timeUnit === "hours") {
+        bannedUntil.setHours(bannedUntil.getHours() + Number(banModal.timeValue));
+      } else if (banModal.timeUnit === "days") {
+        bannedUntil.setDate(bannedUntil.getDate() + Number(banModal.timeValue));
+      } else if (banModal.timeUnit === "permanent") {
+        bannedUntil = new Date("2099-12-31"); // Far future date for permanent ban
+      }
+
+      await updateDoc(doc(db, "users", banModal.user.id), {
+        bannedUntil: bannedUntil
+      });
+
+      // Update local state immediately
+      setUsersList(usersList.map(u => u.id === banModal.user.id ? { ...u, bannedUntil } : u));
+      setSearchResults(searchResults.map(u => u.id === banModal.user.id ? { ...u, bannedUntil } : u));
+
+      setBanModal({ isOpen: false, user: null, timeValue: 1, timeUnit: "days" });
+      setAlertConfig({ isOpen: true, title: "User Banned", message: "User has been banned and will be forcefully logged out.", type: "success" });
+    } catch (error) {
+      console.error("Error banning user:", error);
+      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to ban the user.", type: "error" });
+    }
+  };
+
+  const handleUnbanUser = async (userId) => {
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        bannedUntil: null
+      });
+
+      // Update local state immediately
+      setUsersList(usersList.map(u => u.id === userId ? { ...u, bannedUntil: null } : u));
+      setSearchResults(searchResults.map(u => u.id === userId ? { ...u, bannedUntil: null } : u));
+      
+      setAlertConfig({ isOpen: true, title: "User Unbanned", message: "User access has been restored.", type: "success" });
+    } catch (error) {
+      console.error("Error unbanning user:", error);
+    }
+  };
+
+
   const handleDeleteUser = (userId, userName) => {
     setAlertConfig({
       isOpen: true,
       title: "Confirm Deletion",
-      message: `Are you sure you want to remove ${userName || "this user"}?`,
+      message: `Are you sure you want to permanently delete ${userName || "this user"}?`,
       type: "warning",
       onConfirm: async () => {
         closeAlert(); 
@@ -346,7 +393,6 @@ export default function AdminDashboard() {
             params: { diptId }
           });
 
-          // --- FIXED: Delete discussion associated with this material ---
           await deleteDoc(doc(db, "discussions", material.id));
 
           setMaterialsList(materialsList.filter(m => m.id !== material.id));
@@ -447,25 +493,47 @@ export default function AdminDashboard() {
         try {
           const token = await auth.currentUser.getIdToken();
           
-          // 1. Delete material from Database & Drive via Backend
           await axios.delete(`http://localhost:4000/delete-upload/${report.materialId}`, {
             headers: { Authorization: `Bearer ${token}` },
             params: { diptId: report.deptId }
           });
           
-          // --- FIXED: Delete associated discussion ---
           await deleteDoc(doc(db, "discussions", report.materialId));
 
-          // 2. Delete the report itself from the system
+          if (report.uploaderUid) {
+            const batch = writeBatch(db);
+            const mainNotifRef = doc(collection(db, "notifications"));
+            const message = `Your material "${report.resourceTitle}" was deleted by an administrator. Reason: ${report.reason}`;
+            
+            batch.set(mainNotifRef, {
+              title: "Material Deleted",
+              message: message,
+              createdAt: serverTimestamp(),
+              type: "alert",
+              targetId: null
+            });
+
+            const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", report.uploaderUid);
+            batch.set(userNotifRef, {
+              userId: report.uploaderUid,
+              message: message,
+              read: false,
+              createdAt: serverTimestamp(),
+              type: "alert",
+              targetId: null
+            });
+
+            await batch.commit();
+          }
+
           await deleteDoc(doc(db, "reportedMaterials", report.id));
           
           setReportsList(reportsList.filter(r => r.id !== report.id));
-          setAlertConfig({ isOpen: true, title: "Success", message: "Reported material successfully removed.", type: "success" });
+          setAlertConfig({ isOpen: true, title: "Success", message: "Reported material successfully removed and uploader notified.", type: "success" });
 
         } catch (error) { 
           console.error("Error deleting reported material:", error); 
           if(error.response?.status === 404) {
-             // File already gone, but we should still clean up discussion and report
              await deleteDoc(doc(db, "discussions", report.materialId));
              await deleteDoc(doc(db, "reportedMaterials", report.id));
              setReportsList(reportsList.filter(r => r.id !== report.id));
@@ -670,32 +738,52 @@ export default function AdminDashboard() {
                           {displayUsers.length === 0 ? (
                             <tr><td colSpan="4" className="p-8 text-center text-gray-500 text-sm md:text-base">No users found.</td></tr>
                           ) : (
-                            displayUsers.map((user) => (
-                              <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="p-3 md:p-4">
-                                  <div className="flex items-center gap-2 md:gap-3">
-                                    <img src={user.profilePicture || `https://ui-avatars.com/api/?name=${user.displayName || "User"}&background=EBF4FF&color=1E3A8A`} alt="avatar" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover shrink-0" />
-                                    <div className="min-w-0">
-                                      <p className="font-semibold text-gray-800 text-sm md:text-base truncate">{user.displayName || "No Name Set"}</p>
-                                      <p className="text-[10px] md:text-xs text-gray-500 truncate">{user.faculty || "No Faculty"} • {user.program || "No Program"}</p>
+                            displayUsers.map((user) => {
+                              // CHECK IF BANNED
+                              const banDateObj = user.bannedUntil ? (user.bannedUntil.toDate ? user.bannedUntil.toDate() : new Date(user.bannedUntil)) : null;
+                              const isCurrentlyBanned = banDateObj && banDateObj > new Date();
+
+                              return (
+                                <tr key={user.id} className={`transition-colors ${isCurrentlyBanned ? 'bg-red-50/40' : 'hover:bg-gray-50'}`}>
+                                  <td className="p-3 md:p-4">
+                                    <div className="flex items-center gap-2 md:gap-3">
+                                      <img src={user.profilePicture || `https://ui-avatars.com/api/?name=${user.displayName || "User"}&background=EBF4FF&color=1E3A8A`} alt="avatar" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover shrink-0" />
+                                      <div className="min-w-0">
+                                        <p className="font-semibold text-gray-800 text-sm md:text-base truncate flex items-center gap-2">
+                                          {user.displayName || "No Name Set"}
+                                          {isCurrentlyBanned && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Banned</span>}
+                                        </p>
+                                        <p className="text-[10px] md:text-xs text-gray-500 truncate">{user.faculty || "No Faculty"} • {user.program || "No Program"}</p>
+                                      </div>
                                     </div>
-                                  </div>
-                                </td>
-                                <td className="p-3 md:p-4">
-                                  <p className="text-xs md:text-sm text-gray-800 truncate max-w-[120px] sm:max-w-none">{user.email}</p>
-                                </td>
-                                <td className="p-3 md:p-4">
-                                  <span className={`px-2 md:px-3 py-1 text-[10px] md:text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : user.role === 'teacher' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                    {user.role || 'student'}
-                                  </span>
-                                </td>
-                                <td className="p-3 md:p-4 flex justify-center gap-2">
-                                  <button onClick={() => handleDeleteUser(user.id, user.displayName)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete User">
-                                    <Trash2 size={16} className="md:w-[18px] md:h-[18px]" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
+                                  </td>
+                                  <td className="p-3 md:p-4">
+                                    <p className="text-xs md:text-sm text-gray-800 truncate max-w-[120px] sm:max-w-none">{user.email}</p>
+                                  </td>
+                                  <td className="p-3 md:p-4">
+                                    <span className={`px-2 md:px-3 py-1 text-[10px] md:text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : user.role === 'teacher' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                      {user.role || 'student'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 md:p-4 flex justify-center gap-2">
+                                    {/* --- BAN / UNBAN BUTTONS --- */}
+                                    {isCurrentlyBanned ? (
+                                      <button onClick={() => handleUnbanUser(user.id)} className="p-1.5 md:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Unban User">
+                                        <Unlock size={16} className="md:w-[18px] md:h-[18px]" />
+                                      </button>
+                                    ) : (
+                                      <button onClick={() => setBanModal({ isOpen: true, user: user, timeValue: 1, timeUnit: "days" })} className="p-1.5 md:p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="Ban User">
+                                        <Ban size={16} className="md:w-[18px] md:h-[18px]" />
+                                      </button>
+                                    )}
+
+                                    <button onClick={() => handleDeleteUser(user.id, user.displayName)} className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete User">
+                                      <Trash2 size={16} className="md:w-[18px] md:h-[18px]" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                       </table>
@@ -1003,6 +1091,62 @@ export default function AdminDashboard() {
 
         </div>
       </main>
+
+      {/* BAN USER MODAL */}
+      {banModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => setBanModal({ isOpen: false, user: null, timeValue: 1, timeUnit: "days" })}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+            >
+              <X size={20} />
+            </button>
+            
+            <h2 className="text-xl font-bold mb-2 text-gray-800 flex items-center gap-2">
+              <Ban className="text-orange-500" /> Ban User
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Suspend <span className="font-bold text-gray-800">{banModal.user?.displayName || "this user"}</span> from logging in.
+            </p>
+
+            <div className="flex gap-3 mb-6">
+              <input 
+                type="number" 
+                min="1"
+                value={banModal.timeValue}
+                onChange={(e) => setBanModal({...banModal, timeValue: e.target.value})}
+                disabled={banModal.timeUnit === "permanent"}
+                className="w-1/3 border border-gray-300 rounded-lg p-2 text-center outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:text-gray-400"
+              />
+              <select 
+                value={banModal.timeUnit}
+                onChange={(e) => setBanModal({...banModal, timeUnit: e.target.value})}
+                className="w-2/3 border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+              >
+                <option value="hours">Hours</option>
+                <option value="days">Days</option>
+                <option value="permanent">Permanent</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setBanModal({ isOpen: false, user: null, timeValue: 1, timeUnit: "days" })}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBanUser}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition shadow-sm font-medium text-sm flex items-center gap-2"
+              >
+                <Ban size={16} /> Enforce Ban
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewNotice && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">

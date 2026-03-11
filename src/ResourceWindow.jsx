@@ -25,7 +25,7 @@ import { auth, db } from "./firebase";
 import { FaStar, FaPaperPlane } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
 import AlertModal from "./AlertModal"; 
-import axios from "axios"; // <-- IMPORTED AXIOS
+import axios from "axios"; 
 
 const ResourcePage = () => {
   const { resourceId } = useParams();
@@ -44,12 +44,10 @@ const ResourcePage = () => {
   const [answers, setAnswers] = useState([]);
   const [isSaved, setIsSaved] = useState(false);
 
-  // --- Report Modal States ---
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reporting, setReporting] = useState(false);
 
-  // --- Comment & Discussion States ---
   const [comments, setComments] = useState(resourceData?.comments || []);
   const [allCommentsLoaded, setAllCommentsLoaded] = useState(false);
   const [prefetchedReplies, setPrefetchedReplies] = useState({}); 
@@ -224,76 +222,102 @@ const ResourcePage = () => {
     }
   };
 
-  // --- FIXED: TEACHER DELETE VIA BACKEND & DELETE DISCUSSION ---
   const handleReportAction = () => {
     if (!auth.currentUser) {
       setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to report resources.", type: "warning" });
       return;
     }
-
-    if (currentUserProfile.role === "teacher") {
-      setAlertConfig({
-        isOpen: true,
-        title: "Delete Material",
-        message: "As a teacher, reporting this material will permanently delete it from Google Drive, remove it from the system, and delete its discussion. Are you sure?",
-        type: "warning",
-        onConfirm: async () => {
-          closeAlert();
-          try {
-            const token = await auth.currentUser.getIdToken();
-            
-            // 1. Call Backend to delete from Drive and delete Material Doc
-            await axios.delete(`http://localhost:4000/delete-upload/${resourceId}`, {
-              headers: { Authorization: `Bearer ${token}` },
-              params: { diptId: dept }
-            });
-
-            // 2. Delete the associated Discussion document
-            const discussionRef = doc(db, "discussions", resourceId);
-            await deleteDoc(discussionRef);
-
-            // 3. Go back to browse page
-            navigate("/browseresources");
-          } catch (error) {
-            console.error("Error deleting material:", error);
-            setAlertConfig({ isOpen: true, title: "Error", message: "Failed to delete material.", type: "error" });
-          }
-        }
-      });
-    } else {
-      setIsReportModalOpen(true);
-    }
+    // Open the modal for EVERYONE so teachers can provide a reason for deleting
+    setIsReportModalOpen(true);
   };
 
-  const submitStudentReport = async () => {
+  // --- FIXED: Submit Report/Delete logic ---
+  const submitReportAction = async () => {
     if (!reportReason.trim()) return;
     setReporting(true);
-    try {
-      await addDoc(collection(db, "reportedMaterials"), {
-        materialId: resourceId,
-        deptId: dept,
-        resourceTitle: resourceData?.resourceTitle || "Untitled",
-        courseCode: resourceData?.courseCode || "N/A",
-        reportedByUid: auth.currentUser.uid,
-        reportedByEmail: currentUserEmail,
-        reportedByName: currentUserProfile.displayName || "Unknown",
-        reason: reportReason,
-        createdAt: serverTimestamp(),
-      });
-      setIsReportModalOpen(false);
-      setReportReason("");
-      setAlertConfig({
-        isOpen: true,
-        title: "Report Sent",
-        message: "This material has been reported to the admins for review.",
-        type: "success"
-      });
-    } catch (error) {
-      console.error("Error reporting material:", error);
-      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to send report. Please try again.", type: "error" });
-    } finally {
-      setReporting(false);
+    
+    if (currentUserProfile.role === "teacher") {
+      try {
+        const token = await auth.currentUser.getIdToken();
+        
+        // 1. Call Backend to delete from Drive and delete Material Doc
+        await axios.delete(`http://localhost:4000/delete-upload/${resourceId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { diptId: dept }
+        });
+
+        // 2. Delete the associated Discussion document
+        await deleteDoc(doc(db, "discussions", resourceId));
+
+        // 3. Send Notification to Uploader
+        if (resourceData?.uploaderUid) {
+          const batch = writeBatch(db);
+          const mainNotifRef = doc(collection(db, "notifications"));
+          const message = `Your material "${resourceData.resourceTitle}" was deleted by a teacher. Reason: ${reportReason}`;
+          
+          batch.set(mainNotifRef, {
+            title: "Material Deleted",
+            message: message,
+            createdAt: serverTimestamp(),
+            type: "alert",
+            targetId: null
+          });
+
+          const userNotifRef = doc(db, "notifications", mainNotifRef.id, "userNotifications", resourceData.uploaderUid);
+          batch.set(userNotifRef, {
+            userId: resourceData.uploaderUid,
+            message: message,
+            read: false,
+            createdAt: serverTimestamp(),
+            type: "alert",
+            targetId: null
+          });
+
+          await batch.commit();
+        }
+
+        setIsReportModalOpen(false);
+        setAlertConfig({ 
+          isOpen: true, 
+          title: "Material Deleted", 
+          message: "Material deleted successfully and the uploader has been notified.", 
+          type: "success",
+          onConfirm: () => navigate("/browseresources")
+        });
+
+      } catch (error) {
+        console.error("Error deleting material:", error);
+        setAlertConfig({ isOpen: true, title: "Error", message: "Failed to delete material.", type: "error" });
+      }
+    } else {
+      // Student reporting logic
+      try {
+        await addDoc(collection(db, "reportedMaterials"), {
+          materialId: resourceId,
+          deptId: dept,
+          resourceTitle: resourceData?.resourceTitle || "Untitled",
+          courseCode: resourceData?.courseCode || "N/A",
+          reportedByUid: auth.currentUser.uid,
+          reportedByEmail: currentUserEmail,
+          reportedByName: currentUserProfile.displayName || "Unknown",
+          reason: reportReason,
+          uploaderUid: resourceData?.uploaderUid || null, // SAVED SO ADMIN CAN NOTIFY
+          createdAt: serverTimestamp(),
+        });
+        setIsReportModalOpen(false);
+        setReportReason("");
+        setAlertConfig({
+          isOpen: true,
+          title: "Report Sent",
+          message: "This material has been reported to the admins for review.",
+          type: "success"
+        });
+      } catch (error) {
+        console.error("Error reporting material:", error);
+        setAlertConfig({ isOpen: true, title: "Error", message: "Failed to send report. Please try again.", type: "error" });
+      } 
     }
+    setReporting(false);
   };
 
   useEffect(() => {
@@ -968,7 +992,7 @@ const ResourcePage = () => {
                 <button
                   onClick={handleReportAction}
                   className="p-2.5 bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 rounded-lg transition"
-                  title="Report Material"
+                  title={currentUserProfile.role === "teacher" ? "Delete Material" : "Report Material"}
                 >
                   <Flag size={20} />
                 </button>
@@ -1354,16 +1378,20 @@ const ResourcePage = () => {
                 <X size={20} />
               </button>
               <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <Flag className="text-red-500" size={24} /> Report Material
+                {currentUserProfile.role === "teacher" 
+                  ? <><ShieldCheck className="text-red-500" size={24} /> Delete Material</> 
+                  : <><Flag className="text-red-500" size={24} /> Report Material</>}
               </h2>
               <p className="text-gray-600 text-sm mb-4">
-                Please provide a reason for reporting this material. Admins will review it shortly.
+                {currentUserProfile.role === "teacher" 
+                  ? "Please provide a reason for deleting this material. The uploader will be notified." 
+                  : "Please provide a reason for reporting this material. Admins will review it shortly."}
               </p>
               
               <textarea
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
-                placeholder="E.g., Inappropriate content, misleading, incorrect course code..."
+                placeholder={currentUserProfile.role === "teacher" ? "Reason for deletion..." : "E.g., Inappropriate content, misleading, incorrect course code..."}
                 className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-red-500 outline-none h-24 resize-none mb-4"
               />
               
@@ -1375,11 +1403,11 @@ const ResourcePage = () => {
                   Cancel
                 </button>
                 <button 
-                  onClick={submitStudentReport}
+                  onClick={submitReportAction}
                   disabled={reporting || !reportReason.trim()}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 text-sm font-semibold"
                 >
-                  {reporting ? "Submitting..." : "Submit Report"}
+                  {reporting ? "Processing..." : (currentUserProfile.role === "teacher" ? "Delete Material" : "Submit Report")}
                 </button>
               </div>
             </div>

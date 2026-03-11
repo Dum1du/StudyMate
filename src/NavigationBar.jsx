@@ -3,7 +3,7 @@ import { Bell, Menu, X } from "lucide-react";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { auth, db } from "./firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore"; // <-- CHANGED TO onSnapshot
 import { MdLogout } from "react-icons/md";
 import NotificationWrapper from "./NotificationWrapper";
 
@@ -28,51 +28,64 @@ export default function NavigationBar() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubDoc = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("User found:", user.displayName);
         setUsername(user.displayName || "");
         setEmail(user.email || "");
 
-        try {
-          const userRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userRef);
+        // --- NEW: REAL-TIME LISTENER FOR INSTANT LOGOUT ---
+        unsubDoc = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
 
-          if (userSnap.exists()) {
-            const data = userSnap.data();
+            // INSTANT BAN CHECK
+            if (data.bannedUntil) {
+              const banDate = data.bannedUntil.toDate ? data.bannedUntil.toDate() : new Date(data.bannedUntil);
+              if (new Date() < banDate) {
+                signOut(auth); // Force log out instantly
+                return; // Stop processing profile
+              }
+            }
+
             setProfilePic(data.profilePicture || "");
-
             if (data.displayName) {
               setUsername(data.displayName);
             }
           } else {
             setProfilePic("");
           }
-        } catch (error) {
-          console.error("Error fetching user profile:", error);
-        } finally {
           setLoading(false);
-        }
+        }, (error) => {
+          console.error("Error fetching user profile:", error);
+          setLoading(false);
+        });
+
       } else {
-        console.log("User not found, redirecting...");
-        
-        if (location.pathname !== "/logins") {
+        // Only redirect if they aren't on an auth page already
+        if (location.pathname !== "/logins" && location.pathname !== "/register" && location.pathname !== "/verify") {
           navigate("/logins");
         }
-        
         setUsername("");
         setEmail("");
         setProfilePic("");
         setLoading(false);
+        if (unsubDoc) {
+          unsubDoc();
+          unsubDoc = null;
+        }
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubDoc) unsubDoc();
+    };
   }, [navigate, location.pathname]);
 
   return (
     <>
-      {/* FIXED NAVBAR: Stays on top of the screen permanently */}
       <nav className="fixed top-0 left-0 w-full bg-blue-600 text-white shadow-md z-[999]">
         <div className="w-full flex items-center justify-between px-6 py-2">
           <div className="flex items-center space-x-8">
@@ -83,7 +96,6 @@ export default function NavigationBar() {
               Study<span className="text-black">Mate</span>
             </span>
 
-            {/* Desktop Tabs */}
             <div className="hidden md:flex space-x-6 text-sm h-fit items-center">
               <NavLink
                 to="/home"
@@ -113,13 +125,9 @@ export default function NavigationBar() {
             </div>
           </div>
 
-          {/* RIGHT ACTIONS: Bell + Profile + Menu */}
           <div className="flex items-center space-x-4">
-            
-            {/* Notification Bell */}
             <NotificationWrapper />
             
-            {/* Desktop Profile */}
             {!loading && (
               <Link to="/userProfile" className="hidden md:flex items-center space-x-2">
                 <img
@@ -137,7 +145,6 @@ export default function NavigationBar() {
               </Link>
             )}
 
-            {/* Mobile Menu Button */}
             <button
               className="md:hidden p-2 rounded hover:bg-blue-700 transition-colors"
               onClick={() => setIsOpen(!isOpen)}
@@ -148,10 +155,8 @@ export default function NavigationBar() {
         </div>
       </nav>
 
-      {/* INVISIBLE SPACER: Pushes page content down so it isn't hidden under the fixed nav */}
       <div className="w-full h-[56px] shrink-0"></div>
 
-      {/* BACKDROP (faded background) */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
@@ -159,7 +164,6 @@ export default function NavigationBar() {
         ></div>
       )}
 
-      {/* RIGHT DRAWER MENU */}
       <div
         className={`fixed top-0 right-0 h-full w-75 bg-blue-700 text-white shadow-lg transform transition-transform duration-300 z-[9999] ${
           isOpen ? "translate-x-0" : "translate-x-full"
