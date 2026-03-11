@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { Bell, Menu, X } from "lucide-react";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { auth, db } from "./firebase"; // Ensure paths are correct
+import { auth, db } from "./firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { MdLogout } from "react-icons/md";
 import NotificationWrapper from "./NotificationWrapper";
 
-export default function Navbar() {
+export default function NavigationBar() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [profilePic, setProfilePic] = useState("");
@@ -71,91 +71,97 @@ export default function Navbar() {
   }, [navigate, location.pathname]);
 
   return (
-    <nav className="bg-blue-600 text-white shadow-md relative">
-      <div className="w-full flex items-center justify-between px-6 py-2">
-        <div className="flex items-center space-x-8">
-          <span
-            className="text-xl font-bold cursor-pointer"
-            onClick={() => navigate("/home")}
-          >
-            Study<span className="text-black">Mate</span>
-          </span>
-
-          {/* Desktop Tabs */}
-          <div className="hidden md:flex space-x-6 text-sm h-fit items-center">
-            <NavLink
-              to="/home"
-              className={({ isActive }) =>
-                `hover:text-gray-200 ${
-                  isActive
-                    ? " text-black text-white text-[16px] font-bold"
-                    : "text-white"
-                }`
-              }
+    <>
+      {/* FIXED NAVBAR: Stays on top of the screen permanently */}
+      <nav className="fixed top-0 left-0 w-full bg-blue-600 text-white shadow-md z-[999]">
+        <div className="w-full flex items-center justify-between px-6 py-2">
+          <div className="flex items-center space-x-8">
+            <span
+              className="text-xl font-bold cursor-pointer"
+              onClick={() => navigate("/home")}
             >
-              Dashboard
-            </NavLink>
+              Study<span className="text-black">Mate</span>
+            </span>
 
-            <NavLink
-              to="/Settings"
-              className={({ isActive }) =>
-                `hover:text-gray-200 ${
-                  isActive
-                    ? " text-black text-white text-[16px] font-bold"
-                    : "text-white"
-                }`
-              }
+            {/* Desktop Tabs */}
+            <div className="hidden md:flex space-x-6 text-sm h-fit items-center">
+              <NavLink
+                to="/home"
+                className={({ isActive }) =>
+                  `hover:text-gray-200 ${
+                    isActive
+                      ? " text-black text-white text-[16px] font-bold"
+                      : "text-white"
+                  }`
+                }
+              >
+                Dashboard
+              </NavLink>
+
+              <NavLink
+                to="/Settings"
+                className={({ isActive }) =>
+                  `hover:text-gray-200 ${
+                    isActive
+                      ? " text-black text-white text-[16px] font-bold"
+                      : "text-white"
+                  }`
+                }
+              >
+                Settings
+              </NavLink>
+            </div>
+          </div>
+
+          {/* RIGHT ACTIONS: Bell + Profile + Menu */}
+          <div className="flex items-center space-x-4">
+            
+            {/* Notification Bell */}
+            <NotificationWrapper />
+            
+            {/* Desktop Profile */}
+            {!loading && (
+              <Link to="/userProfile" className="hidden md:flex items-center space-x-2">
+                <img
+                  src={
+                    profilePic ||
+                    "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
+                  }
+                  alt="User"
+                  className="w-8 h-8 rounded-full object-cover border-0"
+                />
+                <div className="text-sm leading-tight">
+                  <p className="font-medium">{username || "User"}</p>
+                  <p className="text-xs text-gray-200">{email}</p>
+                </div>
+              </Link>
+            )}
+
+            {/* Mobile Menu Button */}
+            <button
+              className="md:hidden p-2 rounded hover:bg-blue-700 transition-colors"
+              onClick={() => setIsOpen(!isOpen)}
             >
-              Settings
-            </NavLink>
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </div>
+      </nav>
 
-        {/* RIGHT ACTIONS: Bell + Profile + Menu */}
-        <div className="flex items-center space-x-4">
-          
-          {/* Notification Bell (Visible on both Desktop and Mobile) */}
-          <NotificationWrapper />
-          
-          {/* Desktop Profile (Hidden on Mobile) */}
-          {!loading && (
-            <Link to="/userProfile" className="hidden md:flex items-center space-x-2">
-              <img
-                src={
-                  profilePic ||
-                  "https://img.freepik.com/premium-vector/vector-flat-illustration-grayscale-avatar-user-profile-person-icon-gender-neutral-silhouette-profile-picture-suitable-social-media-profiles-icons-screensavers-as-templatex9xa_719432-2190.jpg"
-                }
-                alt="User"
-                className="w-8 h-8 rounded-full object-cover border-0"
-              />
-              <div className="text-sm leading-tight">
-                <p className="font-medium">{username || "User"}</p>
-                <p className="text-xs text-gray-200">{email}</p>
-              </div>
-            </Link>
-          )}
-
-          {/* Mobile Menu Button (Hidden on Desktop) */}
-          <button
-            className="md:hidden p-2 rounded hover:bg-blue-700 transition-colors"
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-      </div>
+      {/* INVISIBLE SPACER: Pushes page content down so it isn't hidden under the fixed nav */}
+      <div className="w-full h-[56px] shrink-0"></div>
 
       {/* BACKDROP (faded background) */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
           onClick={() => setIsOpen(false)}
         ></div>
       )}
 
       {/* RIGHT DRAWER MENU */}
       <div
-        className={`fixed top-0 right-0 h-full w-75 bg-blue-700 text-white shadow-lg transform transition-transform duration-300 z-50 ${
+        className={`fixed top-0 right-0 h-full w-75 bg-blue-700 text-white shadow-lg transform transition-transform duration-300 z-[9999] ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -205,6 +211,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-    </nav>
+    </>
   );
 }

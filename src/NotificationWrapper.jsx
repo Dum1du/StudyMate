@@ -10,8 +10,7 @@ import {
   doc, 
   updateDoc, 
   writeBatch,
-  collectionGroup,
-  getDoc
+  collectionGroup
 } from "firebase/firestore";
 import { Bell } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
@@ -106,14 +105,14 @@ function NotificationWrapper() {
           setIsOpen(false);
           navigate("/noticeboard");
         } 
-        // --- ADDED "quiz" TYPE HERE ---
-        else if (
-          clickedNotif.type === "comment" || 
-          clickedNotif.type === "reply" || 
-          clickedNotif.type === "quiz"
-        ) {
+        else if (clickedNotif.type === "comment" || clickedNotif.type === "reply") {
           setIsOpen(false);
           navigate(`/material/${clickedNotif.targetId}`);
+        }
+        else if (clickedNotif.type === "quiz") {
+          // FIXED: Removed navigation for quizzes. 
+          // Just close the dropdown and acknowledge the read status.
+          setIsOpen(false);
         }
       }
     } catch (error) {
@@ -153,7 +152,6 @@ function NotificationWrapper() {
         )}
       </button>
 
-      {/* FIXED POSITIONING: Adjusted for mobile to not overflow the left edge! */}
       {isOpen && (
         <div className="absolute top-10 -right-12 md:-right-2 z-50 origin-top-right">
           <NotificationDropdown
