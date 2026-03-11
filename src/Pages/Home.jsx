@@ -10,16 +10,15 @@ import {
   FaUsers,
 } from "react-icons/fa";
 import { BiNotification } from "react-icons/bi";
-import { Calendar, MailOpen, Eye, Download, X } from "lucide-react";
+import { Calendar, MailOpen, Eye, Download, X, ShieldCheck } from "lucide-react"; // <-- Added ShieldCheck
 import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { pdfs } from "../add"; 
 import Footer from "../Footer";
-import { collectionGroup, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { collectionGroup, getDocs, limit, orderBy, query, where } from "firebase/firestore"; // <-- Added where
 import { useResources } from "../ResourcesContext";
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import AlertModal from "../AlertModal"; 
 
 const PreviewCard = ({ title, subtitle, fileLink, onClick }) => {
   const previewUrl = fileLink ? fileLink.replace(/\/view.*|\/edit.*/, "/preview") : null;
@@ -29,7 +28,6 @@ const PreviewCard = ({ title, subtitle, fileLink, onClick }) => {
       onClick={onClick}
       className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col h-64 border border-gray-200 overflow-hidden transform hover:-translate-y-1"
     >
-      {/* Top Half: PDF iframe Preview */}
       <div className="h-3/5 bg-gray-100 relative overflow-hidden border-b border-gray-200">
         {previewUrl ? (
           <>
@@ -48,7 +46,6 @@ const PreviewCard = ({ title, subtitle, fileLink, onClick }) => {
         )}
       </div>
 
-      {/* Bottom Half: Text Content */}
       <div className="p-4 h-2/5 flex flex-col justify-center bg-white">
         <h3 className="font-bold text-gray-800 truncate text-sm sm:text-base">{title || "Untitled"}</h3>
         <p className="text-xs text-gray-500 line-clamp-2 mt-1 leading-snug">
@@ -58,15 +55,16 @@ const PreviewCard = ({ title, subtitle, fileLink, onClick }) => {
     </div>
   );
 };
-// --------------------------------------------------
 
 function Home() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState(null);
   const [selectedResource, setSelectedResource] = useState(null);
-  const [filtered, setFiltered] = useState([]);
+  
+  // --- NEW: States for Approved Resources ---
+  const [approvedResources, setApprovedResources] = useState([]);
+  const [loadingApproved, setLoadingApproved] = useState(true);
 
-  // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -76,25 +74,12 @@ function Home() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
 
   const dummyResources = [
-    {
-      title: "Calculus Notes",
-      subtitle: "Comprehensive notes on calculus topics.",
-    },
-    {
-      title: "Physics Problems",
-      subtitle: "Practice problems with solutions.",
-    },
-    {
-      title: "Chemistry Formulas",
-      subtitle: "Key formulas for chemistry exams.",
-    },
-    {
-      title: "Biology Diagrams",
-      subtitle: "Labeled diagrams for biology concepts.",
-    },
+    { title: "Calculus Notes", subtitle: "Comprehensive notes on calculus topics." },
+    { title: "Physics Problems", subtitle: "Practice problems with solutions." },
+    { title: "Chemistry Formulas", subtitle: "Key formulas for chemistry exams." },
+    { title: "Biology Diagrams", subtitle: "Labeled diagrams for biology concepts." },
   ];
 
   const { resources, loading } = useResources();
@@ -108,6 +93,38 @@ function Home() {
       }
     });
     return () => unsubscribe();
+  }, []);
+
+  // --- NEW: Fetch Top 4 Approved Resources ---
+  useEffect(() => {
+    const fetchApproved = async () => {
+      setLoadingApproved(true);
+      try {
+        const q = query(
+          collectionGroup(db, "Materials"),
+          where("isApproved", "==", true),
+          orderBy("createdAt", "desc"),
+          limit(4)
+        );
+        const snap = await getDocs(q);
+        setApprovedResources(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error) {
+        console.error("Firebase Index missing, using fallback:", error);
+        // Smart Fallback just in case Firebase Index isn't built yet
+        try {
+           const fallbackQ = query(collectionGroup(db, "Materials"), where("isApproved", "==", true));
+           const fallbackSnap = await getDocs(fallbackQ);
+           const data = fallbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+           data.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+           setApprovedResources(data.slice(0, 4));
+        } catch(e) {
+           console.error("Fallback failed", e);
+        }
+      } finally {
+        setLoadingApproved(false);
+      }
+    };
+    fetchApproved();
   }, []);
 
   return (
@@ -141,12 +158,10 @@ function Home() {
           </p>
         </div>
 
-        {/* Searchbar */}
         <div className="mt-15" onClick={() => navigate("/browseresources")}>
           <SearchBar placeholder="Search for resources..." />
         </div>
 
-        {/* Buttons */}
         <div className="mt-10 flex flex-wrap justify-center gap-6 px-4 sm:px-8">
           <Link
             className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#A0F7FA] text-black shadow-md w-full sm:w-60 transform transition-transform hover:scale-105 hover:shadow-xl border border-transparent hover:border-blue-400"
@@ -249,28 +264,39 @@ function Home() {
           </div>
         )}
 
-        {/* Popular Resources Section */}
+        {/* --- REPLACED: Teacher Approved Resources Section --- */}
         <div className="mt-8 px-4 pb-12">
-          <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-blue-200/50 max-w-7xl mx-auto backdrop-blur-sm">
+          <div className="rounded-lg border border-green-200 shadow-md p-4 bg-green-50/70 max-w-7xl mx-auto backdrop-blur-sm">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-black">Popular Resources</h2>
-              <span className="text-sm text-blue-500 cursor-pointer hover:underline" onClick={() => navigate("/browseresources")}>
+              <h2 className="text-2xl font-bold text-black flex items-center gap-2">
+                Teacher Approved <ShieldCheck className="text-green-600" size={26} />
+              </h2>
+              <span className="text-sm text-blue-500 cursor-pointer hover:underline" onClick={() => navigate("/approved-resources")}>
                 View All
               </span>
             </div>
-            <section className="mt-4 px-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {pdfs.slice(0, 4).map((pdf, idx) => (
-                  <PreviewCard
-                    key={`popular-${idx}`}
-                    title={pdf.title}
-                    subtitle={pdf.subtitle}
-                    fileLink={pdf.fileUrl} 
-                    onClick={() => setSelectedResource(pdf)}
-                  />
-                ))}
-              </div>
-            </section>
+            
+            {loadingApproved ? (
+              <div className="text-center py-10 text-gray-500">Loading approved resources...</div>
+            ) : approvedResources.length === 0 ? (
+               <div className="text-center py-10 text-gray-500 bg-white/50 rounded-xl border border-dashed border-gray-300">
+                 No approved resources yet.
+               </div>
+            ) : (
+              <section className="mt-4 px-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {approvedResources.map((res, idx) => (
+                    <PreviewCard
+                      key={`approved-${idx}`}
+                      title={res.resourceTitle}
+                      subtitle={res.description}
+                      fileLink={res.fileLink || res.fileUrl} 
+                      onClick={() => setSelectedResource(res)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </div>
@@ -285,8 +311,9 @@ function Home() {
             >
               <X size={20} />
             </button>
-            <h2 className="text-2xl font-bold mb-2 text-gray-800 pr-8">
+            <h2 className="text-2xl font-bold mb-2 text-gray-800 pr-8 flex items-center gap-2">
               {selectedResource.resourceTitle || selectedResource.title}
+              {selectedResource.isApproved && <ShieldCheck className="text-green-500" size={20}/>}
             </h2>
             <p className="text-gray-600 text-sm mb-4">
               {selectedResource.description || selectedResource.subtitle}
@@ -314,7 +341,6 @@ function Home() {
                   if (link) {
                     window.open(link, "_blank");
                   } else {
-                    // REPLACED ALERT
                     setAlertConfig({
                       isOpen: true,
                       title: "Link Not Found",
@@ -327,6 +353,15 @@ function Home() {
               >
                 <Eye size={18} /> Open in New Tab
               </button>
+              
+              {/* Go to Dedicated Resource Page Button */}
+              <button
+                onClick={() => navigate(`/material/${selectedResource.id}`, { state: { resource: selectedResource } })}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold flex-1 transition-colors"
+              >
+                View Full Page
+              </button>
+
               <button
                 onClick={() => {
                   if (selectedResource.fileId) {
@@ -345,7 +380,6 @@ function Home() {
                     link.click();
                     document.body.removeChild(link);
                   } else {
-                    // REPLACED ALERT
                     setAlertConfig({
                       isOpen: true,
                       title: "Download Unavailable",
@@ -363,7 +397,6 @@ function Home() {
         </div>
       )}
 
-      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}

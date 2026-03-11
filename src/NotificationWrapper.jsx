@@ -104,8 +104,14 @@ function NotificationWrapper() {
       if (clickedNotif) {
         if (clickedNotif.type === "notice") {
           setIsOpen(false);
-          navigate("/noticeboard")
-        } else if (clickedNotif.type === "comment" || clickedNotif.type === "reply") {
+          navigate("/noticeboard");
+        } 
+        // --- ADDED "quiz" TYPE HERE ---
+        else if (
+          clickedNotif.type === "comment" || 
+          clickedNotif.type === "reply" || 
+          clickedNotif.type === "quiz"
+        ) {
           setIsOpen(false);
           navigate(`/material/${clickedNotif.targetId}`);
         }

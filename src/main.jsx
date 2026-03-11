@@ -20,6 +20,7 @@ import Discussions from "./Pages/Discussions.jsx";
 import AdminRoute from "./AdminRoute.jsx";
 import AdminDashboard from "./Pages/AdminDashboard.jsx";
 import FAQ from "./Pages/FAQ.jsx"
+import ApprovedResources from "./Pages/ApprovedResources.jsx";
 
 import Layout from "./Layout.jsx";
 import Dashboard from "./Pages/Home.jsx";
@@ -56,6 +57,10 @@ const router = createBrowserRouter([
       {
         path: "/resources",
         element: <MyResourcesUI />,
+      },
+      {
+        path: "/approved-resources",
+        element: <ApprovedResources/>
       },
       {path: "/faq",
         element: <FAQ/>
