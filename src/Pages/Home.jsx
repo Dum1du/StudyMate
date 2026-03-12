@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../NavigationBar";
 import SearchBar from "../searchbar";
 import {
   FaBell,
@@ -9,14 +8,12 @@ import {
   FaUpload,
   FaUsers,
 } from "react-icons/fa";
-import { BiNotification } from "react-icons/bi";
-import { Calendar, MailOpen, Eye, Download, X, ShieldCheck } from "lucide-react"; // <-- Added ShieldCheck
+import { Calendar, Eye, Download, X, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
-import Footer from "../Footer";
-import { collectionGroup, getDocs, limit, orderBy, query, where } from "firebase/firestore"; // <-- Added where
+import { collectionGroup, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { useResources } from "../ResourcesContext";
 import AlertModal from "../AlertModal"; 
 
@@ -61,7 +58,7 @@ function Home() {
   const [userName, setUserName] = useState(null);
   const [selectedResource, setSelectedResource] = useState(null);
   
-  // --- NEW: States for Approved Resources ---
+  // --- States for Approved Resources ---
   const [approvedResources, setApprovedResources] = useState([]);
   const [loadingApproved, setLoadingApproved] = useState(true);
 
@@ -95,7 +92,7 @@ function Home() {
     return () => unsubscribe();
   }, []);
 
-  // --- NEW: Fetch Top 4 Approved Resources ---
+  // --- Fetch Top 4 Approved Resources ---
   useEffect(() => {
     const fetchApproved = async () => {
       setLoadingApproved(true);
@@ -264,7 +261,7 @@ function Home() {
           </div>
         )}
 
-        {/* --- REPLACED: Teacher Approved Resources Section --- */}
+        {/* --- Teacher Approved Resources Section --- */}
         <div className="mt-8 px-4 pb-12">
           <div className="rounded-lg border border-green-200 shadow-md p-4 bg-green-50/70 max-w-7xl mx-auto backdrop-blur-sm">
             <div className="flex justify-between items-center mb-4">

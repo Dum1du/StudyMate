@@ -78,7 +78,7 @@ export default function AdminDashboard() {
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
 
-  // --- NEW: BAN USER MODAL STATE ---
+  // --- BAN USER MODAL STATE ---
   const [banModal, setBanModal] = useState({ isOpen: false, user: null, timeValue: 1, timeUnit: "days" });
 
   const handleLogout = async () => {

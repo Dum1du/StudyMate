@@ -1,10 +1,10 @@
 import React from "react";
-import { FaTrash, FaPen } from "react-icons/fa"; // Import icons
+import { FaTrash, FaPen } from "react-icons/fa";
 
 function UpcomingKuppi({ title, host, time, link, onDelete, onEdit, isHost }) {
   return (
     <div className="bg-white rounded-xl shadow-md p-5 border border-gray-100 flex flex-col h-full relative hover:shadow-lg transition-shadow duration-200">
-      {/* 1. EDIT & DELETE BUTTONS (Top Right) */}
+      {/* EDIT & DELETE BUTTONS */}
       {/* Only show these if the current user is the host! */}
       {isHost && (
         <div className="absolute top-4 right-4 flex gap-2">
@@ -25,7 +25,7 @@ function UpcomingKuppi({ title, host, time, link, onDelete, onEdit, isHost }) {
         </div>
       )}
 
-      {/* 2. CARD CONTENT */}
+      {/* CARD CONTENT */}
       <div className="mb-4 mt-2">
         <h3 className="font-bold text-xl text-gray-900 leading-tight mb-2">
           {title}
@@ -41,7 +41,7 @@ function UpcomingKuppi({ title, host, time, link, onDelete, onEdit, isHost }) {
         
       </div>
 
-      {/* 3. BIG BLUE JOIN BUTTON (Bottom) */}
+      {/* BIG BLUE JOIN BUTTON (Bottom) */}
       <div className="mt-auto pt-2">
         {link ? (
           <a

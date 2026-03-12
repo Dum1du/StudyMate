@@ -3,7 +3,7 @@ import { Bell, Menu, X } from "lucide-react";
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { auth, db } from "./firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore"; // <-- CHANGED TO onSnapshot
+import { doc, onSnapshot } from "firebase/firestore";
 import { MdLogout } from "react-icons/md";
 import NotificationWrapper from "./NotificationWrapper";
 
@@ -35,7 +35,7 @@ export default function NavigationBar() {
         setUsername(user.displayName || "");
         setEmail(user.email || "");
 
-        // --- NEW: REAL-TIME LISTENER FOR INSTANT LOGOUT ---
+        // --- REAL-TIME LISTENER FOR INSTANT LOGOUT ---
         unsubDoc = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();

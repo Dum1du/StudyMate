@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../NavigationBar";
-import Footer from "../Footer";
 import { auth, db } from "../firebase";
 import {
   signOut,
@@ -12,7 +10,7 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FaChevronRight, FaSignOutAlt } from "react-icons/fa";
 import logo from "../assets/logo.png";
-import AlertModal from "../AlertModal"; // <-- Added AlertModal Import
+import AlertModal from "../AlertModal";
 
 // logout
 const SettingItem = ({ title, subtitle, onClick, isRed }) => (
@@ -67,7 +65,6 @@ function Settings() {
   const [isNotifEnabled, setIsNotifEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false,
     title: "",
@@ -77,7 +74,6 @@ function Settings() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
 
   const currentYear = new Date().getFullYear();
 
@@ -94,7 +90,7 @@ function Settings() {
     fetchSettings();
   }, [user]);
 
-  // UPGRADED: Added confirmation modal before logging out!
+  // confirmation modal before logging out!
   const handleLogout = () => {
     setAlertConfig({
       isOpen: true,
@@ -131,7 +127,7 @@ function Settings() {
       await reauthenticateWithCredential(currentUser, credential);
       await updatePassword(currentUser, newPassword);
 
-      // REPLACED SUCCESS ALERT
+      // SUCCESS ALERT
       setAlertConfig({
         isOpen: true,
         title: "Password Updated",
@@ -145,7 +141,7 @@ function Settings() {
     } catch (error) {
       console.error("Password Update Error:", error);
 
-      // REPLACED ERROR ALERT
+      // ERROR ALERT
       setAlertConfig({
         isOpen: true,
         title: "Update Failed",
@@ -178,7 +174,7 @@ function Settings() {
       <div className="flex-grow container mx-auto px-4 py-8 max-w-3xl">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
 
-        {/* SECTION 1: ACCOUNT */}
+        {/* ACCOUNT */}
         <div className="mb-8">
           <h2 className="text-gray-500 font-semibold mb-3 uppercase text-sm tracking-wider ml-1">
             Account
@@ -189,7 +185,7 @@ function Settings() {
           />
         </div>
 
-        {/* SECTION 2: NOTIFICATIONS */}
+        {/* NOTIFICATIONS */}
         <div className="mb-8">
           <h2 className="text-gray-500 font-semibold mb-3 uppercase text-sm tracking-wider ml-1">
             Notifications
@@ -214,7 +210,7 @@ function Settings() {
           </div>
         </div>
 
-        {/* SECTION 3: PRIVACY */}
+        {/* PRIVACY */}
         <div className="mb-8">
           <h2 className="text-gray-500 font-semibold mb-3 uppercase text-sm tracking-wider ml-1">
             Privacy
@@ -225,7 +221,7 @@ function Settings() {
           />
         </div>
 
-        {/* SECTION 4: GENERAL */}
+        {/* GENERAL */}
         <div className="mb-8">
           <h2 className="text-gray-500 font-semibold mb-3 uppercase text-sm tracking-wider ml-1">
             General
@@ -321,7 +317,6 @@ function Settings() {
         </Modal>
       )}
 
-      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}
