@@ -26,7 +26,6 @@ import { FaStar, FaPaperPlane } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
 import AlertModal from "./AlertModal"; 
 import axios from "axios"; 
-import PublicProfileModal from "./PublicProfileModal";
 
 const ResourcePage = () => {
   const { resourceId } = useParams();
@@ -48,9 +47,6 @@ const ResourcePage = () => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reporting, setReporting] = useState(false);
-
-  // --- Public Profile Modal State ---
-  const [selectedProfileId, setSelectedProfileId] = useState(null);
 
   const [comments, setComments] = useState(resourceData?.comments || []);
   const [allCommentsLoaded, setAllCommentsLoaded] = useState(false);
@@ -231,9 +227,11 @@ const ResourcePage = () => {
       setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to report resources.", type: "warning" });
       return;
     }
+    // Open the modal provide a reason for reporting
     setIsReportModalOpen(true);
   };
 
+  // --- Submit Report/Delete logic ---
   const submitReportAction = async () => {
     if (!reportReason.trim()) return;
     setReporting(true);
@@ -242,13 +240,16 @@ const ResourcePage = () => {
       try {
         const token = await auth.currentUser.getIdToken();
         
+        // Call Backend to delete from Drive and delete Material Doc
         await axios.delete(`http://localhost:4000/delete-upload/${resourceId}`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { diptId: dept }
         });
 
+        // Delete the associated Discussion document
         await deleteDoc(doc(db, "discussions", resourceId));
 
+        // Send Notification to Uploader
         if (resourceData?.uploaderUid) {
           const batch = writeBatch(db);
           const mainNotifRef = doc(collection(db, "notifications"));
@@ -289,6 +290,7 @@ const ResourcePage = () => {
         setAlertConfig({ isOpen: true, title: "Error", message: "Failed to delete material.", type: "error" });
       }
     } else {
+      // Student reporting logic
       try {
         await addDoc(collection(db, "reportedMaterials"), {
           materialId: resourceId,
@@ -831,28 +833,13 @@ const ResourcePage = () => {
     commentList.map((c) => (
       <div key={c.id} className="mt-6">
         <div className="flex gap-3 sm:ml-10">
-          {/* --- Clickable Avatar for Profile Modal --- */}
-          <div 
-            onClick={() => {
-              if (c.userId) setSelectedProfileId(c.userId);
-            }} 
-            className="cursor-pointer shrink-0"
-          >
-            <img
-              src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
-              className="w-10 h-10 rounded-full border shadow-sm hover:ring-2 hover:ring-blue-400 transition-all"
-            />
-          </div>
-          
+          <img
+            src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
+            className="w-10 h-10 rounded-full border shadow-sm"
+          />
           <div className="flex-1">
             <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
-              {/* --- Clickable Name for Profile Modal --- */}
-              <h5 
-                onClick={() => {
-                  if (c.userId) setSelectedProfileId(c.userId);
-                }} 
-                className="text-[13px] font-bold text-gray-900 flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors w-fit"
-              >
+              <h5 className="text-[13px] font-bold text-gray-900 flex items-center gap-1">
                 {c.userName}
                 {c.userRole === "teacher" && <MdVerified className="text-blue-500 size-3.5" title="Verified Teacher" />}
               </h5>
@@ -892,28 +879,15 @@ const ResourcePage = () => {
               <div className="mt-3 ml-10 space-y-4 border-l-2 border-gray-100 pl-4 sm:pl-10">
                 {c.replies.map((r) => (
                   <div key={r.id} className="flex gap-2">
-                    {/* --- Clickable Avatar for Replies --- */}
-                    <div 
-                      onClick={() => {
-                        if (r.userId) setSelectedProfileId(r.userId);
-                      }} 
-                      className="cursor-pointer shrink-0"
-                    >
-                      <img
-                        src={r.userProfile || "https://ui-avatars.com/api/?name=User"}
-                        className="w-8 h-8 rounded-full border shadow-sm hover:ring-2 hover:ring-blue-400 transition-all"
-                      />
-                    </div>
-                    
+                    <img
+                      src={
+                        r.userProfile || "https://ui-avatars.com/api/?name=User"
+                      }
+                      className="w-8 h-8 rounded-full border shadow-sm"
+                    />
                     <div className="flex-1">
                       <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50">
-                        {/* --- Clickable Name for Replies --- */}
-                        <h5 
-                          onClick={() => {
-                            if (r.userId) setSelectedProfileId(r.userId);
-                          }} 
-                          className="text-[12px] font-bold text-gray-900 flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors w-fit"
-                        >
+                        <h5 className="text-[12px] font-bold text-gray-900 flex items-center gap-1">
                           {r.userName}
                           {r.userRole === "teacher" && <MdVerified className="text-blue-500 size-3" title="Verified Teacher" />}
                         </h5>
@@ -1322,14 +1296,8 @@ const ResourcePage = () => {
               <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">
                 Uploaded by
               </h3>
-              {/* --- Clickable Area for Uploader's Profile Modal --- */}
-              <div 
-                onClick={() => {
-                  if (resourceData?.uploaderUid) setSelectedProfileId(resourceData.uploaderUid);
-                }} 
-                className="flex items-center gap-4 cursor-pointer group w-fit"
-              >
-                <div className="w-12 h-12 bg-white rounded-full flex items-center shadow-sm overflow-hidden group-hover:ring-2 group-hover:ring-blue-400 transition-all shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center shadow-sm overflow-hidden">
                   {userDoc?.profilePicture ? (
                     <img
                       className="w-full h-full object-cover"
@@ -1343,7 +1311,7 @@ const ResourcePage = () => {
                   )}
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800 flex items-center gap-1 group-hover:text-blue-600 transition-colors">
+                  <p className="font-bold text-gray-800 flex items-center gap-1">
                     {userName}
                     {userDoc?.role === "teacher" && <MdVerified className="text-blue-500 size-4" title="Verified Teacher" />}
                   </p>
@@ -1401,7 +1369,7 @@ const ResourcePage = () => {
 
       {isReportModalOpen && createPortal(
         <>
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9990] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl relative animate-in fade-in zoom-in duration-200">
               <button 
                 onClick={() => setIsReportModalOpen(false)}
@@ -1447,13 +1415,6 @@ const ResourcePage = () => {
         </>,
         document.body
       )}
-
-      {/* --- ADDED: Public Profile Modal Trigger --- */}
-      <PublicProfileModal 
-        isOpen={!!selectedProfileId} 
-        onClose={() => setSelectedProfileId(null)} 
-        userId={selectedProfileId} 
-      />
 
       <AlertModal 
         isOpen={alertConfig.isOpen}

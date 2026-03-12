@@ -25,6 +25,8 @@ import Layout from "./Layout.jsx";
 import Dashboard from "./Pages/Home.jsx";
 import ResourcePage from "./ResourceWindow.jsx";
 import { ResourcesProvider } from "./ResourcesContext.jsx";
+import Contact from "./Pages/Contact.jsx";
+import Terms from "./Pages/Terms.jsx";
 
 const router = createBrowserRouter([
   {
@@ -95,6 +97,14 @@ const router = createBrowserRouter([
         path: "/material/:resourceId",
         element: <ResourcePage />,
       },
+      {
+        path: "/contact",
+        element: <Contact />,
+      },
+      {
+        path: "/terms",
+        element: <Terms />,
+      }
     ],
   },
 ]);
