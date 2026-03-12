@@ -163,7 +163,7 @@ export default function BrowseResources() {
 
     // Filter teacher approved
     if (teacherApproved) {
-      result = result.filter((doc) => doc.teacherApproved === true);
+      result = result.filter((doc) => doc.isApproved === true);
     }
 
     return result;
