@@ -4,8 +4,8 @@ import StartBg from "../Bg images/StartBg.png";
 import { FaUser } from "react-icons/fa";
 import { SlLock } from "react-icons/sl";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth, db } from "../firebase"; // Ensure db is imported
-import { doc, getDoc } from "firebase/firestore"; // <-- IMPORTED getDoc
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore"; 
 import AlertModal from "../AlertModal"; 
 
 function StudentLogin() {
@@ -119,7 +119,7 @@ function StudentLogin() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // --- NEW: CHECK IF USER IS BANNED BEFORE ALLOWING ENTRY ---
+      // --- CHECK IF USER IS BANNED BEFORE ALLOWING ENTRY ---
       const userDocRef = doc(db, "users", user.uid);
       const userDocSnap = await getDoc(userDocRef);
       

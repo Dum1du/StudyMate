@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../NavigationBar";
 import { IoCameraOutline } from "react-icons/io5";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -8,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore"; 
 import { FaFileAlt, FaTrash, FaEye } from "react-icons/fa"; 
 import EditProfileModal from "./EditProfileModal";
-import Footer from "../Footer";
 import axios from "axios";
 import AlertModal from "../AlertModal"; 
 
@@ -184,7 +182,7 @@ function UserProfile() {
   }, [navigate]);
 
 
-  // --- FIXED: Uses backend to fetch files safely, then enriches with Firebase ratings ---
+  // --- Uses backend to fetch files safely ---
   useEffect(() => {
     const fetchUserPosts = async () => {
       if (!user?.uid) return;
@@ -192,14 +190,14 @@ function UserProfile() {
         setPostsLoading(true);
         const token = await auth.currentUser.getIdToken();
         
-        // 1. Fetch files from your working backend
+        // Fetch files from working backend
         const res = await axios.get("http://localhost:4000/user-uploads", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const backendPosts = res.data;
 
-        // 2. Loop through those files and fetch their live ratings from Firebase
+        // Loop through those files and fetch their live ratings from Firebase
         const enrichedPosts = await Promise.all(
           backendPosts.map(async (post) => {
             try {
@@ -454,7 +452,7 @@ function UserProfile() {
                       <p className="text-3xl font-bold text-blue-600">{userPosts.length}</p>
                       <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mt-1">Uploads</p>
                     </div>
-                    {/* --- DYNAMIC RATING INJECTED HERE --- */}
+                    {/* --- DYNAMIC RATING --- */}
                     <div className="bg-green-50 rounded-xl p-4 text-center">
                       <p className="text-3xl font-bold text-green-600">{averageUserRating}</p>
                       <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mt-1">Avg Rating</p>
@@ -518,7 +516,7 @@ function UserProfile() {
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Program</span><span className="text-gray-800">{user.program || "Not set"}</span></div>
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Email</span><span className="text-gray-800 truncate ml-4">{user.email}</span></div>
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Uploads</span><span className="text-gray-800 font-bold">{userPosts.length}</span></div>
-                   {/* --- DYNAMIC RATING INJECTED HERE --- */}
+                   {/* --- DYNAMIC RATING --- */}
                    <div className="flex justify-between py-2 border-b border-gray-50"><span className="text-gray-500">Avg Rating</span><span className="text-green-600 font-bold">{averageUserRating}</span></div>
                 </div>
                 <div onClick={handleLogout} className="flex items-center justify-center space-x-2 text-red-500 font-medium py-2 cursor-pointer">

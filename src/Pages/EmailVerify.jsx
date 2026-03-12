@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { auth } from "../firebase";
 import { sendEmailVerification } from "firebase/auth";
-import AlertModal from "../AlertModal"; // <-- Added import
+import AlertModal from "../AlertModal";
 
 function EmailVerify() {
   const [message, setMessage] = useState(
@@ -23,7 +23,6 @@ function EmailVerify() {
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
-  // -------------------------
 
   useEffect(() => {
     const intervalId = setInterval(async () => {
@@ -60,7 +59,6 @@ function EmailVerify() {
       setResendBusy(true);
       await sendEmailVerification(auth.currentUser);
       
-      // REPLACED INLINE MESSAGE WITH SUCCESS MODAL
       setAlertConfig({
         isOpen: true,
         title: "Email Sent!",
@@ -70,7 +68,6 @@ function EmailVerify() {
     } catch (error) {
       console.error("resend error:", error);
       
-      // REPLACED INLINE MESSAGE WITH ERROR MODAL
       setAlertConfig({
         isOpen: true,
         title: "Error Sending Email",
@@ -110,7 +107,6 @@ function EmailVerify() {
         )}
       </div>
 
-      {/* NEW ALERT MODAL INJECTION */}
       <AlertModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}

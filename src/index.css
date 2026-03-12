@@ -27,7 +27,6 @@
   min-height: 100vh;
 }
 
-/* Add this to your index.css or App.css */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
 }
