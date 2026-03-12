@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu, Flag, Ban, Unlock } from "lucide-react"; 
+import { Users,Mail, FileText, Video, LayoutDashboard, LogOut, Trash2, Eye, Search, ChevronLeft, ChevronRight, Bell, CheckCircle, X, Home, Menu, Flag, Ban, Unlock } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
 import { 
   collection, 
@@ -67,6 +67,9 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   const navigate = useNavigate();
+  const [messagesList, setMessagesList] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [viewMessage, setViewMessage] = useState(null);
 
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
@@ -127,6 +130,24 @@ export default function AdminDashboard() {
     setSearchTerm("");
     setSearchResults([]);
   }, [activeTab]);
+
+  useEffect(() => {
+  if (activeTab !== "messages") return;
+  setLoadingMessages(true);
+  
+  const unsubscribe = onSnapshot(collection(db, "contact"), (snapshot) => {
+    const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Sort by latest message first
+    fetched.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    setMessagesList(fetched);
+    setLoadingMessages(false);
+  }, (error) => {
+    console.error("Error fetching messages:", error);
+    setLoadingMessages(false);
+  });
+
+  return () => unsubscribe();
+}, [activeTab]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -623,6 +644,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteMessage = (messageId) => {
+  setAlertConfig({
+    isOpen: true,
+    title: "Delete Message",
+    message: "Are you sure you want to delete this contact message?",
+    type: "warning",
+    onConfirm: async () => {
+      closeAlert();
+      try {
+        await deleteDoc(doc(db, "contact", messageId));
+      } catch (error) {
+        console.error("Error deleting message:", error);
+      }
+    }
+  });
+};
+
   const displayUsers = searchTerm ? searchResults : usersList;
   const displayMaterials = searchTerm ? searchResults : materialsList;
   const displayKuppis = searchTerm ? searchResults : kuppiList;
@@ -645,7 +683,7 @@ export default function AdminDashboard() {
           </button>
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {["dashboard", "users", "materials", "kuppi", "notices", "reports"].map((tab) => (
+          {["dashboard", "users", "materials", "kuppi", "notices", "reports", "messages"].map((tab) => (
             <button 
               key={tab}
               onClick={() => {
@@ -660,6 +698,7 @@ export default function AdminDashboard() {
               {tab === "kuppi" && <Video size={20} />}
               {tab === "notices" && <Bell size={20} />}
               {tab === "reports" && <Flag size={20} />}
+              {tab === "messages" && <Mail size={20} />}
               {tab === "dashboard" ? "Overview" : tab === "kuppi" ? "Kuppi Sessions" : `Manage ${tab}`}
             </button>
           ))}
@@ -1088,6 +1127,64 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {activeTab === "messages" && (
+  <div className="flex flex-col h-full">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+      {loadingMessages ? (
+        <div className="p-8 text-center text-gray-500">Loading messages...</div>
+      ) : (
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+              <tr className="bg-gray-50 text-gray-500 text-xs md:text-sm uppercase tracking-wider border-b">
+                <th className="p-3 md:p-4 font-medium">Sender</th>
+                <th className="p-3 md:p-4 font-medium">Message</th>
+                <th className="p-3 md:p-4 font-medium">Date</th>
+                <th className="p-3 md:p-4 font-medium text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {messagesList.length === 0 ? (
+                <tr><td colSpan="4" className="p-8 text-center text-gray-500">No messages found.</td></tr>
+              ) : (
+                messagesList.map((msg) => (
+                  <tr key={msg.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-3 md:p-4">
+                      <p className="font-semibold text-gray-800 text-sm">{msg.name}</p>
+                      <p className="text-xs text-gray-500">{msg.email}</p>
+                    </td>
+                    <td className="p-3 md:p-4 max-w-xs">
+                      <p className="text-sm text-gray-700 truncate">{msg.message}</p>
+                    </td>
+                    <td className="p-3 md:p-4 text-xs text-gray-500">
+                      {msg.createdAt?.toDate().toLocaleDateString()}
+                    </td>
+                    <td className="p-3 md:p-4 flex justify-center gap-2">
+                       {/* Add a View button to open a full modal if message is long */}
+                       <button 
+                         onClick={() => setViewMessage(msg)}
+                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                       >
+                         <Eye size={16} />
+                       </button>
+                       <button 
+                         onClick={() => handleDeleteMessage(msg.id)}
+                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                       >
+                         <Trash2 size={16} />
+                       </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
         </div>
       </main>
