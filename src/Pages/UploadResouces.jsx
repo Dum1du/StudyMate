@@ -152,12 +152,12 @@ function UploadResources() {
   const navigate = useNavigate();
 
   // --- ADDED ALERT STATE ---
-  const [alertConfig, setAlertConfig] = useState({ 
-    isOpen: false, 
-    title: "", 
-    message: "", 
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
     type: "info",
-    onConfirm: null 
+    onConfirm: null,
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
@@ -216,21 +216,21 @@ function UploadResources() {
   // Toggle tag selection
   const toggleTag = (tag) => {
     setSelectedTags((prev) => {
-    // remove tag if already selected
-    if (prev.includes(tag)) {
+      // remove tag if already selected
+      if (prev.includes(tag)) {
+        setTagError("");
+        return prev.filter((t) => t !== tag);
+      }
+
+      // limit to 3
+      if (prev.length >= 3) {
+        setTagError("You can select a maximum of 3 tags.");
+        return prev;
+      }
+
       setTagError("");
-      return prev.filter((t) => t !== tag);
-    }
-
-    // limit to 3
-    if (prev.length >= 3) {
-      setTagError("You can select a maximum of 3 tags.");
-      return prev;
-    }
-
-    setTagError("");
-    return [...prev, tag];
-  });
+      return [...prev, tag];
+    });
   };
 
   // File handling
@@ -266,38 +266,41 @@ function UploadResources() {
   };
 
   // Stable callback using useCallback
-  const handleUploadStatus = useCallback((data) => {
-    console.log("Upload step:", data.step, data.message);
-    setShowProgress(true);
+  const handleUploadStatus = useCallback(
+    (data) => {
+      console.log("Upload step:", data.step, data.message);
+      setShowProgress(true);
 
-    switch (data.step) {
-      case "received":
-        setProgress(10);
-        break;
-      case "drive":
-        setProgress(70);
-        break;
-      case "firestore":
-        setProgress(90);
-        break;
-      case "complete":
-        setProgress(100);
-        setSuccess(true);
-        setShowSuccessOverlay(true);
-
-        setTimeout(() => {
-          setShowSuccessOverlay(false);
+      switch (data.step) {
+        case "received":
+          setProgress(10);
+          break;
+        case "drive":
+          setProgress(70);
+          break;
+        case "firestore":
+          setProgress(90);
+          break;
+        case "complete":
+          setProgress(100);
+          setSuccess(true);
+          setShowSuccessOverlay(true);
 
           setTimeout(() => {
-            navigate("/home"); 
-          }, 600);
-        }, 2500);
+            setShowSuccessOverlay(false);
 
-        break;
-      default:
-        break;
-    }
-  }, [navigate]);
+            setTimeout(() => {
+              navigate("/home");
+            }, 600);
+          }, 2500);
+
+          break;
+        default:
+          break;
+      }
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     if (!socket) return;
@@ -317,14 +320,14 @@ function UploadResources() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // REPLACED ALERT
     if (!file) {
       setAlertConfig({
         isOpen: true,
         title: "No File Selected",
         message: "Please browse or drag-and-drop a file to upload.",
-        type: "warning"
+        type: "warning",
       });
       return;
     }
@@ -362,8 +365,9 @@ function UploadResources() {
       setAlertConfig({
         isOpen: true,
         title: "Upload Failed",
-        message: "There was a problem uploading your file. Please check your connection and try again.",
-        type: "error"
+        message:
+          "There was a problem uploading your file. Please check your connection and try again.",
+        type: "error",
       });
     }
   };
@@ -514,8 +518,8 @@ function UploadResources() {
               </button>
             ))}
             {tagError && (
-  <p className="text-red-500 text-sm mt-2">{tagError}</p>
-)}
+              <p className="text-red-500 text-sm mt-2">{tagError}</p>
+            )}
           </div>
 
           {/* UPLOAD */}
@@ -557,7 +561,6 @@ function UploadResources() {
             className="hidden"
             accept=".pdf,image/*"
             onChange={(e) => handleFiles(e.target.files)}
-            required
           />
 
           {/* Progress bar */}
@@ -603,7 +606,7 @@ function UploadResources() {
       </div>
 
       {/* NEW ALERT MODAL INJECTION */}
-      <AlertModal 
+      <AlertModal
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}
         message={alertConfig.message}
