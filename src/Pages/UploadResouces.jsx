@@ -555,7 +555,7 @@ function UploadResources() {
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept=".pfg,image/*"
+            accept=".pdf,image/*"
             onChange={(e) => handleFiles(e.target.files)}
             required
           />
