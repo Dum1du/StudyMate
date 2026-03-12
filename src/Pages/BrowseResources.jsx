@@ -36,6 +36,21 @@ export default function BrowseResources() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
 
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+
+  const [selectedLevel, setSelectedLevel] = useState("");
+  const [selectedMaterialType, setSelectedMaterialType] = useState("");
+
+  const [teacherApproved, setTeacherApproved] = useState(false);
+
+  // Detect if any filter is active
+  const filtersActive =
+    selectedDepartment ||
+    selectedLevel ||
+    selectedMaterialType ||
+    teacherApproved;
+
   // --- ADDED ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false,
@@ -81,15 +96,15 @@ export default function BrowseResources() {
   const fuse = useMemo(() => {
     return new Fuse(recentResources, {
       keys: [
-      { name: "resourceTitle", weight: 0.4 },
-      { name: "courseCode", weight: 0.25 },
-      { name: "tags", weight: 0.2 },
-      { name: "courseSubject", weight: 0.1 },
-      { name: "description", weight: 0.05 },
-    ],
-    threshold: 0.4,
-    includeScore: true,
-    ignoreLocation: true,
+        { name: "resourceTitle", weight: 0.4 },
+        { name: "courseCode", weight: 0.25 },
+        { name: "tags", weight: 0.2 },
+        { name: "courseSubject", weight: 0.1 },
+        { name: "description", weight: 0.05 },
+      ],
+      threshold: 0.4,
+      includeScore: true,
+      ignoreLocation: true,
       getFn: (item, path) => {
         const value = item[path];
         if (Array.isArray(value)) return value.map((v) => v.trim());
@@ -98,89 +113,208 @@ export default function BrowseResources() {
     });
   }, [recentResources]);
 
-  // Debounce search input
+  //deaprtment fetch
   useEffect(() => {
-  const handler = setTimeout(async () => {
-    const term = search.trim();
+    const fetchDepartments = async () => {
+    try {
+      const snapshot = await getDocs(collectionGroup(db, "Materials"));
 
-    if (!term) {
-      setFiltered(recentResources);
-      return;
+      const deps = new Set();
+
+      snapshot.docs.forEach((doc) => {
+        const dept = doc.ref.parent.parent.id; // EEI
+        deps.add(dept);
+      });
+
+      setDepartments([...deps]);
+      console.log("Departments:", [...deps]);
+    } catch (err) {
+      console.error("Failed to fetch departments", err);
+    }
+  };
+
+    fetchDepartments();
+  }, []);
+
+  //filtering function that applies all active filters to a given list of documents
+  const applyFilters = (docs) => {
+    let result = [...docs];
+
+    // Filter by department
+    if (selectedDepartment) {
+      result = result.filter((doc) => doc.department === selectedDepartment);
     }
 
-    setLoading(true);
+    // Filter by material type
+    if (selectedMaterialType) {
+      result = result.filter(
+        (doc) => doc.materialType === selectedMaterialType,
+      );
+    }
 
-    try {
-      // 1️⃣ Always search locally first
-      const localResults = fuse
-  .search(term)
-  .sort((a, b) => a.score - b.score)
-  .map((r) => r.item);
+    // Filter by course level
+    if (selectedLevel) {
+      result = result.filter((doc) => {
+        if (!doc.courseCode) return false;
+        const levelDigit = doc.courseCode.replace(/\D/g, "")[0];
+        return levelDigit === selectedLevel;
+      });
+    }
 
-      // If search term is too short → skip Firestore
-      if (term.length < 3) {
-        setFiltered(localResults);
-        setLoading(false);
+    // Filter teacher approved
+    if (teacherApproved) {
+      result = result.filter((doc) => doc.isApproved === true);
+    }
+
+    return result;
+  };
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      const term = search.trim();
+
+      if (!term && !filtersActive) {
+        setFiltered(recentResources);
         return;
       }
 
-      // 2️⃣ Fetch from Firestore only if >= 3 characters
-      const q = query(
-        collectionGroup(db, "Materials"),
-        orderBy("createdAt", "desc")
-      );
+      // If filters exist but no search → fetch and filter
+      if (!term && filtersActive) {
+        setLoading(true);
 
-      const snapshot = await getDocs(q);
+        try {
+          let q;
 
-      const allDocs = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+          if (selectedDepartment) {
+            // Query only selected department
+            q = query(
+              collection(db, "studyMaterials", selectedDepartment, "Materials"),
+              orderBy("createdAt", "desc"),
+            );
+          } else {
+            // Query all departments
+            q = query(
+              collectionGroup(db, "Materials"),
+              orderBy("createdAt", "desc"),
+            );
+          }
 
-      // 3️⃣ Fuse search on full dataset
-      const fullFuse = new Fuse(allDocs, {
-        keys: [
-      { name: "resourceTitle", weight: 0.4 },
-      { name: "courseCode", weight: 0.25 },
-      { name: "tags", weight: 0.2 },
-      { name: "courseSubject", weight: 0.1 },
-      { name: "description", weight: 0.05 },
-    ],
-    threshold: 0.4,
-    includeScore: true,
-    ignoreLocation: true,
-      });
+          const snapshot = await getDocs(q);
 
-      const firestoreResults = fullFuse
-  .search(term)
-  .sort((a, b) => a.score - b.score)
-  .map((r) => r.item);
+          const docs = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            department: doc.ref.parent.parent.id, // extract department from path
+            ...doc.data(),
+          }));
 
-      // 4️⃣ Merge + remove duplicates
-      const combined = [...localResults, ...firestoreResults];
-      const unique = Array.from(
-        new Map(combined.map((item) => [item.id, item])).values()
-      );
+          const filteredDocs = applyFilters(docs);
 
-      setFiltered(unique);
-      setCurrentPage(1);
-    } catch (err) {
-      console.error("Error searching resources:", err);
+          setFiltered(filteredDocs);
+          setCurrentPage(1);
+        } catch (err) {
+          console.error("Filter fetch error:", err);
+        }
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
 
-      setAlertConfig({
-        isOpen: true,
-        title: "Search Error",
-        message:
-          "Failed to search the database. Please check your connection and try again.",
-        type: "error",
-      });
-    }
+      try {
+        // 1️⃣ Always search locally first
+        const localResults = fuse
+          .search(term)
+          .sort((a, b) => a.score - b.score)
+          .map((r) => r.item);
 
-    setLoading(false);
-  }, 400);
+        // If search term is too short → skip Firestore
+        if (term.length < 3) {
+          setFiltered(localResults);
+          setLoading(false);
+          return;
+        }
 
-  return () => clearTimeout(handler);
-}, [search, fuse, recentResources]);
+        // 2️⃣ Fetch from Firestore only if >= 3 characters
+        let q;
+
+        if (selectedDepartment) {
+          // Query only selected department (LOWER READS)
+          q = query(
+            collection(db, "studyMaterials", selectedDepartment, "Materials"),
+            orderBy("createdAt", "desc"),
+          );
+        } else {
+          // Query across all departments
+          q = query(
+            collectionGroup(db, "Materials"),
+            orderBy("createdAt", "desc"),
+          );
+        }
+
+        const snapshot = await getDocs(q);
+
+        const allDocs = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          department: selectedDepartment
+            ? selectedDepartment
+            : doc.ref.parent.parent.id,
+          ...doc.data(),
+        }));
+
+        // 3️⃣ Fuse search on full dataset
+        const fullFuse = new Fuse(allDocs, {
+          keys: [
+            { name: "resourceTitle", weight: 0.4 },
+            { name: "courseCode", weight: 0.25 },
+            { name: "tags", weight: 0.2 },
+            { name: "courseSubject", weight: 0.1 },
+            { name: "description", weight: 0.05 },
+          ],
+          threshold: 0.4,
+          includeScore: true,
+          ignoreLocation: true,
+        });
+
+        const firestoreResults = fullFuse
+          .search(term)
+          .sort((a, b) => a.score - b.score)
+          .map((r) => r.item);
+
+        // 4️⃣ Merge + remove duplicates
+        const combined = [...localResults, ...firestoreResults];
+        const unique = Array.from(
+          new Map(combined.map((item) => [item.id, item])).values(),
+        );
+
+        const finalResults = applyFilters(unique);
+
+        setFiltered(finalResults);
+        setCurrentPage(1);
+      } catch (err) {
+        console.error("Error searching resources:", err);
+
+        setAlertConfig({
+          isOpen: true,
+          title: "Search Error",
+          message:
+            "Failed to search the database. Please check your connection and try again.",
+          type: "error",
+        });
+      }
+
+      setLoading(false);
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [
+    search,
+    fuse,
+    recentResources,
+    selectedDepartment,
+    selectedLevel,
+    selectedMaterialType,
+    teacherApproved,
+  ]);
 
   // ADD PAGINATION STATE
   useEffect(() => {
@@ -263,15 +397,58 @@ export default function BrowseResources() {
         </div>
 
         {/* Filter buttons */}
-        <div className="flex flex-wrap gap-2 mb-6 justify-center">
-          {["Course", "Subject", "Material Type", "Tags"].map((filter) => (
-            <button
-              key={filter}
-              className="border border-gray-300 rounded-md px-4 py-1 text-sm hover:bg-gray-100"
-            >
-              {filter}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-3 mb-6 justify-center">
+          {/* Department */}
+          <select
+            value={selectedDepartment}
+            onChange={(e) => setSelectedDepartment(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+          >
+            <option value="">All Departments</option>
+            {departments.map((dep) => (
+              <option key={dep} value={dep}>
+                {dep}
+              </option>
+            ))}
+          </select>
+
+          {/* Course Level */}
+          <select
+            value={selectedLevel}
+            onChange={(e) => setSelectedLevel(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+          >
+            <option value="">All Levels</option>
+            <option value="1">1 Level</option>
+            <option value="2">2 Level</option>
+            <option value="3">3 Level</option>
+            <option value="4">4 Level</option>
+            <option value="5">5 Level</option>
+            <option value="6">6 Level</option>
+
+          </select>
+
+          {/* Material Type */}
+          <select
+            value={selectedMaterialType}
+            onChange={(e) => setSelectedMaterialType(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+          >
+            <option value="">All Types</option>
+            <option value="study_material">Study Material</option>
+                <option value="Past Paper">Past Paper</option>
+                <option value="Other">Other</option>
+          </select>
+
+          {/* Teacher Approved */}
+          <button
+            onClick={() => setTeacherApproved(!teacherApproved)}
+            className={`border px-4 py-1 rounded-md text-sm ${
+              teacherApproved ? "bg-green-200" : ""
+            }`}
+          >
+            Teacher Approved
+          </button>
         </div>
 
         {/* Search Results */}
