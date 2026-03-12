@@ -1,5 +1,4 @@
 import { Link } from "react-router";
-/*import "./StartScreen.css";*/
 import StartBg from "../Bg images/StartBg.png"; 
 
 function StartScreen() {

@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../NavigationBar";
 import UpcomingKuppi from "../UpcomingKuppi";
 import { FaPlus, FaSave, FaClipboardList, FaTimes } from "react-icons/fa";
 import { auth, db } from "../firebase";
 import { v4 as uuidv4 } from "uuid";
-import Footer from "../Footer";
 import {
   addDoc,
   collection,
@@ -49,7 +47,6 @@ function KuppiSessions() {
   };
   const minDate = getLocalTodayDate();
 
-  // 1. LISTEN FOR USER AUTH CHANGES
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -57,7 +54,7 @@ function KuppiSessions() {
     return () => unsubscribe();
   }, []);
 
-  // 2. AUTO-CLEANUP (Delete sessions older than 6 hours)
+  // Delete sessions older than 6 hours
   useEffect(() => {
     const cleanupOldSessions = async () => {
       const now = new Date();
@@ -67,7 +64,7 @@ function KuppiSessions() {
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach(async (document) => {
           const data = document.data();
-          // FIXED CRASH: Check if time is safely a string before parsing
+          // Check if time is safely a string before parsing
           if (data.time && typeof data.time === "string") {
             const sessionTime = new Date(data.time);
             if (sessionTime < cutoffTime) {
@@ -82,7 +79,7 @@ function KuppiSessions() {
     cleanupOldSessions();
   }, []);
 
-  // 3. REAL-TIME DATA
+  // REAL-TIME DATA
   useEffect(() => {
     const q = query(collection(db, "sessions"), orderBy("time", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -120,7 +117,7 @@ function KuppiSessions() {
   };
 
   const handleEditClick = (session) => {
-    // FIXED CRASH: Prevent editing if the time is malformed or missing
+    // Prevent editing if the time is malformed or missing
     if (!session.time || typeof session.time !== "string") return;
 
     setIsEditing(true);
@@ -160,7 +157,7 @@ function KuppiSessions() {
       return;
     }
 
-    // --- NEW: VALIDATE TO PREVENT PAST SESSIONS ---
+    // --- VALIDATE TO PREVENT PAST SESSIONS ---
     const selectedDateTime = new Date(`${date}T${time}`);
     const now = new Date();
 
@@ -249,7 +246,7 @@ function KuppiSessions() {
         </p>
 
         <div className="flex flex-col-reverse md:flex-row gap-8 items-start justify-center">
-          {/* LEFT SIDE: SESSIONS LIST */}
+          {/* SESSIONS LIST */}
           <div className="flex-1 w-full md:min-w-[500px]">
             <h2 className="text-xl font-bold mb-4 text-gray-800 border-b pb-2">
               Upcoming Sessions
@@ -260,7 +257,7 @@ function KuppiSessions() {
                   key={session.id}
                   title={session.title}
                   host={session.host}
-                  // FIXED CRASH: Safe string replacement check for UI render
+                  // Safe string replacement check for UI render
                   time={typeof session.time === "string" ? session.time.replace("T", " ") : "N/A"}
                   link={session.link}
                   onDelete={() => handleDelete(session.id)}
@@ -280,7 +277,7 @@ function KuppiSessions() {
             </div>
           </div>
 
-          {/* RIGHT SIDE: FORM */}
+          {/* FORM */}
           <div className="w-full md:w-1/3 md:sticky md:top-24 md:min-w-[320px]">
             <form
               onSubmit={handleSubmit}
@@ -327,7 +324,7 @@ function KuppiSessions() {
                   name="date"
                   value={formData.date}
                   onChange={handleInputChange}
-                  min={minDate} // <-- PREVENTS CHOOSING PAST DATES IN CALENDAR
+                  min={minDate} // PREVENTS CHOOSING PAST DATES IN CALENDAR
                   className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
                   required
                 />

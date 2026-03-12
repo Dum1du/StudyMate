@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; // Updated to react-router-dom
+import { Link, useNavigate } from "react-router-dom"; 
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
@@ -24,7 +24,6 @@ function RegisterUI() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfiPass, setConfirPass] = useState(false);
 
-  // --- ALERT STATE ---
   const [alertConfig, setAlertConfig] = useState({ 
     isOpen: false, 
     title: "", 
@@ -50,7 +49,7 @@ function RegisterUI() {
       return;
     }
 
-    // --- NEW: Check for Student OR Teacher Email ---
+    // --- Check for Student OR Teacher Email ---
     const isStudent = email.startsWith("s") && email.endsWith("@ousl.lk");
     const isTeacher = email.endsWith("@ou.ac.lk") || email === "wijerathneasitha@gmail.com";
 
@@ -148,7 +147,7 @@ function RegisterUI() {
     }
   };
 
-  // --- NEW: Added 'role' parameter to save to database ---
+  // --- Added 'role' parameter to save to database ---
   const addUserToFirestore = async (user, role) => {
     const joinDate = new Date(user.metadata.creationTime);
     const joinMonth = joinDate.toLocaleString("default", { month: "long" });

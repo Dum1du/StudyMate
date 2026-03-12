@@ -100,7 +100,6 @@ function EditProfileModal({ user, onClose, onSave, onRemovePhoto }) {
 
           {/* Action Buttons */}
           <div className="flex justify-between items-center pt-4 mt-6 border-t border-gray-100">
-            {/* Left side: Remove Photo Button */}
             <div>
               {user.profilePicture && (
                 <button
@@ -113,7 +112,7 @@ function EditProfileModal({ user, onClose, onSave, onRemovePhoto }) {
               )}
             </div>
 
-            {/* Right side: Cancel and Save Buttons */}
+            {/* Cancel and Save Buttons */}
             <div className="flex space-x-3">
               <button
                 type="button"

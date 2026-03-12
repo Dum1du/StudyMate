@@ -227,11 +227,11 @@ const ResourcePage = () => {
       setAlertConfig({ isOpen: true, title: "Login Required", message: "Please login to report resources.", type: "warning" });
       return;
     }
-    // Open the modal for EVERYONE so teachers can provide a reason for deleting
+    // Open the modal provide a reason for reporting
     setIsReportModalOpen(true);
   };
 
-  // --- FIXED: Submit Report/Delete logic ---
+  // --- Submit Report/Delete logic ---
   const submitReportAction = async () => {
     if (!reportReason.trim()) return;
     setReporting(true);
@@ -240,16 +240,16 @@ const ResourcePage = () => {
       try {
         const token = await auth.currentUser.getIdToken();
         
-        // 1. Call Backend to delete from Drive and delete Material Doc
+        // Call Backend to delete from Drive and delete Material Doc
         await axios.delete(`http://localhost:4000/delete-upload/${resourceId}`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { diptId: dept }
         });
 
-        // 2. Delete the associated Discussion document
+        // Delete the associated Discussion document
         await deleteDoc(doc(db, "discussions", resourceId));
 
-        // 3. Send Notification to Uploader
+        // Send Notification to Uploader
         if (resourceData?.uploaderUid) {
           const batch = writeBatch(db);
           const mainNotifRef = doc(collection(db, "notifications"));
@@ -301,7 +301,7 @@ const ResourcePage = () => {
           reportedByEmail: currentUserEmail,
           reportedByName: currentUserProfile.displayName || "Unknown",
           reason: reportReason,
-          uploaderUid: resourceData?.uploaderUid || null, // SAVED SO ADMIN CAN NOTIFY
+          uploaderUid: resourceData?.uploaderUid || null,
           createdAt: serverTimestamp(),
         });
         setIsReportModalOpen(false);

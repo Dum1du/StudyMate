@@ -25,7 +25,7 @@ function NotificationWrapper() {
   const wrapperRef = useRef(null);
   const navigate = useNavigate();
 
-  // 1. Listen for User Auth & Fetch their Notification Settings
+  // Listen for User Auth & Fetch their Notification Settings
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -48,7 +48,7 @@ function NotificationWrapper() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Fetch Notifications (Only if enabled!)
+  // Fetch Notifications (Only if enabled!)
   useEffect(() => {
     if (!user || !isNotifEnabled) {
       setNotifications([]);
@@ -82,7 +82,7 @@ function NotificationWrapper() {
     return () => unsubscribe();
   }, [user, isNotifEnabled]);
 
-  // 3. Handle clicking outside the dropdown
+  // Handle clicking outside the dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
@@ -110,8 +110,6 @@ function NotificationWrapper() {
           navigate(`/material/${clickedNotif.targetId}`);
         }
         else if (clickedNotif.type === "quiz") {
-          // FIXED: Removed navigation for quizzes. 
-          // Just close the dropdown and acknowledge the read status.
           setIsOpen(false);
         }
       }
