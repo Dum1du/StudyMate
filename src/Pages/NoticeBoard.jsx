@@ -214,7 +214,7 @@ function NoticeBoard() {
     }
   };
 
-  // --- FIXED: Delete the document AND notify the author! ---
+  // --- Delete the document AND notify the author! ---
   const handleRejectPending = (notice) => {
     setAlertConfig({
       isOpen: true,
@@ -235,7 +235,7 @@ function NoticeBoard() {
               title: "Notice Rejected",
               message: `Your notice "${notice.title}" was rejected by a teacher.`,
               createdAt: timestamp,
-              type: "notice", // So it routes back to noticeboard if clicked
+              type: "notice",
               targetId: null
             });
 
@@ -420,8 +420,7 @@ function NoticeBoard() {
                           >
                             <CheckCircle size={18} />
                           </button>
-                          
-                          {/* WE NOW PASS THE ENTIRE NOTICE OBJECT TO REJECT */}
+                        
                           <button 
                             onClick={() => handleRejectPending(notice)}
                             className="bg-red-100 text-red-600 hover:bg-red-200 p-2 rounded-lg transition"

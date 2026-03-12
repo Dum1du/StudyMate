@@ -105,26 +105,30 @@ const COURSES = [
 
 const TAGS = [
   "final-exam",
-  "midterm",
+  "cat",
   "quiz",
-  "chapter-1",
-  "chapter-2",
-  "chapter-3",
-  "chapter-4",
-  "chapter-5",
-  "chapter-6",
-  "chapter-7",
-  "important",
   "notes",
   "summary",
   "tutorial",
   "assignment",
   "practice",
-  "solution",
-  "lecture",
-  "review",
   "cheatsheet",
   "guide",
+  "course-outline",
+  "course-material",
+  "study-pack",
+  "day-school",
+  "continuous-assessment",
+  "tma", 
+  "oca", 
+  "final-exam-prep",
+  "past-tma",
+  "grading-guide",
+  "mcq",
+  "research",
+  "dayschool",
+  "formulas",
+  "diagrams",
 ];
 
 function UploadResources() {
@@ -132,8 +136,7 @@ function UploadResources() {
   const [desc, setDesc] = useState("");
   const [code, setCode] = useState("");
   const [subject, setSubject] = useState("");
-  const [type, setType] = useState("");
-  const [materialType, setMaterialType] = useState("");
+  const[materialType, setMaterialType] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
   const [tagError, setTagError] = useState("");
   const [file, setFile] = useState(null);
@@ -237,19 +240,14 @@ function UploadResources() {
       setFile(uploadedFile);
 
       // Automatically detect and set material type
-      const fileExtension = uploadedFile.name.split(".").pop().toLowerCase();
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
-      if (fileExtension === "pdf") {
-        setType(".pdf");
-      } else if (fileExtension === "docx" || fileExtension === "doc") {
-        setType(".docx");
-      } else if (["jpg", "jpeg", "png", "gif", "bmp"].includes(fileExtension)) {
-        setType(".jpg");
-      } else {
-        setType(""); // If unsupported format
-      }
+  if (!allowedTypes.includes(file.type)) {
+    alert("Only PDF and image files are allowed.");
+    return;
     }
-  };
+  }
+};
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -561,6 +559,7 @@ function UploadResources() {
             ref={fileInputRef}
             type="file"
             className="hidden"
+            accept=".pdf,image/*"
             onChange={(e) => handleFiles(e.target.files)}
           />
 
@@ -586,7 +585,7 @@ function UploadResources() {
           <div className="flex justify-end mt-10">
             <button
               type="submit"
-              className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700"
+              className="bg-blue-600 cursor-pointer text-white py-3 px-6 rounded-lg hover:bg-blue-700"
             >
               Upload Material
             </button>

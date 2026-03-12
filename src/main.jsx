@@ -5,7 +5,6 @@ import { RouterProvider } from "react-router/dom";
 import "./index.css";
 import StartScreen from "./Pages/StartScreen.jsx";
 import StudentLogin from "./Pages/StudentLogin.jsx";
-import TeacherLogin from "./Pages/AdminLogin.jsx";
 import RegisterUI from "./Pages/RegisterUI.jsx";
 import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
@@ -26,6 +25,8 @@ import Layout from "./Layout.jsx";
 import Dashboard from "./Pages/Home.jsx";
 import ResourcePage from "./ResourceWindow.jsx";
 import { ResourcesProvider } from "./ResourcesContext.jsx";
+import Contact from "./Pages/Contact.jsx";
+import Terms from "./Pages/Terms.jsx";
 
 const router = createBrowserRouter([
   {
@@ -35,10 +36,6 @@ const router = createBrowserRouter([
   {
     path: "/logins",
     element: <StudentLogin />,
-  },
-  {
-    path: "/logint",
-    element: <TeacherLogin />,
   },
   { path: "/register", element: <RegisterUI /> },
 
@@ -100,6 +97,14 @@ const router = createBrowserRouter([
         path: "/material/:resourceId",
         element: <ResourcePage />,
       },
+      {
+        path: "/contact",
+        element: <Contact />,
+      },
+      {
+        path: "/terms",
+        element: <Terms />,
+      }
     ],
   },
 ]);

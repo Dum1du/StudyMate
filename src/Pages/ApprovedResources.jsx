@@ -6,7 +6,7 @@ import { FaFolderOpen } from "react-icons/fa";
 import { Eye, Download, X, ShieldCheck, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import AlertModal from "../AlertModal";
 
-// Reusable Preview Card Component
+// Preview Card Component
 const PreviewCard = ({ title, subtitle, fileLink, onClick }) => {
   const previewUrl = fileLink ? fileLink.replace(/\/view.*|\/edit.*/, "/preview") : null;
 
@@ -53,7 +53,7 @@ export default function ApprovedResources() {
   // Pagination State
   const itemsPerPage = 12;
   const [currentPage, setCurrentPage] = useState(1);
-  const [cursors, setCursors] = useState([null]); // Keeps track of pagination points
+  const [cursors, setCursors] = useState([null]);
   const [hasNextPage, setHasNextPage] = useState(false);
 
   const [alertConfig, setAlertConfig] = useState({ 

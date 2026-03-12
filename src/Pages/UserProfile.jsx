@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../NavigationBar";
 import { IoCameraOutline } from "react-icons/io5";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
 import { auth, db } from "../firebase";
@@ -8,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore";
 import { FaFileAlt, FaTrash, FaEye } from "react-icons/fa";
 import EditProfileModal from "./EditProfileModal";
-import Footer from "../Footer";
 import axios from "axios";
 import AlertModal from "../AlertModal";
 
@@ -250,22 +248,23 @@ function UserProfile() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // --- FIXED: Uses backend to fetch files safely, then enriches with Firebase ratings ---
+
+  // --- Uses backend to fetch files safely ---
   useEffect(() => {
     const fetchUserPosts = async () => {
       if (!user?.uid) return;
       try {
         setPostsLoading(true);
         const token = await auth.currentUser.getIdToken();
-
-        // 1. Fetch files from your working backend
+        
+        // Fetch files from working backend
         const res = await axios.get("http://localhost:4000/user-uploads", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const backendPosts = res.data;
 
-        // 2. Loop through those files and fetch their live ratings from Firebase
+        // Loop through those files and fetch their live ratings from Firebase
         const enrichedPosts = await Promise.all(
           backendPosts.map(async (post) => {
             try {
@@ -653,7 +652,7 @@ function UserProfile() {
                         Uploads
                       </p>
                     </div>
-                    {/* --- DYNAMIC RATING INJECTED HERE --- */}
+                    {/* --- DYNAMIC RATING --- */}
                     <div className="bg-green-50 rounded-xl p-4 text-center">
                       <p className="text-3xl font-bold text-green-600">
                         {averageUserRating}
