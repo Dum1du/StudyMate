@@ -342,13 +342,6 @@ const MyResourcesUI = () => {
                         <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => removeResource(res.id)}
-                              className="text-red-500 hover:text-red-700 transition p-1"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                            <button
                               onClick={() => viewResource(res)}
                               className="text-gray-600 hover:text-blue-600 transition p-1"
                               title="View"
@@ -357,18 +350,21 @@ const MyResourcesUI = () => {
                             </button>
                             <button
                               onClick={() => downloadResource(res)}
-                              className="text-gray-600 hover:text-green-600 transition p-1"
+                              className="bg-green-400 hover:bg-green-600 text-white transition px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-medium"
                               title="Download"
                             >
-                              <Download size={18} />
+                              Download <Download size={18} />
                             </button>
                           </div>
-                          <button
-                            onClick={() => openQuizModal(res)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-medium"
-                          >
-                            <Eye size={14} /> Quiz
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => removeResource(res.id)}
+                              className="bg-red-500 hover:bg-red-600 text-white transition p-2 rounded-lg"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -443,32 +439,27 @@ const MyResourcesUI = () => {
                       <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => removeResource(res.id)}
-                            className="text-red-500 hover:text-red-700 transition p-1"
-                            title="Delete"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                          <button
                             onClick={() => viewResource(res)}
-                            className="text-gray-600 hover:text-blue-600 transition p-1"
+                            className="bg-blue-500 hover:bg-blue-600 text-white transition px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-medium"
                             title="View"
                           >
+                            View
                             <Eye size={18} />
                           </button>
                           <button
                             onClick={() => downloadResource(res)}
-                            className="text-gray-600 hover:text-green-600 transition p-1"
+                            className="bg-green-500 hover:bg-green-600 text-white transition px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-medium"
                             title="Download"
                           >
-                            <Download size={18} />
+                            Download <Download size={18} />
                           </button>
                         </div>
                         <button
-                          onClick={() => openQuizModal(res)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 text-xs font-medium"
+                          onClick={() => removeResource(res.id)}
+                          className="bg-red-500 hover:bg-red-600 text-white transition p-2 rounded-lg"
+                          title="Delete"
                         >
-                          <Eye size={14} /> Quiz
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
