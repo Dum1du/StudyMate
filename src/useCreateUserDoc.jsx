@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { Contact } from "lucide-react";
 
 function useCreateUserDoc() {
   useEffect(() => {

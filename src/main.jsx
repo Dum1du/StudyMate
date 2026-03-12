@@ -5,7 +5,6 @@ import { RouterProvider } from "react-router/dom";
 import "./index.css";
 import StartScreen from "./Pages/StartScreen.jsx";
 import StudentLogin from "./Pages/StudentLogin.jsx";
-import TeacherLogin from "./Pages/AdminLogin.jsx";
 import RegisterUI from "./Pages/RegisterUI.jsx";
 import Home from "./Pages/Home.jsx";
 import MyResourcesUI from "./Pages/MyResourcesUI.jsx";
@@ -36,10 +35,6 @@ const router = createBrowserRouter([
   {
     path: "/logins",
     element: <StudentLogin />,
-  },
-  {
-    path: "/logint",
-    element: <TeacherLogin />,
   },
   { path: "/register", element: <RegisterUI /> },
 

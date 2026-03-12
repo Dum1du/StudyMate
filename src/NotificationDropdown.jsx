@@ -3,21 +3,10 @@ import { BellOff } from "lucide-react";
 
 function NotificationDropdown({ notifications, onClear, onClickNotification, isNotifEnabled }) {
   return (
-    // FIXED WIDTH: Replaced 'w-110' with responsive 'w-[300px] sm:w-[380px]'
     <div className="bg-white shadow-2xl border border-gray-200 rounded-xl w-[300px] sm:w-[380px] p-3 z-50">
       
       <style>
-        {`
-          /* Hide scrollbar for Chrome, Safari and Edge */
-          .no-scrollbar::-webkit-scrollbar {
-            display: none;
-          }
-          /* Hide scrollbar for Firefox */
-          .no-scrollbar {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-          }
-        `}
+        
       </style>
 
       
@@ -36,7 +25,7 @@ function NotificationDropdown({ notifications, onClear, onClickNotification, isN
 
       
       <ul className="max-h-[380px] overflow-y-scroll no-scrollbar">
-        {/* 1. CHECK IF MUTED */}
+        {/* CHECK IF MUTED */}
         {!isNotifEnabled ? (
           <div className="flex flex-col items-center justify-center py-10 text-gray-500">
             <BellOff size={36} className="text-gray-300 mb-3" />
@@ -46,12 +35,12 @@ function NotificationDropdown({ notifications, onClear, onClickNotification, isN
             </p>
           </div>
         ) : notifications.length === 0 ? (
-          /* 2. CHECK IF EMPTY */
+          /* CHECK IF EMPTY */
           <li className="text-gray-500 text-sm text-center py-8">
             No new notifications
           </li>
         ) : (
-          /* 3. SHOW NOTIFICATIONS */
+          /* SHOW NOTIFICATIONS */
           notifications.map((notif) => (
             <li
               key={notif.id}
