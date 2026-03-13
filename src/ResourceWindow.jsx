@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Star, User, Bookmark, ShieldCheck, Flag, X } from "lucide-react"; 
+import { Download, Star, User, Bookmark, ShieldCheck, ShieldOff, Flag, X } from "lucide-react"; 
 import { Navigate, useLocation, useParams, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
@@ -209,20 +209,27 @@ const ResourcePage = () => {
     }
   };
 
-  const handleApprove = async () => {
+  // --- FIXED: Toggle Approval Status ---
+  const toggleApproval = async () => {
     if (currentUserProfile.role !== "teacher" || !materialRef) return;
+    
+    const newApprovalStatus = !resourceData?.isApproved;
+    
     try {
-      await updateDoc(materialRef, { isApproved: true });
-      setResourceData((prev) => ({ ...prev, isApproved: true }));
+      await updateDoc(materialRef, { isApproved: newApprovalStatus });
+      setResourceData((prev) => ({ ...prev, isApproved: newApprovalStatus }));
+      
       setAlertConfig({
         isOpen: true,
-        title: "Material Approved",
-        message: "You have successfully approved this material.",
-        type: "success"
+        title: newApprovalStatus ? "Material Approved" : "Approval Revoked",
+        message: newApprovalStatus 
+          ? "You have successfully approved this material." 
+          : "You have removed the teacher approval from this material.",
+        type: newApprovalStatus ? "success" : "info"
       });
     } catch (error) {
-      console.error("Error approving material:", error);
-      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to approve material.", type: "error" });
+      console.error("Error updating approval status:", error);
+      setAlertConfig({ isOpen: true, title: "Error", message: "Failed to update approval status.", type: "error" });
     }
   };
 
@@ -1005,13 +1012,18 @@ const ResourcePage = () => {
                 </p>
               </div>
               <div className="flex items-center gap-3 mt-4 sm:mt-0">
-                {currentUserProfile.role === "teacher" && !resourceData?.isApproved && (
+                {/* --- Teacher Approval Toggle --- */}
+                {currentUserProfile.role === "teacher" && (
                   <button
-                    onClick={handleApprove}
-                    className="p-2.5 bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 rounded-lg transition"
-                    title="Approve Material"
+                    onClick={toggleApproval}
+                    className={`p-2.5 rounded-lg transition border ${
+                      resourceData?.isApproved
+                        ? "bg-orange-50 text-orange-500 border-orange-200 hover:bg-orange-100"
+                        : "bg-green-50 text-green-600 border-green-200 hover:bg-green-100"
+                    }`}
+                    title={resourceData?.isApproved ? "Revoke Approval" : "Approve Material"}
                   >
-                    <ShieldCheck size={20} />
+                    {resourceData?.isApproved ? <ShieldOff size={20} /> : <ShieldCheck size={20} />}
                   </button>
                 )}
 
@@ -1448,7 +1460,7 @@ const ResourcePage = () => {
         document.body
       )}
 
-      {/* --- ADDED: Public Profile Modal Trigger --- */}
+      {/* --- Public Profile Modal Trigger --- */}
       <PublicProfileModal 
         isOpen={!!selectedProfileId} 
         onClose={() => setSelectedProfileId(null)} 

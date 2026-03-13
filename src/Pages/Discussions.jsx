@@ -17,7 +17,7 @@ import {
 import { db, auth } from "../firebase.js";
 import Discuss from "../Discuss.jsx";
 import ed_bg from "../Bg images/ed_bg.jpg";
-import AlertModal from "../AlertModal"; // <-- Imported AlertModal
+import AlertModal from "../AlertModal"; 
 import { useNavigate } from "react-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -87,10 +87,17 @@ const [loadingDocs, setLoadingDocs] = useState(true);
         displayName: data.displayName || "Unknown User",
         photoURL: data.profilePicture || `https://ui-avatars.com/api/?name=${data.displayName || "User"}`,
       });
-    }
-    }
-  });
 
+      console.log("Fetched user profile:", {
+        displayName: data.displayName,
+        photoURL: data.profilePicture,
+      });
+    }
+    
+    }
+
+    fetchUserProfile(user);
+  });
   return () => unsubscribe();
 }, []);
 

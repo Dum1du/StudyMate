@@ -33,10 +33,12 @@ import {
   query,
   updateDoc,
 } from "firebase/firestore";
+import { Link, useNavigate } from "react-router-dom";
 
 const MyResourcesUI = () => {
   const [resources, setResources] = useState([]);
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
@@ -107,10 +109,8 @@ const MyResourcesUI = () => {
   const closeQuizModal = () => setSelectedQuiz(null);
 
   const viewResource = (res) => {
-    if (res.fileLink) {
-      window.open(res.fileLink, "_blank");
-    } else {
-      alert("No URL available for this resource.");
+    if (res.id) {
+      navigate(`/material/${res.id}`, { state: { resource: res } });
     }
   };
 
@@ -191,6 +191,11 @@ const MyResourcesUI = () => {
     return <File size={28} className="text-gray-500" />;
   };
 
+  const gotoBrowse = () => {
+    setShowPinnedOnly(false)
+    navigate("/browseresources");
+  };
+
   // use resourceTitle or title for compatibility with older saved docs
   const filteredResources = resources
     .filter((r) =>
@@ -255,7 +260,9 @@ const MyResourcesUI = () => {
                   pin a resource, it will appear here for quick access.
                 </p>
                 <button
-                  onClick={() => setShowPinnedOnly(false)}
+                  onClick={
+                    () => gotoBrowse()
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm shadow-md"
                 >
                   Explore Resources

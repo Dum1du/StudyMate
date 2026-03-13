@@ -125,7 +125,8 @@ export default function ApprovedResources() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 mt-4">
+      {/* FIXED: Added 'flex flex-col' so 'mt-auto' on pagination works correctly */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 mt-4 flex flex-col">
         
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8 border-b border-gray-200 pb-4">
@@ -172,8 +173,9 @@ export default function ApprovedResources() {
         )}
 
         {/* Pagination Controls */}
-        {!loading && (
-          <div className="flex items-center justify-center mt-12 gap-4">
+        {/* FIXED: Hides completely if on page 1 with no next page, and uses mt-auto to push to bottom */}
+        {!loading && (currentPage > 1 || hasNextPage) && (
+          <div className="flex items-center justify-center mt-auto pt-12 pb-4 gap-4">
             <button 
               onClick={() => loadPage(currentPage - 1)} 
               disabled={currentPage === 1}
