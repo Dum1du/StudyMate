@@ -27,6 +27,7 @@ import { MdVerified } from "react-icons/md";
 import AlertModal from "./AlertModal"; 
 import axios from "axios"; 
 import PublicProfileModal from "./PublicProfileModal";
+import PublicProfileModal from "./PublicProfileModal";
 
 const ResourcePage = () => {
   const { resourceId } = useParams();
@@ -48,6 +49,9 @@ const ResourcePage = () => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reporting, setReporting] = useState(false);
+
+  // --- Public Profile Modal State ---
+  const [selectedProfileId, setSelectedProfileId] = useState(null);
 
   // --- Public Profile Modal State ---
   const [selectedProfileId, setSelectedProfileId] = useState(null);
@@ -851,8 +855,28 @@ const ResourcePage = () => {
             />
           </div>
           
+          {/* --- Clickable Avatar for Profile Modal --- */}
+          <div 
+            onClick={() => {
+              if (c.userId) setSelectedProfileId(c.userId);
+            }} 
+            className="cursor-pointer shrink-0"
+          >
+            <img
+              src={c.userProfile || "https://ui-avatars.com/api/?name=User"}
+              className="w-10 h-10 rounded-full border shadow-sm hover:ring-2 hover:ring-blue-400 transition-all"
+            />
+          </div>
+          
           <div className="flex-1">
             <div className="bg-gray-100 px-4 py-2 rounded-2xl inline-block max-w-full">
+              {/* --- Clickable Name for Profile Modal --- */}
+              <h5 
+                onClick={() => {
+                  if (c.userId) setSelectedProfileId(c.userId);
+                }} 
+                className="text-[13px] font-bold text-gray-900 flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors w-fit"
+              >
               {/* --- Clickable Name for Profile Modal --- */}
               <h5 
                 onClick={() => {
@@ -912,8 +936,28 @@ const ResourcePage = () => {
                       />
                     </div>
                     
+                    {/* --- Clickable Avatar for Replies --- */}
+                    <div 
+                      onClick={() => {
+                        if (r.userId) setSelectedProfileId(r.userId);
+                      }} 
+                      className="cursor-pointer shrink-0"
+                    >
+                      <img
+                        src={r.userProfile || "https://ui-avatars.com/api/?name=User"}
+                        className="w-8 h-8 rounded-full border shadow-sm hover:ring-2 hover:ring-blue-400 transition-all"
+                      />
+                    </div>
+                    
                     <div className="flex-1">
                       <div className="bg-blue-50/50 px-3 py-1.5 rounded-xl inline-block max-w-full border border-blue-100/50">
+                        {/* --- Clickable Name for Replies --- */}
+                        <h5 
+                          onClick={() => {
+                            if (r.userId) setSelectedProfileId(r.userId);
+                          }} 
+                          className="text-[12px] font-bold text-gray-900 flex items-center gap-1 cursor-pointer hover:text-blue-600 transition-colors w-fit"
+                        >
                         {/* --- Clickable Name for Replies --- */}
                         <h5 
                           onClick={() => {
@@ -1342,6 +1386,14 @@ const ResourcePage = () => {
                 className="flex items-center gap-4 cursor-pointer group w-fit"
               >
                 <div className="w-12 h-12 bg-white rounded-full flex items-center shadow-sm overflow-hidden group-hover:ring-2 group-hover:ring-blue-400 transition-all shrink-0">
+              {/* --- Clickable Area for Uploader's Profile Modal --- */}
+              <div 
+                onClick={() => {
+                  if (resourceData?.uploaderUid) setSelectedProfileId(resourceData.uploaderUid);
+                }} 
+                className="flex items-center gap-4 cursor-pointer group w-fit"
+              >
+                <div className="w-12 h-12 bg-white rounded-full flex items-center shadow-sm overflow-hidden group-hover:ring-2 group-hover:ring-blue-400 transition-all shrink-0">
                   {userDoc?.profilePicture ? (
                     <img
                       className="w-full h-full object-cover"
@@ -1355,6 +1407,7 @@ const ResourcePage = () => {
                   )}
                 </div>
                 <div>
+                  <p className="font-bold text-gray-800 flex items-center gap-1 group-hover:text-blue-600 transition-colors">
                   <p className="font-bold text-gray-800 flex items-center gap-1 group-hover:text-blue-600 transition-colors">
                     {userName}
                     {userDoc?.role === "teacher" && <MdVerified className="text-blue-500 size-4" title="Verified Teacher" />}
@@ -1413,6 +1466,7 @@ const ResourcePage = () => {
 
       {isReportModalOpen && createPortal(
         <>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9990] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9990] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl relative animate-in fade-in zoom-in duration-200">
               <button 
