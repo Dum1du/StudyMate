@@ -132,22 +132,22 @@ export default function AdminDashboard() {
   }, [activeTab]);
 
   useEffect(() => {
-  if (activeTab !== "messages") return;
-  setLoadingMessages(true);
-  
-  const unsubscribe = onSnapshot(collection(db, "contact"), (snapshot) => {
-    const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    // Sort by latest message first
-    fetched.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-    setMessagesList(fetched);
-    setLoadingMessages(false);
-  }, (error) => {
-    console.error("Error fetching messages:", error);
-    setLoadingMessages(false);
-  });
+    if (activeTab !== "messages") return;
+    setLoadingMessages(true);
+    
+    const unsubscribe = onSnapshot(collection(db, "contact"), (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort by latest message first
+      fetched.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      setMessagesList(fetched);
+      setLoadingMessages(false);
+    }, (error) => {
+      console.error("Error fetching messages:", error);
+      setLoadingMessages(false);
+    });
 
-  return () => unsubscribe();
-}, [activeTab]);
+    return () => unsubscribe();
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -187,7 +187,8 @@ export default function AdminDashboard() {
         searchKeys = ['displayName', 'email', 'faculty', 'role'];
       } else if (activeTab === "materials") {
         q = query(collectionGroup(db, "Materials"));
-        searchKeys = ['resourceTitle', 'courseCode', 'courseSubject', 'displayName'];
+        // FIXED: Added uploaderEmail to search keys so admins can search by email
+        searchKeys = ['resourceTitle', 'courseCode', 'courseSubject', 'displayName', 'uploaderEmail'];
       } else if (activeTab === "kuppi") {
         q = query(collection(db, "sessions"));
         searchKeys = ['title', 'host'];
@@ -645,21 +646,21 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteMessage = (messageId) => {
-  setAlertConfig({
-    isOpen: true,
-    title: "Delete Message",
-    message: "Are you sure you want to delete this contact message?",
-    type: "warning",
-    onConfirm: async () => {
-      closeAlert();
-      try {
-        await deleteDoc(doc(db, "contact", messageId));
-      } catch (error) {
-        console.error("Error deleting message:", error);
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Message",
+      message: "Are you sure you want to delete this contact message?",
+      type: "warning",
+      onConfirm: async () => {
+        closeAlert();
+        try {
+          await deleteDoc(doc(db, "contact", messageId));
+        } catch (error) {
+          console.error("Error deleting message:", error);
+        }
       }
-    }
-  });
-};
+    });
+  };
 
   const displayUsers = searchTerm ? searchResults : usersList;
   const displayMaterials = searchTerm ? searchResults : materialsList;
@@ -778,7 +779,6 @@ export default function AdminDashboard() {
                             <tr><td colSpan="4" className="p-8 text-center text-gray-500 text-sm md:text-base">No users found.</td></tr>
                           ) : (
                             displayUsers.map((user) => {
-                              // CHECK IF BANNED
                               const banDateObj = user.bannedUntil ? (user.bannedUntil.toDate ? user.bannedUntil.toDate() : new Date(user.bannedUntil)) : null;
                               const isCurrentlyBanned = banDateObj && banDateObj > new Date();
 
@@ -805,7 +805,6 @@ export default function AdminDashboard() {
                                     </span>
                                   </td>
                                   <td className="p-3 md:p-4 flex justify-center gap-2">
-                                    {/* --- BAN / UNBAN BUTTONS --- */}
                                     {isCurrentlyBanned ? (
                                       <button onClick={() => handleUnbanUser(user.id)} className="p-1.5 md:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Unban User">
                                         <Unlock size={16} className="md:w-[18px] md:h-[18px]" />
@@ -881,8 +880,11 @@ export default function AdminDashboard() {
                                   <p className="text-xs md:text-sm text-gray-800 font-medium">{material.courseCode || "N/A"}</p>
                                   <p className="text-[10px] md:text-xs text-gray-500 truncate max-w-[150px]">{material.courseSubject || "N/A"}</p>
                                 </td>
+                                {/* FIXED: Displaying proper fallbacks for uploader's name or email */}
                                 <td className="p-3 md:p-4">
-                                  <p className="text-xs md:text-sm text-gray-800 truncate max-w-[120px]">{material.displayName || "Unknown User"}</p>
+                                  <p className="text-xs md:text-sm text-gray-800 truncate max-w-[120px]">
+                                    {material.displayName || material.uploaderName || material.uploaderEmail || "Unknown User"}
+                                  </p>
                                 </td>
                                 <td className="p-3 md:p-4 flex justify-center gap-1 md:gap-2">
                                   {material.fileLink && (
@@ -1129,62 +1131,63 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "messages" && (
-  <div className="flex flex-col h-full">
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-      {loadingMessages ? (
-        <div className="p-8 text-center text-gray-500">Loading messages...</div>
-      ) : (
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-left border-collapse min-w-[600px]">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-xs md:text-sm uppercase tracking-wider border-b">
-                <th className="p-3 md:p-4 font-medium">Sender</th>
-                <th className="p-3 md:p-4 font-medium">Message</th>
-                <th className="p-3 md:p-4 font-medium">Date</th>
-                <th className="p-3 md:p-4 font-medium text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {messagesList.length === 0 ? (
-                <tr><td colSpan="4" className="p-8 text-center text-gray-500">No messages found.</td></tr>
-              ) : (
-                messagesList.map((msg) => (
-                  <tr key={msg.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-3 md:p-4">
-                      <p className="font-semibold text-gray-800 text-sm">{msg.name}</p>
-                      <p className="text-xs text-gray-500">{msg.email}</p>
-                    </td>
-                    <td className="p-3 md:p-4 max-w-xs">
-                      <p className="text-sm text-gray-700 truncate">{msg.message}</p>
-                    </td>
-                    <td className="p-3 md:p-4 text-xs text-gray-500">
-                      {msg.createdAt?.toDate().toLocaleDateString()}
-                    </td>
-                    <td className="p-3 md:p-4 flex justify-center gap-2">
-                       {/* Add a View button to open a full modal if message is long */}
-                       <button 
-                         onClick={() => setViewMessage(msg)}
-                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                       >
-                         <Eye size={16} />
-                       </button>
-                       <button 
-                         onClick={() => handleDeleteMessage(msg.id)}
-                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                       >
-                         <Trash2 size={16} />
-                       </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  </div>
-)}
+            <div className="flex flex-col h-full">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                {loadingMessages ? (
+                  <div className="p-8 text-center text-gray-500">Loading messages...</div>
+                ) : (
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left border-collapse min-w-[600px]">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-500 text-xs md:text-sm uppercase tracking-wider border-b">
+                          <th className="p-3 md:p-4 font-medium">Sender</th>
+                          <th className="p-3 md:p-4 font-medium">Message</th>
+                          <th className="p-3 md:p-4 font-medium">Date</th>
+                          <th className="p-3 md:p-4 font-medium text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {messagesList.length === 0 ? (
+                          <tr><td colSpan="4" className="p-8 text-center text-gray-500">No messages found.</td></tr>
+                        ) : (
+                          messagesList.map((msg) => (
+                            <tr key={msg.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="p-3 md:p-4">
+                                <p className="font-semibold text-gray-800 text-sm">{msg.name}</p>
+                                <p className="text-xs text-gray-500">{msg.email}</p>
+                              </td>
+                              <td className="p-3 md:p-4 max-w-xs">
+                                <p className="text-sm text-gray-700 truncate">{msg.message}</p>
+                              </td>
+                              <td className="p-3 md:p-4 text-xs text-gray-500">
+                                {msg.createdAt?.toDate().toLocaleDateString()}
+                              </td>
+                              <td className="p-3 md:p-4 flex justify-center gap-2">
+                                <button 
+                                  onClick={() => setViewMessage(msg)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Read Full Message"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteMessage(msg.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete Message"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
         </div>
       </main>
@@ -1245,6 +1248,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* VIEW NOTICE MODAL */}
       {viewNotice && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl p-5 md:p-6 max-w-lg w-full shadow-xl relative transform transition-all animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
@@ -1291,6 +1295,42 @@ export default function AdminDashboard() {
                   <CheckCircle size={16} /> Approve Now
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FIXED: ADDED VIEW MESSAGE MODAL */}
+      {viewMessage && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-5 md:p-6 max-w-lg w-full shadow-xl relative transform transition-all animate-in fade-in zoom-in duration-200">
+            <button 
+              onClick={() => setViewMessage(null)} 
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-lg md:text-xl font-bold mb-4 text-gray-800 pr-8">Message Details</h2>
+            
+            <div className="mb-4">
+              <p className="font-semibold text-gray-800">{viewMessage.name}</p>
+              <p className="text-sm text-gray-500 mb-1">{viewMessage.email}</p>
+              <p className="text-xs text-gray-400">
+                {viewMessage.createdAt?.toDate().toLocaleString() || "Date Unknown"}
+              </p>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-inner max-h-60 overflow-y-auto">
+              <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">{viewMessage.message}</p>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button 
+                onClick={() => setViewMessage(null)} 
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
