@@ -13,12 +13,21 @@ import { Link, useNavigate } from "react-router-dom";
 import ed_bg from "../Bg images/ed_bg.jpg";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { collectionGroup, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import {
+  collectionGroup,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
 import { useResources } from "../ResourcesContext";
-import AlertModal from "../AlertModal"; 
+import AlertModal from "../AlertModal";
 
 const PreviewCard = ({ title, subtitle, fileLink, onClick }) => {
-  const previewUrl = fileLink ? fileLink.replace(/\/view.*|\/edit.*/, "/preview") : null;
+  const previewUrl = fileLink
+    ? fileLink.replace(/\/view.*|\/edit.*/, "/preview")
+    : null;
 
   return (
     <div
@@ -44,7 +53,9 @@ const PreviewCard = ({ title, subtitle, fileLink, onClick }) => {
       </div>
 
       <div className="p-4 h-2/5 flex flex-col justify-center bg-white">
-        <h3 className="font-bold text-gray-800 truncate text-sm sm:text-base">{title || "Untitled"}</h3>
+        <h3 className="font-bold text-gray-800 truncate text-sm sm:text-base">
+          {title || "Untitled"}
+        </h3>
         <p className="text-xs text-gray-500 line-clamp-2 mt-1 leading-snug">
           {subtitle || "No description available."}
         </p>
@@ -57,26 +68,38 @@ function Home() {
   const navigate = useNavigate();
   const [userName, setUserName] = useState(null);
   const [selectedResource, setSelectedResource] = useState(null);
-  
+
   // --- States for Approved Resources ---
   const [approvedResources, setApprovedResources] = useState([]);
   const [loadingApproved, setLoadingApproved] = useState(true);
 
-  const [alertConfig, setAlertConfig] = useState({ 
-    isOpen: false, 
-    title: "", 
-    message: "", 
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
     type: "info",
-    onConfirm: null 
+    onConfirm: null,
   });
 
   const closeAlert = () => setAlertConfig({ ...alertConfig, isOpen: false });
 
   const dummyResources = [
-    { title: "Calculus Notes", subtitle: "Comprehensive notes on calculus topics." },
-    { title: "Physics Problems", subtitle: "Practice problems with solutions." },
-    { title: "Chemistry Formulas", subtitle: "Key formulas for chemistry exams." },
-    { title: "Biology Diagrams", subtitle: "Labeled diagrams for biology concepts." },
+    {
+      title: "Calculus Notes",
+      subtitle: "Comprehensive notes on calculus topics.",
+    },
+    {
+      title: "Physics Problems",
+      subtitle: "Practice problems with solutions.",
+    },
+    {
+      title: "Chemistry Formulas",
+      subtitle: "Key formulas for chemistry exams.",
+    },
+    {
+      title: "Biology Diagrams",
+      subtitle: "Labeled diagrams for biology concepts.",
+    },
   ];
 
   const { resources, loading } = useResources();
@@ -101,21 +124,33 @@ function Home() {
           collectionGroup(db, "Materials"),
           where("isApproved", "==", true),
           orderBy("createdAt", "desc"),
-          limit(4)
+          limit(4),
         );
         const snap = await getDocs(q);
-        setApprovedResources(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setApprovedResources(
+          snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+        );
       } catch (error) {
         console.error("Firebase Index missing, using fallback:", error);
         // Smart Fallback just in case Firebase Index isn't built yet
         try {
-           const fallbackQ = query(collectionGroup(db, "Materials"), where("isApproved", "==", true));
-           const fallbackSnap = await getDocs(fallbackQ);
-           const data = fallbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-           data.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-           setApprovedResources(data.slice(0, 4));
-        } catch(e) {
-           console.error("Fallback failed", e);
+          const fallbackQ = query(
+            collectionGroup(db, "Materials"),
+            where("isApproved", "==", true),
+          );
+          const fallbackSnap = await getDocs(fallbackQ);
+          const data = fallbackSnap.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          data.sort(
+            (a, b) =>
+              (b.createdAt?.toMillis?.() || 0) -
+              (a.createdAt?.toMillis?.() || 0),
+          );
+          setApprovedResources(data.slice(0, 4));
+        } catch (e) {
+          console.error("Fallback failed", e);
         }
       } finally {
         setLoadingApproved(false);
@@ -140,15 +175,16 @@ function Home() {
             <Calendar className="text-white text-lg" />
           </button>
           <button
-            onClick={() => navigate("/faq")} 
-            className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-md hover:bg-blue-600">
+            onClick={() => navigate("/faq")}
+            className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-md hover:bg-blue-600"
+          >
             <FaQuestionCircle className="text-white text-lg" />
           </button>
         </div>
 
         <div className="mt-20 text-center px-4 sm:px-8 lg:px-16">
           <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-black drop-shadow-white">
-            {userName ? `Welcome back, ${userName}!` : "Welcome back!"}
+            {userName ? `Welcome, ${userName}` : "Welcome back!"}
           </p>
           <p className="text-sm sm:text-base md:text-lg text-gray-500 mt-2 drop-shadow-white">
             What would you like to learn today?
@@ -169,7 +205,9 @@ function Home() {
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-sm font-bold">Upload Resource</span>
-              <span className="text-xs text-gray-500">Share your study materials</span>
+              <span className="text-xs text-gray-500">
+                Share your study materials
+              </span>
             </div>
           </Link>
 
@@ -182,7 +220,9 @@ function Home() {
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-sm font-bold">My Resources</span>
-              <span className="text-xs text-gray-500">View your uploaded content</span>
+              <span className="text-xs text-gray-500">
+                View your uploaded content
+              </span>
             </div>
           </Link>
 
@@ -208,7 +248,9 @@ function Home() {
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-sm font-bold">Kuppi Sessions</span>
-              <span className="text-xs text-gray-500">Meet your study group</span>
+              <span className="text-xs text-gray-500">
+                Meet your study group
+              </span>
             </div>
           </Link>
         </div>
@@ -218,8 +260,12 @@ function Home() {
           <div className="mt-10 px-4">
             <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-blue-200/50 max-w-7xl mx-auto backdrop-blur-sm">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-black">Recently Added</h2>
-                <span className="text-sm text-blue-500 cursor-progress hover:underline">View All</span>
+                <h2 className="text-2xl font-bold text-black">
+                  Recently Added
+                </h2>
+                <span className="text-sm text-blue-500 cursor-progress hover:underline">
+                  View All
+                </span>
               </div>
               <section className="mt-4 px-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 blur-sm animate-pulse">
@@ -239,8 +285,13 @@ function Home() {
           <div className="mt-10 px-4">
             <div className="rounded-lg border border-gray-200 shadow-md p-4 bg-blue-200/50 max-w-7xl mx-auto backdrop-blur-sm">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-black">Recently Added</h2>
-                <span className="text-sm text-blue-500 cursor-pointer hover:underline" onClick={() => navigate("/browseresources")}>
+                <h2 className="text-2xl font-bold text-black">
+                  Recently Added
+                </h2>
+                <span
+                  className="text-sm text-blue-500 cursor-pointer hover:underline"
+                  onClick={() => navigate("/browseresources")}
+                >
                   View All
                 </span>
               </div>
@@ -266,19 +317,25 @@ function Home() {
           <div className="rounded-lg border border-green-200 shadow-md p-4 bg-green-50/70 max-w-7xl mx-auto backdrop-blur-sm">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-black flex items-center gap-2">
-                Teacher Approved <ShieldCheck className="text-green-600" size={26} />
+                Teacher Approved{" "}
+                <ShieldCheck className="text-green-600" size={26} />
               </h2>
-              <span className="text-sm text-blue-500 cursor-pointer hover:underline" onClick={() => navigate("/approved-resources")}>
+              <span
+                className="text-sm text-blue-500 cursor-pointer hover:underline"
+                onClick={() => navigate("/approved-resources")}
+              >
                 View All
               </span>
             </div>
-            
+
             {loadingApproved ? (
-              <div className="text-center py-10 text-gray-500">Loading approved resources...</div>
+              <div className="text-center py-10 text-gray-500">
+                Loading approved resources...
+              </div>
             ) : approvedResources.length === 0 ? (
-               <div className="text-center py-10 text-gray-500 bg-white/50 rounded-xl border border-dashed border-gray-300">
-                 No approved resources yet.
-               </div>
+              <div className="text-center py-10 text-gray-500 bg-white/50 rounded-xl border border-dashed border-gray-300">
+                No approved resources yet.
+              </div>
             ) : (
               <section className="mt-4 px-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -287,7 +344,7 @@ function Home() {
                       key={`approved-${idx}`}
                       title={res.resourceTitle}
                       subtitle={res.description}
-                      fileLink={res.fileLink || res.fileUrl} 
+                      fileLink={res.fileLink || res.fileUrl}
                       onClick={() => setSelectedResource(res)}
                     />
                   ))}
@@ -310,7 +367,9 @@ function Home() {
             </button>
             <h2 className="text-2xl font-bold mb-2 text-gray-800 pr-8 flex items-center gap-2">
               {selectedResource.resourceTitle || selectedResource.title}
-              {selectedResource.isApproved && <ShieldCheck className="text-green-500" size={20}/>}
+              {selectedResource.isApproved && (
+                <ShieldCheck className="text-green-500" size={20} />
+              )}
             </h2>
             <p className="text-gray-600 text-sm mb-4">
               {selectedResource.description || selectedResource.subtitle}
@@ -319,10 +378,9 @@ function Home() {
             <div className="w-full h-[50vh] min-h-[300px] border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 mb-6 overflow-hidden">
               {selectedResource.fileLink || selectedResource.fileUrl ? (
                 <iframe
-                  src={(selectedResource.fileLink || selectedResource.fileUrl).replace(
-                    /\/view.*|\/edit.*/,
-                    "/preview"
-                  )}
+                  src={(
+                    selectedResource.fileLink || selectedResource.fileUrl
+                  ).replace(/\/view.*|\/edit.*/, "/preview")}
                   className="w-full h-full border-0"
                   title="PDF Preview Full"
                 />
@@ -334,7 +392,8 @@ function Home() {
             <div className="flex gap-4">
               <button
                 onClick={() => {
-                  const link = selectedResource.fileLink || selectedResource.fileUrl;
+                  const link =
+                    selectedResource.fileLink || selectedResource.fileUrl;
                   if (link) {
                     window.open(link, "_blank");
                   } else {
@@ -342,7 +401,7 @@ function Home() {
                       isOpen: true,
                       title: "Link Not Found",
                       message: "No URL available for this resource.",
-                      type: "warning"
+                      type: "warning",
                     });
                   }
                 }}
@@ -350,10 +409,14 @@ function Home() {
               >
                 <Eye size={18} /> Open in New Tab
               </button>
-              
+
               {/* Go to Dedicated Resource Page Button */}
               <button
-                onClick={() => navigate(`/material/${selectedResource.id}`, { state: { resource: selectedResource } })}
+                onClick={() =>
+                  navigate(`/material/${selectedResource.id}`, {
+                    state: { resource: selectedResource },
+                  })
+                }
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold flex-1 transition-colors"
               >
                 View Full Page
@@ -365,14 +428,16 @@ function Home() {
                     const downloadUrl = `https://drive.google.com/uc?export=download&id=${selectedResource.fileId}`;
                     const link = document.createElement("a");
                     link.href = downloadUrl;
-                    link.download = (selectedResource.resourceTitle || "Resource") + ".pdf";
+                    link.download =
+                      (selectedResource.resourceTitle || "Resource") + ".pdf";
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                   } else if (selectedResource.fileUrl) {
                     const link = document.createElement("a");
                     link.href = selectedResource.fileUrl;
-                    link.download = (selectedResource.title || "Resource") + ".pdf";
+                    link.download =
+                      (selectedResource.title || "Resource") + ".pdf";
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -381,7 +446,7 @@ function Home() {
                       isOpen: true,
                       title: "Download Unavailable",
                       message: "No download link available for this resource.",
-                      type: "warning"
+                      type: "warning",
                     });
                   }
                 }}
@@ -394,7 +459,7 @@ function Home() {
         </div>
       )}
 
-      <AlertModal 
+      <AlertModal
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}
         message={alertConfig.message}
